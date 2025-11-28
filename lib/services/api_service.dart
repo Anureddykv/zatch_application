@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:zatch_app/model/CartApiResponse.dart';
 import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/model/SaveBitResponse.dart';
 import 'package:zatch_app/model/SaveProductResponse.dart';
 import 'package:zatch_app/model/SearchHistoryResponse.dart';
 import 'package:zatch_app/model/SearchResultUser.dart';
 import 'package:zatch_app/model/TrendingBit.dart';
+import 'package:zatch_app/model/UpdateCartApiResponse.dart';
 import 'package:zatch_app/model/UpdateProfileResponse.dart';
 import 'package:zatch_app/model/api_response.dart';
 import 'package:zatch_app/model/bit_details.dart';
@@ -1013,7 +1015,56 @@ class ApiService {
     }
   }
 
+  Future<CartModel?> getCart() async {
+    try {
+      final response = await _dio.get("/cart");
+      final data = _decodeResponse(response.data);
+      final cartResponse = CartApiResponse.fromJson(data);
+      if (cartResponse.success) {
+        return cartResponse.cart;
+      } else {
+        throw Exception(data['message'] ?? "Failed to fetch cart");
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        debugPrint("Cart is empty or not found.");
+        return null; // Or return an empty CartModel object if you prefer
+      }
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in getCart: $e");
+      rethrow;
+    }
+  }
+  Future<UpdatedCartModel?> updateCartItem({
+    required String productId,
+    required int quantity,
+    String? color,
+    String? size,
+  }) async {
+    try {
+      final Map<String, dynamic> payload = {
+        'productId': productId,
+        'qty': quantity,
+      };
+      if (color != null) payload['color'] = color;
+      if (size != null) payload['size'] = size;
 
+      final response = await _dio.post("/cart/update", data: payload);
+      final data = _decodeResponse(response.data);
 
+      final updateResponse = UpdateCartApiResponse.fromJson(data);
+      if (updateResponse.success) {
+        return updateResponse.cart;
+      } else {
+        throw Exception(updateResponse.message);
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in updateCartItem: $e");
+      rethrow;
+    }
+  }
 
 }

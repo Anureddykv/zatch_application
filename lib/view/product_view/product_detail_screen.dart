@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/Widget/bargain_picks_widget.dart';
 import 'package:zatch_app/Widget/top_picks_this_week_widget.dart';
+import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/model/carts_model.dart';
 // Make sure you import your real Comment model. It's inside product_response.dart
@@ -999,14 +1000,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         id: "temp1",
                         name: product.name,
                         description: product.category?.description ?? "",
-                        seller: "Seller Name", // TODO: Update with real data if available
+                        seller: "Seller Name", // TODO: Update with real data
                         imageUrl: product.images.isNotEmpty
                             ? product.images.first.url
                             : '',
                         active: true,
                         status: "My Offer",
                         quotePrice: "${product.price.toStringAsFixed(0)} ₹",
-                        sellerPrice: "${product.price}",
+                        sellerPrice: "${product.price.toStringAsFixed(0)} ₹",
                         quantity: 1,
                         subTotal: "${(product.price * 1).toStringAsFixed(0)} ₹",
                         date: DateTime.now().toString(),
@@ -1032,17 +1033,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                final CartItem itemToPurchase = CartItem(
+                final Map<String, Color> colorMap = {
+                  "Grey": const Color(0xFF787676),
+                  "Dark Grey": const Color(0xFF433F40),
+                  "Red": const Color(0xFFFF7979),
+                  "Orange": const Color(0xFFFFB979),
+                  "Green": const Color(0xFFB7FF79),
+                  "Sky Blue": const Color(0xFF79E6FF),
+                  "Blue": const Color(0xFF798BFF),
+                  "Purple": const Color(0xFFA579FF),
+                  "Pink": const Color(0xFFFF79F1),
+                  "Dark Red": const Color(0xFFE10E12),
+                };
+                final List<String> colorNames = colorMap.keys.toList();
+                final productForCart = cart_model.ProductModel(
+                  id: product.id,
                   name: product.name,
                   price: product.price,
-                  quantity: 1,
-                  imageUrl:
-                  product.images.isNotEmpty ? product.images.first.url : '',
-                  description: product.description,
+                  discountedPrice: product.price,
+                  images: product.images
+                      .map((img) => cart_model.ImageModel(
+                      id: img.id, publicId: img.publicId, url: img.url))
+                      .toList(),
+                  productType: cart_model.ProductType(
+                    // Mock this data as it's not critical for checkout
+                    hasColor: product.color != null,
+                    hasSize: product.size != null,
+                  ),
                 );
-                final List<CartItem> itemsForCheckout = [itemToPurchase];
-                final double totalPrice = product.price;
 
+                // 2. Create the cart_model.CartItemModel to pass to the next screen
+                final itemToPurchase = cart_model.CartItemModel(
+                  id: "temp_${product.id}", // Use a temporary ID
+                  qty: 1, // Default quantity for "Buy Now"
+                  product: productForCart,
+                  variant: cart_model.VariantModel(
+                    // Pass selected color/size if available
+                    color: _selectedColorIndex != -1
+                        ? colorNames[_selectedColorIndex]
+                        : null,
+                  ),
+                );
+
+                final List<cart_model.CartItemModel> itemsForCheckout = [itemToPurchase];
+                final double totalPrice = product.price; // Use displayPrice getter
+                const double shippingFee = 10.0; // Example shipping fee
+                final double subTotalPrice = totalPrice + shippingFee;
+
+                // 3. Navigate with the correctly typed list
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1050,14 +1088,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       isCheckout: true,
                       selectedItems: itemsForCheckout,
                       itemsTotalPrice: totalPrice,
-                      subTotalPrice: totalPrice,
+                      shippingFee: shippingFee,
+                      subTotalPrice: subTotalPrice,
                     ),
                   ),
                 );
+                // --- CORRECTION ENDS HERE ---
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: Color(0xFF249B3E)),
+                backgroundColor: const Color(0xFF249B3E), // Make it a solid button
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1065,7 +1105,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ),
               child: const Text(
                 'Buy Now',
-                style: TextStyle(color: Colors.black, fontSize: 16),
+                style: TextStyle(color: Colors.white, fontSize: 16), // White text for solid button
               ),
             ),
           ),
