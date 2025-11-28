@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/coupon_model.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/view/cart_screen.dart';
@@ -12,8 +13,7 @@ import 'package:zatch_app/view/setting_view/payment_method_screen.dart';
 
 class CheckoutOrPaymentsScreen extends StatefulWidget {
   final bool isCheckout;
-  final List<CartItem>? selectedItems;
-  final double? itemsTotalPrice;
+  final List<cart_model.CartItemModel>? selectedItems;  final double? itemsTotalPrice;
   final double? shippingFee;
   final double? subTotalPrice;
 
@@ -135,8 +135,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
 
 
   // --- Dialog for removing item ---
-  Future<void> _showRemoveItemDialog(CartItem item) async {
-    return showDialog<void>(
+  Future<void> _showRemoveItemDialog(cart_model.CartItemModel item) async {    return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
@@ -469,15 +468,13 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }
 
 
-  Widget _cartItem(CartItem item) {
-    return Row(
+  Widget _cartItem(cart_model.CartItemModel item) {    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: Image.network(
-            item.imageUrl,
-            width: 57,
+            item.product.primaryImageUrl,            width: 57,
             height: 57,
             fit: BoxFit.cover,
           ),
@@ -488,7 +485,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.name,
+                item.product.name,
                 style: const TextStyle(
                   color: Color(0xFF121111),
                   fontSize: 14,
@@ -498,7 +495,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                item.description,
+                item.variant.color?? "NA",
                 style: const TextStyle(
                   color: Color(0xFF787676),
                   fontSize: 10,
@@ -508,7 +505,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${item.price.toStringAsFixed(2)} ₹',
+                '${item.product.price.toStringAsFixed(2)} ₹',
                 style: const TextStyle(
                   color: Color(0xFF292526),
                   fontSize: 14,
@@ -530,8 +527,23 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                 _quantityButton(
                   icon: Icons.remove,
                   onPressed: () {
-                    if (item.quantity > 1) {
-                      setState(() => item.quantity--);
+                    if (item.qty > 1) {
+                      setState(() {
+                        // Find the index of the item to update
+                        final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
+                        if (index != -1) {
+                          // Create a new item with the updated quantity
+                          final updatedItem = cart_model.CartItemModel(
+                            id: item.id,
+                            qty: item.qty - 1, // The new quantity
+                            product: item.product,
+                            variant: item.variant,
+                          );
+                          // Replace the old item with the new one in the list
+                          widget.selectedItems![index] = updatedItem;
+                          // TODO: Recalculate totals if needed
+                        }
+                      });
                     } else {
                       _showRemoveItemDialog(item);
                     }
@@ -541,7 +553,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                 SizedBox(
                   width: 7,
                   child: Text(
-                    '${item.quantity}',
+                    '${item.qty}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF292526),
@@ -554,8 +566,23 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                 const SizedBox(width: 12),
                 _quantityButton(
                   icon: Icons.add,
-                  onPressed: () => setState(() => item.quantity++),
-                ),
+                  onPressed: () {
+                    setState(() {
+                      final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
+                      if (index != -1) {
+                        // Create a new item with the updated quantity
+                        final updatedItem = cart_model.CartItemModel(
+                          id: item.id,
+                          qty: item.qty + 1, // The new quantity
+                          product: item.product,
+                          variant: item.variant,
+                        );
+                        // Replace the old item in the list
+                        widget.selectedItems![index] = updatedItem;
+                        // TODO: Recalculate totals if needed
+                      }
+                    });
+                  },                ),
               ],
             ),
           ],

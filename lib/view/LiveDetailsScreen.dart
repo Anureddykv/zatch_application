@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
+import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/model/live_comment.dart';
 import 'package:zatch_app/model/product_response.dart';
@@ -9,6 +10,7 @@ import 'package:zatch_app/view/profile/profile_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
 import 'cart_screen.dart';
+import 'package:agora_uikit/agora_uikit.dart';
 
 class LiveStreamScreen extends StatefulWidget {
   final LiveStreamController controller;
@@ -21,7 +23,7 @@ class LiveStreamScreen extends StatefulWidget {
 }
 
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
-  
+  late final AgoraClient _agoraClient;
   bool showComments = false;
   bool _isLoading = true;
   final TextEditingController _commentController = TextEditingController();
@@ -84,7 +86,19 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
       ]);
       final details = results[0] as Map<String, dynamic>;
       final comments = results[1] as List<LiveComment>;
+      final joinResponse = results[2] as Map<String, dynamic>;
+      debugPrint("✅ Join session response: $joinResponse");
+      final sessionData = joinResponse['session'];
 
+      _agoraClient = AgoraClient(
+        agoraConnectionData: AgoraConnectionData(
+          appId: sessionData['appId'],
+          channelName: sessionData['channelName'],
+          tempToken: sessionData['token'],
+          username: widget.username, // or some user identifier
+        ),
+      );
+      await _agoraClient.initialize();
       if (mounted) {
         setState(() {
           _sessionDetails = details;
@@ -1460,32 +1474,48 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                       onPressed: () {
                         Navigator.pop(context);
                         if (selectedOption == "buy") {
-                          final itemToCheckout = CartItem(
+                          final productForCart = cart_model.ProductModel(
+                            id: product.id,
                             name: product.name,
-                            description:
-                                product.category?.name ?? "Live Stream Item",
                             price: product.price,
-                            quantity: quantity,
-                            imageUrl:
-                                product.images.isNotEmpty
-                                    ? product.images.first.url
-                                    : "https://placehold.co/100x100?text=P",
+                            discountedPrice: product.price,
+                            images: product.images
+                                .map((img) => cart_model.ImageModel(
+                                id: img.id, publicId: img.publicId, url: img.url))
+                                .toList(),
+                            productType: cart_model.ProductType(
+                              // Mock this data, not critical for checkout
+                              hasColor: product.color != null,
+                              hasSize: product.size != null,
+                            ),
                           );
-                          double itemsTotal =
-                              itemToCheckout.price * itemToCheckout.quantity;
-                          double shippingFee = 50.0;
-                          double subTotal = itemsTotal + shippingFee;
+
+                          // 2. Create the correct CartItemModel object
+                          final itemToCheckout = cart_model.CartItemModel(
+                            id: "temp_live_${product.id}", // A temporary ID for the checkout screen
+                            qty: quantity,
+                            product: productForCart,
+                            variant: cart_model.VariantModel(
+                              // You can add selected color/size here if the live stream supports it
+                              color: 'Live Item',
+                            ),
+                          );
+                          final List<cart_model.CartItemModel> itemsForCheckout = [itemToCheckout];
+                          final double itemsTotal = product.price * quantity;
+                          const double shippingFee = 50.0; // Example shipping fee
+                          final double subTotal = itemsTotal + shippingFee;
+
+                          // 4. Navigate with the correctly typed list
                           Navigator.push(
                             this.context,
                             MaterialPageRoute(
-                              builder:
-                                  (_) => CheckoutOrPaymentsScreen(
-                                    isCheckout: true,
-                                    selectedItems: [itemToCheckout],
-                                    itemsTotalPrice: itemsTotal,
-                                    shippingFee: shippingFee,
-                                    subTotalPrice: subTotal,
-                                  ),
+                              builder: (_) => CheckoutOrPaymentsScreen(
+                                isCheckout: true,
+                                selectedItems: itemsForCheckout,
+                                itemsTotalPrice: itemsTotal,
+                                shippingFee: shippingFee,
+                                subTotalPrice: subTotal,
+                              ),
                             ),
                           );
                         } else {

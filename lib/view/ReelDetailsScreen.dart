@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
+import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/model/bit_details.dart';
 import 'package:zatch_app/model/carts_model.dart';
@@ -1502,26 +1503,45 @@ if (mounted) {
                     onPressed: () {
                       Navigator.pop(context);
                       if (selectedOption == "buy") {
-                        final itemToCheckout = CartItem(
-                          name: product?.name ?? "Product Name",
-                          price: product?.price ?? 0.0,
-                          quantity: quantity,
-                          imageUrl: (product?.images.isNotEmpty ?? false)
-                              ? product!.images.first.url
-                              : "https://placehold.co/100x100?text=P",
-                          description: product?.description ?? "",
+                        if (product == null) return;
+                        final productForCart = cart_model.ProductModel(
+                          id: product.id,
+                          name: product.name,
+                          price: product.price,
+                          discountedPrice: product.price,
+                          images: product.images
+                              .map((img) => cart_model.ImageModel(
+                              id: img.id, publicId: img.publicId, url: img.url))
+                              .toList(),
+                          productType: cart_model.ProductType(
+                            hasColor: product.color != null,
+                            hasSize: product.size != null,
+                          ),
                         );
 
-                        double itemsTotal = itemToCheckout.price * itemToCheckout.quantity;
-                        double shippingFee = 50.0;
-                        double subTotalPrice = itemsTotal + shippingFee;
+
+                        final itemToCheckout = cart_model.CartItemModel(
+                          id: "temp_reel_${product.id}",
+                          qty: quantity,
+                          product: productForCart,
+                          variant: cart_model.VariantModel(
+                            color: 'Reel Product',
+                          ),
+                        );
+
+                        final List<cart_model.CartItemModel> itemsForCheckout = [itemToCheckout];
+                        final double itemsTotal = product.price * quantity;
+                        const double shippingFee = 50.0;
+                        final double subTotal = itemsTotal + shippingFee;
 
                         _pushAndPause(
-                          CheckoutOrPaymentsScreen(isCheckout: true,
+                          CheckoutOrPaymentsScreen(
+                            isCheckout: true,
+                            selectedItems: itemsForCheckout,
                             itemsTotalPrice: itemsTotal,
-                            selectedItems: [itemToCheckout],
                             shippingFee: shippingFee,
-                            subTotalPrice: subTotalPrice,),
+                            subTotalPrice: subTotal,
+                          ),
                         );
                       } else {
                         _pushAndPause(
@@ -1556,10 +1576,6 @@ if (mounted) {
       },
     );
   }
-
-// In _ReelDetailsScreenState class...
-
-// In _ReelDetailsScreenState class...
 
   void _showAddToCartBottomSheet(BuildContext context, Product product) {
     showModalBottomSheet(

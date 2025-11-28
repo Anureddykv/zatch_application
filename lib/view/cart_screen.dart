@@ -1,30 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:zatch_app/model/carts_model.dart';
+import 'package:zatch_app/model/CartApiResponse.dart';
+import 'package:zatch_app/model/carts_model.dart'; // Keep for Zatch model if it's there
+import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
-import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'zatching_details_screen.dart';
 
-class CartItem {
-  String name;
-  String description;
-  double price;
-  bool isSelected;
-  int quantity;
-  String? saleInfo;
-  String imageUrl;
-  final String id;
-
-
-  CartItem({
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.imageUrl,
-    this.isSelected = true,
-    this.quantity = 1,
-    this.saleInfo,
-  }): id = UniqueKey().toString();
-}
+// The local CartItem class is no longer needed as we'll use CartItemModel from the API.
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -36,45 +17,14 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ApiService _apiService = ApiService();
 
-  // 🛒 Cart items
-  List<CartItem> cartItems = [
-    CartItem(
-      name: "Modern light clothes",
-      description: "Dress modern",
-      price: 5.1,
-      imageUrl: "https://picsum.photos/200/300",
-      quantity: 4,
-      isSelected: true,
-    ),
-    CartItem(
-      name: "Modern light clothes",
-      description: "Dress modern",
-      price: 5.1,
-      imageUrl: "https://picsum.photos/201/300",
-      quantity: 4,
-      isSelected: true,
-    ),
-    CartItem(
-      name: "Modern light clothes",
-      description: "Dress modern",
-      price: 5.1,
-      imageUrl: "https://picsum.photos/202/300",
-      quantity: 4,
-      isSelected: false,
-      saleInfo: "Sale ends in 30 min",
-    ),
-    CartItem(
-      name: "Modern light clothes",
-      description: "Dress modern",
-      price: 5.1,
-      imageUrl: "https://picsum.photos/203/300",
-      quantity: 4,
-      isSelected: false,
-    ),
-  ];
+  // State variables for API data
+  late Future<CartModel?> _cartFuture;
+  CartModel? _cart;
+  final Map<String, bool> _selectedItems = {}; // To manage checkbox state locally
 
-  // ⏱ Zatches mock data
+  // ⏱ Zatches mock data (can be replaced with API call later)
   List<Zatch> zatches = [
     Zatch(
       id: "1",
@@ -105,39 +55,98 @@ class _CartScreenState extends State<CartScreen>
       date: "Yesterday 12:00PM",
       expiresIn: "Expires in 20h",
     ),
-    Zatch(
-      id: "3",
-      name: "Modern light clothes",
-      description: "Dress modern",
-      seller: "Neu Fashions, Hyderabad",
-      imageUrl: "https://picsum.photos/202/300",
-      active: false,
-      status: "Offer Rejected",
-      quotePrice: "212.99 ₹",
-      sellerPrice: "800 ₹",
-      quantity: 4,
-      subTotal: "800 ₹",
-      date: "Yesterday 12:00PM",
-    ),
-    Zatch(
-      id: "4",
-      name: "Modern light clothes",
-      description: "Dress modern",
-      seller: "Neu Fashions, Hyderabad",
-      imageUrl: "https://picsum.photos/203/300",
-      active: true,
-      status: "Seller Offer",
-      quotePrice: "212.99 ₹",
-      sellerPrice: "800 ₹",
-      quantity: 4,
-      subTotal: "800 ₹",
-      date: "Yesterday 12:00PM",
-    ),
   ];
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _cartFuture = _fetchCart();
+  }
+
+  /// Fetch cart from the API
+  Future<CartModel?> _fetchCart() async {
+    try {
+      final cart = await _apiService.getCart();
+      if (cart != null) {
+        // Initialize selection state for all items
+        for (var item in cart.items) {
+          _selectedItems.putIfAbsent(item.id, () => true);
+        }
+        _cart = cart;
+      }
+      return cart;
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error fetching cart: ${e.toString()}")),
+        );
+      }
+      return null;
+    }
+  }
+
+  /// Update item quantity via API
+  Future<void> _updateCartItem(CartItemModel item, int newQuantity) async {
+    try {
+      final updatedCart = await _apiService.updateCartItem(
+        productId: item.product.id,
+        quantity: newQuantity,
+        color: item.variant.color,
+      );
+
+      // Refresh the cart UI with the response from the API
+      if (updatedCart != null) {
+        setState(() {
+          // Find the item and update its quantity
+          final index = _cart!.items.indexWhere((i) => i.id == item.id);
+          if (index != -1) {
+            _cart!.items[index] = CartItemModel(
+              id: item.id,
+              product: item.product,
+              variant: item.variant,
+              qty: newQuantity, // Use the new quantity
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update item: ${e.toString()}")),
+        );
+      }
+    }
+  }
+
+  /// Remove an item from the cart via API (by setting quantity to 0)
+  Future<void> _removeCartItem(CartItemModel item) async {
+    try {
+      await _apiService.updateCartItem(
+        productId: item.product.id,
+        quantity: 0, // Setting quantity to 0 removes it
+        color: item.variant.color,
+      );
+      setState(() {
+        _cart!.items.removeWhere((i) => i.id == item.id);
+        _selectedItems.remove(item.id);
+      });
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("${item.product.name} removed from cart"),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to remove item: ${e.toString()}")),
+        );
+      }
+    }
   }
 
   @override
@@ -145,31 +154,26 @@ class _CartScreenState extends State<CartScreen>
     _tabController.dispose();
     super.dispose();
   }
-  Future<void> _showRemoveItemDialog(CartItem item) async {
+
+  Future<void> _showRemoveItemDialog(CartItemModel item) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Are you sure?'),
-          content: const Text(
-            'Do you want to remove this product from the cart?',
-          ),
+          content: const Text('Do you want to remove this product from the cart?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Remove'),
               onPressed: () {
-                setState(() {
-                  cartItems.remove(item);
-                });
                 Navigator.of(context).pop();
+                _removeCartItem(item);
               },
             ),
           ],
@@ -189,7 +193,6 @@ class _CartScreenState extends State<CartScreen>
       ),
       body: Column(
         children: [
-          // 🔹 Tabs
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -210,7 +213,6 @@ class _CartScreenState extends State<CartScreen>
               tabs: const [Tab(text: "Cart"), Tab(text: "Zatches")],
             ),
           ),
-
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -222,297 +224,195 @@ class _CartScreenState extends State<CartScreen>
     );
   }
 
-  /// 🛒 CART TAB DESIGN
+  /// 🛒 CART TAB DESIGN - NOW POWERED BY API
   Widget _buildCartTab() {
-    int selectedItemsCount = cartItems.where((item) => item.isSelected).length;
+    return FutureBuilder<CartModel?>(
+      future: _cartFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+        if (!snapshot.hasData || snapshot.data == null || snapshot.data!.items.isEmpty) {
+          return const Center(
+            child: Text("Your cart is empty.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+          );
+        }
 
-    double itemsTotalPriceValue = cartItems
-        .where((i) => i.isSelected)
-        .fold(0, (sum, i) => sum + (i.price * i.quantity));
+        // Use the cart data from the state
+        final cartItems = _cart?.items ?? [];
 
-    double shippingFeeValue = selectedItemsCount > 0 ? 10.0 : 0.0;
-    double subTotalPriceValue = itemsTotalPriceValue + shippingFeeValue;
+        final selectedCartItems = cartItems.where((item) => _selectedItems[item.id] ?? false).toList();
+        int selectedItemsCount = selectedCartItems.length;
+        double itemsTotalPriceValue = selectedCartItems.fold(0, (sum, i) => sum + (i.product.price * i.qty));
+        double shippingFeeValue = selectedItemsCount > 0 ? 10.0 : 0.0;
+        double subTotalPriceValue = itemsTotalPriceValue + shippingFeeValue;
 
-    String totalItemsPrice = "${itemsTotalPriceValue.toStringAsFixed(2)}₹";
-    String shippingFee = "${shippingFeeValue.toStringAsFixed(2)}₹";
-    String subTotalPrice = "${subTotalPriceValue.toStringAsFixed(2)}₹";
-
-    return Stack(
-      children: [
-        cartItems.isEmpty
-            ? const Center(
-          child: Text(
-            "Your cart is empty.",
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        )
-            : ListView.builder(
-          padding: const EdgeInsets.only(bottom: 180),
-          itemCount: cartItems.length,
-          itemBuilder: (context, index) {
-            final item = cartItems[index];
-            return GestureDetector(onTap: (){
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: /*item.id*/ "681ec215ce1efa433a4f5133",)));
-            },
-              child: Dismissible(
-                key: Key(item.id),
-                direction: DismissDirection.endToStart,
-                onDismissed: (direction) {
-                  setState(() {
-                    cartItems.remove(item); // Use remove(item) for safety
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("${item.name} removed from cart"),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-                background: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 6), // Match item margin
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(14),
+        return Stack(
+          children: [
+            ListView.builder(
+              padding: const EdgeInsets.only(bottom: 180),
+              itemCount: cartItems.length,
+              itemBuilder: (context, index) {
+                final item = cartItems[index];
+                return Dismissible(
+                  key: Key(item.id),
+                  direction: DismissDirection.endToStart,
+                  onDismissed: (direction) => _removeCartItem(item),
+                  confirmDismiss: (direction) => _showRemoveItemDialog(item).then((_) => false), // Let dialog handle removal
+                  background: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(14)),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: const Icon(Icons.delete, color: Colors.white),
                   ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                  child: GestureDetector(
+                    onTap: (){
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: item.product.id)));
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                    ],
-                  ),
-                  child: ListTile(
-                    contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12),
-                    leading: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Checkbox(
-                          value: item.isSelected,
-                          shape: const CircleBorder(),
-                          activeColor: const Color(0xFFB7DF4B),
-                          onChanged: (val) {
-                            setState(() {
-                              item.isSelected = val ?? false;
-                            });
-                          },
-                        ),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            item.imageUrl,
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
-                    ),
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (item.saleInfo != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              item.saleInfo!,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(
+                              value: _selectedItems[item.id] ?? true,
+                              shape: const CircleBorder(),
+                              activeColor: const Color(0xFFB7DF4B),
+                              onChanged: (val) => setState(() => _selectedItems[item.id] = val ?? false),
+                            ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                item.product.primaryImageUrl,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
                               ),
                             ),
-                          ),
-                        Text(
-                          item.description,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "${item.price.toStringAsFixed(1)}₹",
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            if (item.variant.color != null)
+                              Text("Color: ${item.variant.color}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Text("${item.product.price.toStringAsFixed(2)}₹", style: const TextStyle(fontWeight: FontWeight.w500)),
+                          ],
                         ),
-                      ],
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
+                        trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline),
                               color: Colors.grey,
                               iconSize: 20,
-                              // --- THIS IS THE FINAL CORRECTED LOGIC ---
                               onPressed: () {
-                                if (item.quantity > 1) {
-                                  setState(() {
-                                    item.quantity--;
-                                  });
+                                if (item.qty > 1) {
+                                  _updateCartItem(item, item.qty - 1);
                                 } else {
-                                  // If quantity is 1, show the dialog to confirm removal
                                   _showRemoveItemDialog(item);
                                 }
                               },
                             ),
-                            Text(
-                              "${item.quantity}",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
+                            Text("${item.qty}", style: const TextStyle(fontWeight: FontWeight.bold)),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline),
                               color: Colors.grey,
                               iconSize: 20,
-                              onPressed: () {
-                                setState(() {
-                                  item.quantity++;
-                                });
-                              },
+                              onPressed: () => _updateCartItem(item, item.qty + 1),
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // 🔹 Bottom summary
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(20.0), topRight: Radius.circular(20.0)),
+                  boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black26, offset: Offset(0, -2))],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Items ($selectedItemsCount Selected)"),
+                        Text("${itemsTotalPriceValue.toStringAsFixed(2)}₹"),
                       ],
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-
-        // 🔹 Bottom summary
-        if (cartItems.isNotEmpty)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20.0),
-                  topRight: Radius.circular(20.0),
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 8,
-                    color: Colors.black26,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Items ($selectedItemsCount Selected)"),
-                      Text(totalItemsPrice),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [const Text("Shipping Fee"), Text(shippingFee)],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Sub Total",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        subTotalPrice,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB7DF4B),
-                      minimumSize: const Size.fromHeight(45),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [const Text("Shipping Fee"), Text("${shippingFeeValue.toStringAsFixed(2)}₹")],
                     ),
-                    onPressed: selectedItemsCount > 0
-                        ? () {
-                      final selectedItems = cartItems
-                          .where((item) => item.isSelected)
-                          .toList();
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CheckoutOrPaymentsScreen(
-                            isCheckout: true,
-                            selectedItems: selectedItems,
-                            itemsTotalPrice: itemsTotalPriceValue, // Pass the double          shippingFee: shippingFeeValue,       // Pass the double
-                            subTotalPrice: subTotalPriceValue,     // Pass the double
-                          ),
-                        ),
-                      );
-
-                    }
-                        : null,
-                    child: const Text(
-                      "Pay",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("Sub Total", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${subTotalPriceValue.toStringAsFixed(2)}₹", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFB7DF4B),
+                        minimumSize: const Size.fromHeight(45),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: selectedItemsCount > 0
+                          ? () {
+                        // TODO: Re-implement checkout navigation with API models
+                        // Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutOrPaymentsScreen(...)));
+                      }
+                          : null,
+                      child: const Text("Pay", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
+
   /// 🕒 ZATCHES TAB DESIGN
   Widget _buildZatchesTab() {
+    // This can be converted to use FutureBuilder when Zatches API is ready
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          "Active Zatches",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        const Text("Active Zatches", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         for (final zatch in zatches.where((z) => z.active)) _zatchItem(zatch),
         const SizedBox(height: 20),
-        const Text(
-          "Expired",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        const Text("Expired", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         for (final zatch in zatches.where((z) => !z.active)) _zatchItem(zatch),
       ],
@@ -522,106 +422,52 @@ class _CartScreenState extends State<CartScreen>
   Widget _zatchItem(Zatch zatch) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ZatchingDetailsScreen(zatch: zatch),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ZatchingDetailsScreen(zatch: zatch)));
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:
-              zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
+          color: zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: zatch.active ? Colors.green.shade200 : Colors.grey.shade300,
-          ),
+          border: Border.all(color: zatch.active ? Colors.green.shade200 : Colors.grey.shade300),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                zatch.imageUrl,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
+              child: Image.network(zatch.imageUrl, width: 60, height: 60, fit: BoxFit.cover),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ... (rest of the Zatch item UI remains the same)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        zatch.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        zatch.date,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
-                        ),
-                      ),
+                      Text(zatch.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(zatch.date, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                     ],
                   ),
-                  Text(
-                    "Sold by: ${zatch.seller}",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  Text("Sold by: ${zatch.seller}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 4),
-                  Text(
-                    zatch.status,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: zatch.active ? Colors.green : Colors.orange,
-                    ),
-                  ),
+                  Text(zatch.status, style: TextStyle(fontWeight: FontWeight.bold, color: zatch.active ? Colors.green : Colors.orange)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          "Quote Price: ${zatch.quotePrice}",
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      Expanded(child: Text("Quote Price: ${zatch.quotePrice}", style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                       if (zatch.sellerPrice.isNotEmpty)
-                        Expanded(
-                          child: Text(
-                            "Seller Price: ${zatch.sellerPrice}",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  zatch.active ? Colors.red : Colors.grey[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                        Expanded(child: Text("Seller Price: ${zatch.sellerPrice}", style: TextStyle(fontSize: 12, color: zatch.active ? Colors.red : Colors.grey[700], fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                   if (zatch.expiresIn != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        zatch.expiresIn!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.red,
-                        ),
-                      ),
+                      child: Text(zatch.expiresIn!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.red)),
                     ),
                 ],
               ),

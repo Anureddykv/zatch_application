@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/Widget/top_picks_this_week_widget.dart';
+import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
@@ -906,19 +907,27 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                   onPressed: () {
                     Navigator.pop(context);
                     if (selectedOption == "buy") {
-                      final itemToCheckout = CartItem(
-                        name: product.name,
-                        description: product.category?.name ?? "Live Stream Item",
-                        price: product.price,
-                        quantity: quantity,
-                        imageUrl: product.images.isNotEmpty
-                            ? product.images.first.url
-                            : "https://placehold.co/100x100?text=P",
+                      // --- CORRECTION: Use the correct cart_model.CartItemModel ---
+                      final itemToCheckout = cart_model.CartItemModel(
+                        id: "temp_${product.id}", // Temporary ID for the checkout screen
+                        qty: quantity,
+                        variant: cart_model.VariantModel(color: 'Default'), // Mock a default variant
+                        product: cart_model.ProductModel(
+                          id: product.id,
+                          name: product.name,
+                          price: product.price,
+                          discountedPrice: product.price,
+                          images: product.images.map((img) => cart_model.ImageModel(id: img.id, publicId: img.publicId, url: img.url)).toList(),
+                          // You can mock this as it's not critical for checkout calculation
+                          productType: cart_model.ProductType(hasColor: false, hasSize: false),
+                        ),
                       );
 
-                      double itemsTotal = itemToCheckout.price * itemToCheckout.quantity;
+                      double itemsTotal = itemToCheckout.product.price * itemToCheckout.qty;
                       double shippingFee = 0.00; // Shipping is free on re-buy
                       double subTotal = itemsTotal + shippingFee;
+
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(
