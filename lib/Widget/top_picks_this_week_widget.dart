@@ -33,9 +33,9 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
       topPicks = await _apiService.getTopPicks();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        /*ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Failed to load top picks: ${e.toString()}")),
-        );
+        );*/
       }
     } finally {
       if (mounted) setState(() => loading = false);

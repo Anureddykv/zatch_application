@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   LoginResponse? _lastLoginResponse;
-  String _selectedCountryCode = "91";
+  String _selectedCountryCode = "+91";
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -103,9 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       } else {
         print("Navigating to HomePage");
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => HomePage(loginResponse: res)),
+              (Route<dynamic> route) => false,
         );
       }
     } catch (e) {

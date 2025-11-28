@@ -23,6 +23,25 @@ class ProductResponse {
     );
   }
 }
+class Seller {
+  final String id;
+  final String username;
+  final ProfilePic profilePic;
+
+  Seller({
+    required this.id,
+    required this.username,
+    required this.profilePic,
+  });
+
+  factory Seller.fromJson(Map<String, dynamic> json) {
+    return Seller(
+      id: json['_id'] ?? '',
+      username: json['username'] ?? '',
+      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
+    );
+  }
+}
 
 class Product {
   final String id;
@@ -41,7 +60,7 @@ class Product {
   final int? saveCount;
   int? likeCount;
   final int? viewCount;
-  final String? sellerId;
+  final Seller? seller;
   final List<Review> reviews;
   final List<Comment>? comments;
   final int? commentCount;
@@ -65,19 +84,43 @@ class Product {
     this.saveCount,
     this.likeCount,
     this.viewCount,
-    this.sellerId,
+    this.seller,
     this.commentCount,
     this.comments,
     this.averageRating,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final bool isNested = json.containsKey('stepData') && json['stepData']?['step1'] != null;
+    final Map<String, dynamic> dataSource = isNested ? json['stepData']['step1'] : json;
+    Category? parsedCategory;
+    final categoryData = dataSource['category']; // Use the correct data source.
+    if (categoryData != null) {
+      if (categoryData is Map<String, dynamic>) {
+        // Handles detailed product structure
+        parsedCategory = Category.fromJson(categoryData);
+      } else if (categoryData is String) {
+        // Handles summary product structure (from /bits/list)
+        parsedCategory = Category(id: categoryData, name: categoryData);
+      }
+    }
+    Seller? parsedSeller;
+    final sellerData = json['sellerId']; // sellerId is always at the top level.
+    if (sellerData != null) {
+      if (sellerData is Map<String, dynamic>) {
+        // Handles detailed product structure
+        parsedSeller = Seller.fromJson(sellerData);
+      } else if (sellerData is String) {
+        // Handles summary product structure (from /bits/list)
+        parsedSeller = Seller(id: sellerData, username: 'Unknown', profilePic: ProfilePic(publicId: '', url: ''));
+      }
+    }
+
     return Product(
       id: json['_id'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      // Handles both int and double for price
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      name: dataSource['name'] ?? '',
+      description: dataSource['description'] ?? '',
+      price: (dataSource['price'] as num?)?.toDouble() ?? 0.0,
       images: (json['images'] as List<dynamic>? ?? [])
           .map((e) => ProductImage.fromJson(e))
           .toList(),
@@ -96,7 +139,6 @@ class Product {
       saveCount: json['saveCount'] ?? 0,
       likeCount: json['likeCount'] ?? 0,
       viewCount: json['viewCount'] ?? 0,
-      sellerId: json['sellerId'],
       averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0.0,
       reviews: (json['reviews'] as List<dynamic>? ?? [])
           .map((e) => Review.fromJson(e))

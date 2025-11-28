@@ -38,7 +38,6 @@ class _SplashRouteDeciderState extends State<SplashRouteDecider>
     final isFirstLaunch = prefs.getBool("isFirstLaunch") ?? true;
     final token = prefs.getString("authToken");
     final categories = prefs.getStringList("userCategories") ?? [];
-
     Widget next;
 
     if (isFirstLaunch) {
