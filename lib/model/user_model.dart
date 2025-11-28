@@ -53,8 +53,9 @@ class UserFollowerInfo {
 
   factory UserFollowerInfo.fromJson(Map<String, dynamic> json) {
     return UserFollowerInfo(
-      profilePic:
-      ProfilePic.fromJsonOrNull(json['profilePic'] as Map<String, dynamic>?),
+      profilePic: ProfilePic.fromJsonOrNull(
+        json['profilePic'] as Map<String, dynamic>?,
+      ),
       id: json['_id'] as String,
       username: json['username'] as String?,
     );
@@ -74,7 +75,7 @@ class UserModel {
   final String? categoryType;
   final List<UserFollowerInfo> followers;
   final List<UserFollowerInfo> following;
-   int followerCount;
+  int followerCount;
   final int reviewsCount;
   final int productsSoldCount;
   final num customerRating;
@@ -89,7 +90,7 @@ class UserModel {
   final String? shopDescription;
   final bool? kycVerified;
   final Address? address;
-   bool isFollowing;
+  bool isFollowing;
 
   UserModel({
     required this.profilePic,
@@ -195,28 +196,34 @@ class UserModel {
       displayName = 'User';
     }
 
-    var followersList = (json['followers'] as List<dynamic>?)
-        ?.map((i) => UserFollowerInfo.fromJson(i as Map<String, dynamic>))
-        .toList() ??
+    var followersList =
+        (json['followers'] as List<dynamic>?)
+            ?.map((i) => UserFollowerInfo.fromJson(i as Map<String, dynamic>))
+            .toList() ??
         [];
-    var followingList = (json['following'] as List<dynamic>?)
-        ?.map((i) => UserFollowerInfo.fromJson(i as Map<String, dynamic>))
-        .toList() ??
+    var followingList =
+        (json['following'] as List<dynamic>?)
+            ?.map((i) => UserFollowerInfo.fromJson(i as Map<String, dynamic>))
+            .toList() ??
+        [];
+    var savedBitsList =
+        (json['savedBits'] as List<dynamic>?)
+            ?.map((i) => i as String)
+            .toList() ??
+        [];
+    var savedProductsList =
+        (json['savedProducts'] as List<dynamic>?)
+            ?.map((i) => i as String)
+            .toList() ??
         [];
 
-    var savedBitsList = (json['savedBits'] as List<dynamic>?)
-        ?.map((i) => i as String)
-        .toList() ??
-        [];
-    var savedProductsList = (json['savedProducts'] as List<dynamic>?)
-        ?.map((i) => i as String)
-        .toList() ??
-        [];
+    final createdAtString = json['createdAt'] as String?;
 
     return UserModel(
-      profilePic:
-      ProfilePic.fromJsonOrNull(json['profilePic'] as Map<String, dynamic>?),
-      id: json['_id'] as String,
+      profilePic: ProfilePic.fromJsonOrNull(
+        json['profilePic'] as Map<String, dynamic>?,
+      ),
+      id: json['_id'] as String? ?? '', // Also made the ID parsing safer
       displayName: displayName,
       username: json['username'] as String?,
       name: json['name'] as String?,
@@ -234,17 +241,21 @@ class UserModel {
       savedBits: savedBitsList,
       savedProducts: savedProductsList,
       isAdmin: json['isAdmin'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : null,
+      createdAt:
+          createdAtString != null
+              ? DateTime.parse(createdAtString)
+              : DateTime.now(),
+
+      updatedAt:
+          json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : null,
       profileImageUrl: json['profileImageUrl'] as String?,
       dateOfBirth: json['dateOfBirth'] as String?,
       shopName: json['shopName'] as String?,
       shopDescription: json['shopDescription'] as String?,
       kycVerified: json['kycVerified'] as bool?,
-      address:
-      Address.fromJsonOrNull(json['address'] as Map<String, dynamic>?),
+      address: Address.fromJsonOrNull(json['address'] as Map<String, dynamic>?),
       isFollowing: json['isFollowing'] == true,
     );
   }

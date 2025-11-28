@@ -1,11 +1,14 @@
+// C:/Users/anureddy.kv/Downloads/zatch_app-main/zatch_app-main/lib/Widget/trending.dart
+
 import 'package:flutter/material.dart';
 // Import the staggered grid view package
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/TrendingBit.dart';
+import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
-import 'package:zatch_app/view/live_view/see_all_live_screen.dart';
 import 'package:zatch_app/view/reel/AllTrendingScreen.dart';
 
 class TrendingSection extends StatefulWidget {
@@ -22,6 +25,7 @@ class _TrendingSectionState extends State<TrendingSection> {
   @override
   void initState() {
     super.initState();
+    // This fetches and merges both 'live' and 'bits'
     trendingFuture = _api.fetchTrendingBits();
   }
 
@@ -38,6 +42,7 @@ class _TrendingSectionState extends State<TrendingSection> {
           return const Center(child: Text("No trending items"));
         }
 
+        // 'bits' now contains a merged list of live streams and reels
         final bits = snapshot.data!;
 
         return Column(
@@ -124,26 +129,30 @@ class _TrendingCardState extends State<TrendingCard> {
   void initState() {
     super.initState();
     likeCount = widget.bit.likeCount;
-    // This logic is still flawed and should be updated once the API provides `isLikedByUser`
-    isLiked = widget.bit.likeCount > 0;
+    // This now correctly uses the isLiked field from our unified model
+    isLiked = widget.bit.isLiked;
   }
 
   Future<void> _toggleLike() async {
+    // ✅ FIX: The check for `widget.bit.isLive` has been removed.
+    // This now allows the like functionality to work for ALL items.
     if (isApiCallInProgress) return;
+
     setState(() => isApiCallInProgress = true);
 
-    // Simplified optimistic update
+    // Optimistically update the UI
     setState(() {
       isLiked = !isLiked;
       likeCount += isLiked ? 1 : -1;
     });
 
     try {
+      // Call the API for both live and non-live items
       final response = await _api.toggleLike(widget.bit.id);
       final serverLikeCount = response['likeCount'] as int;
       final serverIsLiked = response['isLiked'] as bool;
 
-      widget.bit.likeCount = serverLikeCount;
+      // Update the UI with the confirmed state from the server
       if (mounted) {
         setState(() {
           likeCount = serverLikeCount;
@@ -151,7 +160,7 @@ class _TrendingCardState extends State<TrendingCard> {
         });
       }
     } catch (e) {
-      // Revert on failure
+      // If the API call fails, revert the optimistic update
       if (mounted) {
         setState(() {
           isLiked = !isLiked;
@@ -171,26 +180,38 @@ class _TrendingCardState extends State<TrendingCard> {
     return GestureDetector(
       onTap: () {
         if (widget.bit.isLive) {
+          final liveSession = Session(
+            id: widget.bit.id,
+            title: widget.bit.title,
+            host: Host(
+              id: widget.bit.creatorId,
+              username: widget.bit.creatorUsername,
+            ),
+            status: "live",
+            viewersCount: widget.bit.viewCount,
+            channelName: '',
+            thumbnail: widget.bit.thumbnailUrl,
+          );
+          // Assuming you have a LiveStreamScreen to navigate to
+          // If not, this might be LiveDetailsScreen
+          final liveController = LiveStreamController(session: liveSession);
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const SeeAllLiveScreen(liveSessions: [])),
+              builder: (_) =>
+                  LiveStreamScreen(controller: liveController, username: liveSession.host?.username),
+            ),
           );
         } else {
           Navigator.push(
             context,
-            MaterialPageRoute(
-                builder: (_) => ReelDetailsScreen(
-                    bitId: widget.bit.id, controller: LiveStreamController())),
+            MaterialPageRoute(builder: (_) => ReelDetailsScreen(bitId: widget.bit.id)),
           );
         }
       },
-      // The card is now just a Column, the container/decoration is removed
-      // as the new design doesn't show a card background for the text part.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image container with rounded corners and widgets on top
           Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
@@ -206,9 +227,10 @@ class _TrendingCardState extends State<TrendingCard> {
                   errorBuilder: (context, error, stackTrace) => Container(
                     height: widget.imageHeight,
                     color: Colors.grey[300],
-                    child: const Center(child: Icon(Icons.error)),
+                    child: const Center(child: Icon(Icons.image_not_supported)),
                   ),
                 ),
+
                 if (widget.bit.isLive)
                   Positioned(
                     top: 12,
@@ -227,22 +249,40 @@ class _TrendingCardState extends State<TrendingCard> {
                           )
                         ],
                       ),
-                      child: Text(
-                        'Live', // The design has 'Live' and a count, but the model doesn't have a viewer count
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 12,
-                          fontFamily: 'Encode Sans',
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Live',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 12,
+                              fontFamily: 'Encode Sans',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.bit.viewCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 12,
+                              fontFamily: 'Encode Sans',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+
+                // ✅ FIX: This Positioned widget is no longer conditional,
+                // so the like button will appear on ALL items.
                 Positioned(
                   top: 14,
                   right: 14,
                   child: GestureDetector(
-                    onTap: _toggleLike,
+                    onTap: _toggleLike, // This now works for live bits too
                     child: Container(
                       width: 28,
                       height: 28,
@@ -251,10 +291,10 @@ class _TrendingCardState extends State<TrendingCard> {
                         shape: const CircleBorder(),
                       ),
                       child: isApiCallInProgress
-                          ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: Center(
+                          ? const Center(
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         ),
@@ -270,7 +310,6 @@ class _TrendingCardState extends State<TrendingCard> {
               ],
             ),
           ),
-          // Text section below the image
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
             child: Column(
@@ -289,7 +328,7 @@ class _TrendingCardState extends State<TrendingCard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.bit.description,
+                  widget.bit.creatorUsername,
                   style: const TextStyle(
                     color: Color(0xFF787676),
                     fontSize: 10,
@@ -298,37 +337,38 @@ class _TrendingCardState extends State<TrendingCard> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      // BUG: Using viewCount for price. Update when model has `price`.
-                      '₹${widget.bit.viewCount}',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontFamily: 'Encode Sans',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, size: 18, color: Colors.amber),
-                        const SizedBox(width: 4),
+                if (widget.bit.price > 0 || widget.bit.rating > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (widget.bit.price > 0)
                         Text(
-                          // BUG: Using viewCount for rating. Update when model has `rating`.
-                          widget.bit.viewCount.toString(),
+                          '₹${widget.bit.price.toStringAsFixed(0)}',
                           style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 12,
+                            fontSize: 14,
                             fontFamily: 'Encode Sans',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      if (widget.bit.rating > 0)
+                        Row(
+                          children: [
+                            const Icon(Icons.star, size: 18, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.bit.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 12,
+                                fontFamily: 'Encode Sans',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
               ],
             ),
           )

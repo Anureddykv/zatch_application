@@ -80,7 +80,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     );
 
     if (!mounted) return;
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (_) => HomePage(
@@ -88,7 +88,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
           selectedCategories: selectedItems,
         ),
       ),
+          (Route<dynamic> route) => false, // This predicate removes all previous routes
     );
+
   }
 
   @override

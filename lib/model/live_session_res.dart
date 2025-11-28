@@ -39,6 +39,7 @@ class Session {
   final String? scheduledStartTime; // for scheduled
   final String? channelName;
   final Host? host;
+  final String? thumbnail;
 
   Session({
     required this.id,
@@ -50,6 +51,7 @@ class Session {
     this.scheduledStartTime,
     this.channelName,
     this.host,
+    this.thumbnail,
   });
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -65,7 +67,7 @@ class Session {
       host: json['hostId'] != null && json['hostId'] is Map<String, dynamic>
           ? Host.fromJson(json['hostId'])
           : null,
-    );
+      thumbnail: json['thumbnail'] is String ? json['thumbnail'] : null,    );
   }
 
   Map<String, dynamic> toJson() {
@@ -78,7 +80,8 @@ class Session {
       'startTime': startTime,
       'scheduledStartTime': scheduledStartTime,
       'channelName': channelName,
-      'hostId': host?.toJson(),
+      'host': host?.toJson(),
+      'thumbnail': thumbnail,
     };
   }
 }
@@ -97,10 +100,18 @@ class Host {
   });
 
   factory Host.fromJson(Map<String, dynamic> json) {
+    // Safely get profile picture URL, assuming it could be in a nested object.
+    String? picUrl;
+    if (json['profilePic'] is Map) {
+      picUrl = json['profilePic']['url'];
+    } else if (json['profilePicUrl'] is String) {
+      picUrl = json['profilePicUrl'];
+    }
+
     return Host(
-      id: json['_id'] ?? '',
-      username: json['username'] ?? '',
-      profilePicUrl: json['profilePicUrl'],
+      id: json['_id'] as String? ?? '',
+      username: json['username'] as String? ?? 'Unknown',
+      profilePicUrl: picUrl,
       rating: json['rating'],
     );
   }

@@ -124,7 +124,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         username: nameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        countryCode: _countryCode.replaceAll("+", ""),
+        countryCode: _countryCode,
         password: _passwordController.text.trim(),
         gender: _selectedGender,
         showMessage: _showMessage,

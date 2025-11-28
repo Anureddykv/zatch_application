@@ -590,24 +590,30 @@ class ApiService {
     }
   }
 
-  Future<List<TrendingBit>> fetchTrendingBits() async {
-    try {
-      final response = await _dio.get("/bits/trending");
-      final Map<String, dynamic> data = response.data;
-      if (data.containsKey('bits') && data['bits'] is List) {
-        final List bitsJson = data['bits'];
-        return bitsJson.map((json) => TrendingBit.fromJson(json)).toList();
-      } else {
-        throw Exception('API response is missing the "bits" list.');
-      }
-    } on DioException catch (e) {
-      debugPrint("DioException fetching trending bits: ${e.response?.data}");
-      throw Exception("Failed to fetch trending bits due to a network error.");
-    } catch (e) {
-      debugPrint("Unexpected error fetching trending bits: $e");
-      throw Exception("Failed to fetch trending bits: $e");
+
+  Future<List<TrendingBit>> fetchTrendingBits() async {try {
+    // This endpoint returns both 'live' and 'bits' lists.
+    final response = await _dio.get("/trending/trending");
+    final Map<String, dynamic> data = response.data;
+    final List<dynamic> liveJson = data['live'] as List<dynamic>? ?? [];
+    final List<dynamic> bitsJson = data['bits'] as List<dynamic>? ?? [];
+    final List<dynamic> combinedJson = [...liveJson, ...bitsJson];
+  if (combinedJson.isNotEmpty) {
+      return combinedJson
+          .map((json) => TrendingBit.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else {
+      return [];
     }
+  } on DioException catch (e) {
+    debugPrint("DioException fetching trending bits: ${e.response?.data}");
+    throw Exception("Failed to fetch trending bits due to a network error.");
+  } catch (e) {
+    debugPrint("Unexpected error fetching trending bits: $e");
+    throw Exception("Failed to fetch trending bits: $e");
   }
+  }
+
 
   /// Get the user's search history
   Future<SearchHistoryResponse> getUserSearchHistory() async {
@@ -929,14 +935,14 @@ class ApiService {
     }
   }
 
-  Future<SessionDetails> getLiveSessionDetails(String sessionId) async {
+  Future<Map<String, dynamic>> getLiveSessionDetails(String sessionId) async {
     final String detailsEndpoint = "/live/session/$sessionId/details";
     try {
       final response = await _dio.get(detailsEndpoint);
       final decodedData = _decodeResponse(response.data);
 
-      if (decodedData['success'] == true && decodedData['sessionDetails'] != null) {
-        return SessionDetails.fromJson(decodedData['sessionDetails']);
+      if (decodedData is Map<String, dynamic> && decodedData['success'] == true) {
+        return decodedData;
       } else {
         throw Exception(decodedData['message'] ?? "Failed to get live session details.");
       }

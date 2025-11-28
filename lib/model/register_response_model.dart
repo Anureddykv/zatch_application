@@ -62,7 +62,7 @@ class User {
     return User(
       username: json["username"] ?? "",
       password: json["password"] ?? "",
-      countryCode: json["countryCode"] ?? "91",
+      countryCode: json["countryCode"] ?? "+91",
       phone: json["phone"] ?? "",
       profilePic: ProfilePic.fromJson(json["profilePic"]),
       followers: json["followers"] ?? [],
