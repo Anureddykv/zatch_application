@@ -59,9 +59,9 @@ dependencies:
   url_launcher:
   fl_chart: ^1.1.1
   google_fonts: ^6.3.2
-  agora_rtc_engine:
-  agora_rtm:
-  agora_uikit:
+  # agora_rtc_engine:
+  # agora_rtm:
+  # agora_uikit:
 
 dev_dependencies:
   flutter_test:

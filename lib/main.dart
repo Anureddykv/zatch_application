@@ -24,9 +24,7 @@ class MyApp extends StatelessWidget {
       title: 'Zatch',
       theme: ThemeData(
         fontFamily: 'Plus Jakarta Sans',
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFFCCF656),
-        ),
+        colorScheme: const ColorScheme.light(primary: Color(0xFFCCF656)),
         useMaterial3: true,
       ),
       home: const SplashRouteDecider(),

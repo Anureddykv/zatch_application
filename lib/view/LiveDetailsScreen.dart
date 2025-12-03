@@ -10,7 +10,7 @@ import 'package:zatch_app/view/profile/profile_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
 import 'cart_screen.dart';
-import 'package:agora_uikit/agora_uikit.dart';
+// import 'package:agora_uikit/agora_uikit.dart';
 
 class LiveStreamScreen extends StatefulWidget {
   final LiveStreamController controller;
@@ -23,7 +23,7 @@ class LiveStreamScreen extends StatefulWidget {
 }
 
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
-  late final AgoraClient _agoraClient;
+  // late final AgoraClient _agoraClient;
   bool showComments = false;
   bool _isLoading = true;
   final TextEditingController _commentController = TextEditingController();
@@ -90,15 +90,15 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
       debugPrint("✅ Join session response: $joinResponse");
       final sessionData = joinResponse['session'];
 
-      _agoraClient = AgoraClient(
-        agoraConnectionData: AgoraConnectionData(
-          appId: sessionData['appId'],
-          channelName: sessionData['channelName'],
-          tempToken: sessionData['token'],
-          username: widget.username, // or some user identifier
-        ),
-      );
-      await _agoraClient.initialize();
+      // _agoraClient = AgoraClient(
+      //   agoraConnectionData: AgoraConnectionData(
+      //     appId: sessionData['appId'],
+      //     channelName: sessionData['channelName'],
+      //     tempToken: sessionData['token'],
+      //     username: widget.username, // or some user identifier
+      //   ),
+      // );
+      // await _agoraClient.initialize();
       if (mounted) {
         setState(() {
           _sessionDetails = details;
