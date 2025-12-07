@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/sellersscreens/addproduct/add_product_screen.dart';
 import 'package:zatch_app/sellersscreens/inventory/inventory_screen.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_live_dashboard.dart';
 
 // Main screen is now a StatefulWidget to manage the selected tab
 class SellerDashboardScreen extends StatefulWidget {
@@ -63,10 +64,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             icon: Icon(Icons.inventory_2_outlined),
             label: 'Inventory',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.payment),
-            label: 'Payments',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Payments'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -135,7 +133,7 @@ class DashboardPage extends StatelessWidget {
                   const SetupProgressCard(
                     completedTasks: [
                       'Upload first product',
-                      'Add product images (min 3)'
+                      'Add product images (min 3)',
                     ],
                     allTasks: [
                       'Upload first product',
@@ -224,8 +222,8 @@ class DashboardPage extends StatelessWidget {
                               shape: OvalBorder(
                                 side: BorderSide(
                                   width: 1.5,
-                                  color: Theme.of(context)
-                                      .scaffoldBackgroundColor,
+                                  color:
+                                      Theme.of(context).scaffoldBackgroundColor,
                                 ),
                               ),
                             ),
@@ -240,7 +238,6 @@ class DashboardPage extends StatelessWidget {
                       decoration: ShapeDecoration(
                         color: Colors.red,
                         image: const DecorationImage(
-
                           image: NetworkImage("https://placehold.co/43x42"),
                           fit: BoxFit.fill,
                         ),
@@ -259,15 +256,16 @@ class DashboardPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                    child: InfoCard(title: 'Total Products', value: '200')),
+                  child: InfoCard(title: 'Total Products', value: '200'),
+                ),
                 SizedBox(width: 13),
                 Expanded(
-                    child: InfoCard(
-                        title: 'Total Buy Bits', value: '140(200)')),
+                  child: InfoCard(title: 'Total Buy Bits', value: '140(200)'),
+                ),
                 SizedBox(width: 13),
                 Expanded(
-                    child:
-                    InfoCard(title: 'Total Buy Bits', value: '70/100')),
+                  child: InfoCard(title: 'Total Buy Bits', value: '70/100'),
+                ),
               ],
             ),
           ],
@@ -294,21 +292,35 @@ class DashboardPage extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            QuickLinkItem(icon: Icons.sensors, label: 'Go Live', onTap: () {}),
             QuickLinkItem(
-                icon: Icons.movie_creation_outlined,
-                label: 'Add Reel',
-                onTap: () {}),
+              icon: Icons.sensors,
+              label: 'Go Live',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SellerLiveDashboard(),
+                  ),
+                );
+              },
+            ),
             QuickLinkItem(
-                icon: Icons.add_box_outlined,
-                label: 'Add Product',
-                onTap: () {}),
+              icon: Icons.movie_creation_outlined,
+              label: 'Add Reel',
+              onTap: () {},
+            ),
             QuickLinkItem(
-                icon: Icons.inventory_2_outlined,
-                label: 'Inventory',
-                onTap: () {}),
+              icon: Icons.add_box_outlined,
+              label: 'Add Product',
+              onTap: () {},
+            ),
+            QuickLinkItem(
+              icon: Icons.inventory_2_outlined,
+              label: 'Inventory',
+              onTap: () {},
+            ),
           ],
-        )
+        ),
       ],
     );
   }
@@ -329,7 +341,9 @@ class DashboardPage extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const ManageStoreCard(
-            title: 'Edit Profile', icon: Icons.person_outline),
+          title: 'Edit Profile',
+          icon: Icons.person_outline,
+        ),
         const ManageStoreCard(
           title: 'Manage Products',
           icon: Icons.inventory_2_outlined,
@@ -347,11 +361,7 @@ class OrdersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Orders Page'),
-      ),
-    );
+    return const Scaffold(body: Center(child: Text('Orders Page')));
   }
 }
 
@@ -361,11 +371,7 @@ class PaymentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Payments Page'),
-      ),
-    );
+    return const Scaffold(body: Center(child: Text('Payments Page')));
   }
 }
 
@@ -431,7 +437,7 @@ class StatsAndLeadsCard extends StatelessWidget {
             color: Color(0x3F000000),
             blurRadius: 4,
             offset: Offset(0, 1),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -443,22 +449,23 @@ class StatsAndLeadsCard extends StatelessWidget {
               const Text(
                 'Stats',
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Plus Jakarta Sans'),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Plus Jakarta Sans',
+                ),
               ),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Row(
                   children: [
-                    Text('This Week',
-                        style:
-                        TextStyle(fontSize: 12, fontFamily: 'Encode Sans')),
+                    Text(
+                      'This Week',
+                      style: TextStyle(fontSize: 12, fontFamily: 'Encode Sans'),
+                    ),
                     Icon(Icons.arrow_drop_down, size: 18),
                   ],
                 ),
@@ -470,20 +477,23 @@ class StatsAndLeadsCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               StatItem(
-                  value: '60k',
-                  label: 'Product Views',
-                  barColor: Color(0xFFB3D3B5),
-                  progress: 0.8),
+                value: '60k',
+                label: 'Product Views',
+                barColor: Color(0xFFB3D3B5),
+                progress: 0.8,
+              ),
               StatItem(
-                  value: '300',
-                  label: 'Total Orders',
-                  barColor: Color(0xFFFFD484),
-                  progress: 0.6),
+                value: '300',
+                label: 'Total Orders',
+                barColor: Color(0xFFFFD484),
+                progress: 0.6,
+              ),
               StatItem(
-                  value: '30k ₹',
-                  label: 'Revenue',
-                  barColor: Color(0xFFFFA2A0),
-                  progress: 0.4),
+                value: '30k ₹',
+                label: 'Revenue',
+                barColor: Color(0xFFFFA2A0),
+                progress: 0.4,
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -492,14 +502,18 @@ class StatsAndLeadsCard extends StatelessWidget {
           const Text(
             'Leads',
             style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Plus Jakarta Sans'),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Plus Jakarta Sans',
+            ),
           ),
           const SizedBox(height: 20),
           const Center(
-              child: Text('Leads Chart Placeholder',
-                  style: TextStyle(color: Colors.grey))),
+            child: Text(
+              'Leads Chart Placeholder',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
           const SizedBox(height: 10),
         ],
       ),
@@ -552,18 +566,24 @@ class StatItem extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Plus Jakarta Sans')),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF696969),
-                    fontFamily: 'Plus Jakarta Sans')),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Plus Jakarta Sans',
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF696969),
+                fontFamily: 'Plus Jakarta Sans',
+              ),
+            ),
           ],
-        )
+        ),
       ],
     );
   }
@@ -607,7 +627,7 @@ class QuickLinkItem extends StatelessWidget {
               fontFamily: 'Plus Jakarta Sans',
               fontWeight: FontWeight.w400,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -664,8 +684,7 @@ class ManageStoreCard extends StatelessWidget {
             ),
             if (productCount != null)
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFA2DC00),
                   borderRadius: BorderRadius.circular(10),
@@ -681,7 +700,7 @@ class ManageStoreCard extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios, size: 16)
+            const Icon(Icons.arrow_forward_ios, size: 16),
           ],
         ),
       ),
@@ -702,10 +721,11 @@ class SetupProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double progress =
-    allTasks.isNotEmpty ? completedTasks.length / allTasks.length : 0;
+        allTasks.isNotEmpty ? completedTasks.length / allTasks.length : 0;
     String nextTask = allTasks.firstWhere(
-            (task) => !completedTasks.contains(task),
-        orElse: () => 'Setup Complete!');
+      (task) => !completedTasks.contains(task),
+      orElse: () => 'Setup Complete!',
+    );
 
     return Card(
       elevation: 2,
@@ -773,9 +793,10 @@ class SetupProgressCard extends StatelessWidget {
                       isCompleted
                           ? Icons.check_circle
                           : Icons.radio_button_unchecked,
-                      color: isCompleted
-                          ? const Color(0xFFA2DC00)
-                          : const Color(0xFFE5E7EB),
+                      color:
+                          isCompleted
+                              ? const Color(0xFFA2DC00)
+                              : const Color(0xFFE5E7EB),
                       size: 21,
                     ),
                     const SizedBox(width: 10.5),
@@ -787,15 +808,16 @@ class SetupProgressCard extends StatelessWidget {
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w400,
                         decoration:
-                        isCompleted ? TextDecoration.lineThrough : null,
+                            isCompleted ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     const Text(
                       ' *',
                       style: TextStyle(
-                          color: Color(0xFFFA2B36),
-                          fontSize: 12.30,
-                          fontFamily: 'Inter'),
+                        color: Color(0xFFFA2B36),
+                        fontSize: 12.30,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ],
                 ),
@@ -815,7 +837,8 @@ class SetupProgressCard extends StatelessWidget {
                 backgroundColor: const Color(0xFFA2DC00),
                 minimumSize: const Size(double.infinity, 40.5),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.75)),
+                  borderRadius: BorderRadius.circular(8.75),
+                ),
                 elevation: 1,
               ),
               child: Row(
@@ -831,8 +854,11 @@ class SetupProgressCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward,
-                      size: 16, color: Color(0xFF101727))
+                  const Icon(
+                    Icons.arrow_forward,
+                    size: 16,
+                    color: Color(0xFF101727),
+                  ),
                 ],
               ),
             ),
@@ -852,7 +878,7 @@ class SetupProgressCard extends StatelessWidget {
                 elevation: 0,
               ),
               child: const Text("Back"),
-            )
+            ),
           ],
         ),
       ),

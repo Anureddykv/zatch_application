@@ -1,11 +1,17 @@
 import 'dart:developer';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/model/CartApiResponse.dart';
+import 'package:zatch_app/model/product_response.dart';
+import 'package:zatch_app/model/product_response_seller.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/sellergolivecontroller.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screen.dart';
 
@@ -17,9 +23,9 @@ class Golivescreen extends StatefulWidget {
 }
 
 class _GolivescreenState extends State<Golivescreen> {
-  final Yourlivesscreenscontroller yourlivesscreenscontroller =
-      Get.put<Yourlivesscreenscontroller>(Yourlivesscreenscontroller());
-  final tabCtrl = Get.put(DashboardTabController());
+  final Sellergolivecontroller yourlivesscreenscontroller =
+      Get.put<Sellergolivecontroller>(Sellergolivecontroller());
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,7 +74,7 @@ class _GolivescreenState extends State<Golivescreen> {
         ),
       ),
 
-      body: Container(
+      body: SizedBox(
         height: MediaQuery.of(context).size.height,
         child: Stack(
           children: [
@@ -135,10 +141,14 @@ class _GolivescreenState extends State<Golivescreen> {
                   Obx(
                     () => Container(
                       width: double.infinity,
-                      padding: EdgeInsets.only(right: 30, left: 30, top: 5),
+                      padding: const EdgeInsets.only(
+                        right: 30,
+                        left: 30,
+                        top: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.only(
+                        borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(10),
                           topRight: Radius.circular(10),
                         ),
@@ -156,7 +166,7 @@ class _GolivescreenState extends State<Golivescreen> {
                           yourlivesscreenscontroller.currentStep--;
                           yourlivesscreenscontroller.currentStep.value == 0
                               ? Navigator.pop(context)
-                              : SizedBox.shrink();
+                              : const SizedBox.shrink();
                         },
                         style: OutlinedButton.styleFrom(
                           backgroundColor: Colors.white,
@@ -356,7 +366,7 @@ class GoLiveStepOne extends StatefulWidget {
 }
 
 class _GoLiveStepOneState extends State<GoLiveStepOne> {
-  void _onProductSelected(Product product) {
+  void _onProductSelected(ProductItem product) {
     setState(() {
       if (yourlivesscreenscontroller.selectedProducts.any(
         (p) => p.id == product.id,
@@ -407,10 +417,10 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
             ],
           ),
           AppSizedBox.height8,
-          Text(
+          const Text(
             "Offer Name",
             style: TextStyle(
-              color: const Color(0xFF2C2C2C),
+              color: Color(0xFF2C2C2C),
               fontSize: 12,
               fontFamily: 'Inter',
               fontWeight: FontWeight.w400,
@@ -437,13 +447,13 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                 ),
               ],
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.search, size: 20, color: Color(0xFF626262)),
-                const SizedBox(width: 8),
+                Icon(Icons.search, size: 20, color: Color(0xFF626262)),
+                SizedBox(width: 8),
                 Expanded(
                   child: TextField(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search by product name or category',
                       hintStyle: TextStyle(
                         color: Color(0xFF626262),
@@ -485,11 +495,15 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
     );
   }
 
-  Widget _goliveproducttile(Product p) {
+  Widget _goliveproducttile(ProductItem p) {
     final GlobalKey actionKey = GlobalKey();
+
     final isSelected = yourlivesscreenscontroller.selectedProducts.any(
       (prod) => prod.id == p.id,
     );
+
+    // Replace this if you add an actual isActive field in the model
+    final bool isActive = true;
 
     const ColorFilter greyscale = ColorFilter.matrix(<double>[
       0.2126,
@@ -513,13 +527,14 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
       1,
       0,
     ]);
+
     Widget productTileContentGolive = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12.75),
         border: Border.all(
           color:
-              isSelected && p.isActive
+              isSelected && isActive
                   ? const Color(0xFFA2DC00)
                   : Colors.transparent,
           width: 1.5,
@@ -540,20 +555,21 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Checkbox
           Container(
             width: 18,
             height: 18,
             margin: const EdgeInsets.only(top: 4),
             decoration: ShapeDecoration(
               color:
-                  isSelected && p.isActive
+                  isSelected && isActive
                       ? const Color(0xFFA2DC00)
                       : const Color(0xFFF2F4F6),
               shape: RoundedRectangleBorder(
                 side: BorderSide(
                   width: 1,
                   color:
-                      isSelected && p.isActive
+                      isSelected && isActive
                           ? const Color(0xFFA2DC00)
                           : Colors.black.withOpacity(0.1),
                 ),
@@ -561,22 +577,36 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
               ),
             ),
             child:
-                isSelected && p.isActive
+                isSelected && isActive
                     ? const Icon(Icons.check, size: 14, color: Colors.white)
                     : null,
           ),
+
           const SizedBox(width: 12),
+
+          // Product Image
           ClipRRect(
-            borderRadius: BorderRadius.all(Radius.circular(25)),
-            child: Image.asset("assets/images/image_95.png", width: 70),
+            borderRadius: BorderRadius.circular(25),
+            child:
+                p.images.isNotEmpty
+                    ? Image.network(
+                      p.images.first.url,
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                    )
+                    : Image.asset("assets/images/image_95.png", width: 70),
           ),
+
           const SizedBox(width: 12),
+
+          // Product Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  p.title,
+                  p.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 12.30,
@@ -585,45 +615,48 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                   ),
                 ),
                 const SizedBox(height: 4),
+
                 Text(
-                  p.subtitle,
+                  p.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF697282),
                     fontSize: 14,
                     fontFamily: 'Plus Jakarta Sans',
                   ),
                 ),
+
                 const SizedBox(height: 8),
+
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _productDetailRow('Cost', p.cost),
+                    _productDetailRow("Cost", "₹${p.discountedPrice}"),
                     const SizedBox(height: 4),
-                    _productDetailRow('SKU', p.sku),
+                    _productDetailRow("SKU", "N/A"),
                     const SizedBox(height: 4),
-                    _productDetailRow('Stock', '${p.stock} Units'),
+                    _productDetailRow("Stock", "N/A"),
                   ],
                 ),
               ],
             ),
           ),
-          // Leave an empty space for the action menu icon that will be in the Stack
+
           const SizedBox(width: 24),
         ],
       ),
     );
+
     return GestureDetector(
       onTap: () {
-        // Only allow selection if the product is active
-        if (p.isActive) {
-          _onProductSelected(p);
-        }
+        if (isActive) _onProductSelected(p);
       },
       child: Stack(
         children: [
           ColorFiltered(
             colorFilter:
-                !p.isActive
+                !isActive
                     ? greyscale
                     : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
             child: productTileContentGolive,
@@ -724,7 +757,7 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
@@ -757,13 +790,13 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                 ),
               ],
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.search, size: 20, color: Color(0xFF626262)),
-                const SizedBox(width: 8),
+                Icon(Icons.search, size: 20, color: Color(0xFF626262)),
+                SizedBox(width: 8),
                 Expanded(
                   child: TextField(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search by product name or category',
                       hintStyle: TextStyle(
                         color: Color(0xFF626262),
@@ -801,7 +834,7 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.all(Radius.circular(25)),
+                      borderRadius: const BorderRadius.all(Radius.circular(25)),
                       child: Image.asset(
                         "assets/images/image_95.png",
                         width: 70,
@@ -814,7 +847,7 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Modern Light Clothes',
                               style: TextStyle(
                                 color: Color(0xFF101727),
@@ -843,27 +876,27 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                               children: [
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
+                                  children: [
                                     ProductDetailRow(
                                       label: 'Cost',
                                       value: '\$25',
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     ProductDetailRow(
                                       label: 'SKU',
                                       value: '12345',
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     ProductDetailRow(
                                       label: 'Stock',
                                       value: '10 Units',
                                     ),
                                   ],
                                 ),
-                                Column(
+                                const Column(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: const [
+                                  children: [
                                     Row(
                                       children: [
                                         Icon(
@@ -889,8 +922,8 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, top: 8.0),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, top: 8.0),
                       child: Icon(Icons.more_vert_outlined),
                     ),
                   ],
@@ -929,11 +962,11 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                 ),
 
                 if (yourlivesscreenscontroller.isBargainEnabled) ...[
-                  Row(
+                  const Row(
                     children: [
                       Icon(Icons.priority_high, color: Colors.green),
                       Flexible(
-                        child: const Text(
+                        child: Text(
                           "Optional and if added, is applicable to all the products",
                           style: TextStyle(
                             color: Color(0xFF697282),
@@ -973,9 +1006,9 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                       color: const Color.fromARGB(255, 233, 234, 235),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
+                      children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1050,9 +1083,9 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                         ),
                       ),
                       AppSizedBox.width10,
-                      Text(
+                      const Text(
                         'Apply this settings to all Products',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFF354152),
                           fontSize: 14,
                           fontFamily: 'Plus Jakarta Sans',
@@ -1152,6 +1185,31 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
       ],
     );
   }
+
+  ProductDetailRow({required String label, required String value}) {
+    return Row(
+      children: [
+        Text(
+          '$label -',
+          style: const TextStyle(
+            fontSize: 13,
+            fontFamily: 'Inter',
+            color: Color(0xFF666666),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF272727),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // go live step 3 - golivestepthree
@@ -1163,7 +1221,6 @@ class GoliveStepsthree extends StatefulWidget {
 }
 
 class _GoliveStepsthreeState extends State<GoliveStepsthree> {
-  final tabCtrl = Get.put(DashboardTabController());
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1192,7 +1249,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: TabBar(
-                  controller: tabCtrl.tabController,
+                  controller: yourlivesscreenscontroller.tabController,
 
                   dividerColor: Colors.transparent,
                   indicatorSize: TabBarIndicatorSize.tab,
@@ -1210,7 +1267,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                 ),
               ),
               const SizedBox(height: 7),
-              Text(
+              const Text(
                 'Live Title *',
                 style: TextStyle(
                   color: Color(0xFF354152),
@@ -1263,9 +1320,9 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                 ),
               ),
               AppSizedBox.height10,
-              Text(
+              const Text(
                 'Live Description *',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF354152),
                   fontSize: 14,
                   fontFamily: 'Plus Jakarta Sans',
@@ -1314,7 +1371,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
               ),
               AppSizedBox.height10,
               Obx(() {
-                if (tabCtrl.selectedTab.value == 1) {
+                if (yourlivesscreenscontroller.selectedTab.value == 1) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1403,9 +1460,9 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
             ],
           ),
 
-          Text(
+          const Text(
             'Upload Thumbnail Image *',
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF354152),
               fontSize: 14,
               fontFamily: 'Plus Jakarta Sans',
@@ -1484,9 +1541,9 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
             }),
           ),
           AppSizedBox.height10,
-          Text(
+          const Text(
             'Choose the Order *',
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF354152),
               fontSize: 14,
               fontFamily: 'Plus Jakarta Sans',
@@ -1517,7 +1574,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       height: 80,
                       child: Center(child: Icon(Icons.drag_indicator)),
                     ),
@@ -1537,7 +1594,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Modern Light Clothes',
                               style: TextStyle(
                                 color: Color(0xFF101727),
@@ -1560,14 +1617,14 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                               ),
                             ),
                             AppSizedBox.height5,
-                            Row(
+                            const Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
                                     Text(
                                       'cost',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         color: Color(0xFF697282),
@@ -1578,7 +1635,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                                     SizedBox(width: 4),
                                     Text(
                                       '212',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: Color(0xFF101727),
@@ -1596,7 +1653,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                                     ),
                                     Text(
                                       '1200',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         color: Color(0xFF697282),
@@ -1610,7 +1667,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                                     ),
                                     Text(
                                       '5',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         color: Color(0xFF697282),
@@ -1624,19 +1681,19 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, top: 8.0),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, top: 8.0),
                       child: Icon(Icons.more_vert_outlined),
                     ),
                   ],
                 ),
 
                 if (yourlivesscreenscontroller.isBargainEnabled) ...[
-                  Row(
+                  const Row(
                     children: [
                       Icon(Icons.priority_high, color: Colors.green),
                       Flexible(
-                        child: const Text(
+                        child: Text(
                           "Optional and if added, is applicable to all the products",
                           style: TextStyle(
                             color: Color(0xFF697282),
@@ -1655,9 +1712,9 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                       color: const Color.fromARGB(255, 233, 234, 235),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
+                      children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1732,9 +1789,9 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                         ),
                       ),
                       AppSizedBox.width10,
-                      Text(
+                      const Text(
                         'Apply this settings to all Products',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFF354152),
                           fontSize: 14,
                           fontFamily: 'Plus Jakarta Sans',

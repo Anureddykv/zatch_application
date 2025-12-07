@@ -1,4 +1,8 @@
+import 'dart:developer';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
@@ -15,13 +19,13 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           borderRadius: BorderRadius.only(bottomLeft: Radius.circular(25)),
         ),
         child: Column(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(25),
                 bottomRight: Radius.circular(25),
               ),
@@ -44,10 +48,10 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                         children: [
                           GestureDetector(
                             onTap: () {},
-                            child: CircleAvatar(
+                            child: const CircleAvatar(
                               backgroundColor: AppColors.contentColorWhite,
                               child: Padding(
-                                padding: const EdgeInsets.only(left: 12.0),
+                                padding: EdgeInsets.only(left: 12.0),
                                 child: Icon(
                                   Icons.arrow_back_ios,
                                   color: AppColors.contentColorBlack,
@@ -55,7 +59,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                               ),
                             ),
                           ),
-                          Text(
+                          const Text(
                             "Your Live's ",
                             style: TextStyle(
                               color: Colors.white,
@@ -63,7 +67,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                             ),
                           ),
 
-                          Icon(
+                          const Icon(
                             Icons.notifications_none,
                             size: 28,
                             color: AppColors.contentColorWhite,
@@ -102,7 +106,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
+                                          const Text(
                                             "Performance Summary",
                                             style: TextStyle(
                                               color: Colors.white,
@@ -133,11 +137,10 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                   BuildContext context,
                                                 ) {
                                                   return [
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            18.0,
-                                                          ),
+                                                    const Padding(
+                                                      padding: EdgeInsets.all(
+                                                        18.0,
+                                                      ),
                                                       child: Text(
                                                         "This Week",
                                                         style: TextStyle(
@@ -145,11 +148,10 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                         ),
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            18.0,
-                                                          ),
+                                                    const Padding(
+                                                      padding: EdgeInsets.all(
+                                                        18.0,
+                                                      ),
                                                       child: Text(
                                                         "Last 15 Days",
                                                         style: TextStyle(
@@ -157,11 +159,10 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                         ),
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            18.0,
-                                                          ),
+                                                    const Padding(
+                                                      padding: EdgeInsets.all(
+                                                        18.0,
+                                                      ),
                                                       child: Text(
                                                         "Last Month",
                                                         style: TextStyle(
@@ -222,7 +223,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                               children: [
                                                 buildStatItem(
                                                   icon: Icons.visibility,
-                                                  color: Color(0xFFCCF656),
+                                                  color: const Color(0xFFCCF656),
                                                   value:
                                                       summary.views.toString(),
                                                   label: "views",
@@ -231,7 +232,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 ),
                                                 buildStatItem(
                                                   icon: Icons.currency_rupee,
-                                                  color: Color(0xFFCCF656),
+                                                  color: const Color(0xFFCCF656),
                                                   value: summary.revenue,
                                                   label: "Revenue",
                                                   percentText:
@@ -239,7 +240,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 ),
                                                 buildStatItem(
                                                   icon: Icons.drag_indicator,
-                                                  color: Color(0xFFCCF656),
+                                                  color: const Color(0xFFCCF656),
                                                   value: summary.avgEngagement,
                                                   label: "AvgEngagement",
                                                   percentText:
@@ -269,7 +270,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                 // height: 200,
                                 // width: 300,
                                 decoration: BoxDecoration(
-                                  color: Color(0xFFCCF656).withOpacity(0.4),
+                                  color: const Color(0xFFCCF656).withOpacity(0.4),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
                                     // color: Colors.white.withOpacity(0.3),
@@ -639,6 +640,48 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget buildStatItem({
+    required IconData? icon,
+    required Color color,
+    required String value,
+    required String label,
+    required String percentText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: color,
+            child: Icon(icon, color: Colors.black, size: 18),
+          ),
+          const SizedBox(height: 15),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            percentText,
+            style: const TextStyle(color: Color(0xFFCCF656), fontSize: 10),
+          ),
+        ],
       ),
     );
   }

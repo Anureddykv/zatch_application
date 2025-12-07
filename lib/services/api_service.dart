@@ -15,6 +15,7 @@ import 'package:zatch_app/model/bit_details.dart';
 import 'package:zatch_app/model/follow_response.dart';
 import 'package:zatch_app/model/live_comment.dart';
 import 'package:zatch_app/model/live_session_res.dart';
+import 'package:zatch_app/model/livesummarymodel.dart';
 import 'package:zatch_app/model/product_response.dart';
 import 'package:zatch_app/model/register_req.dart';
 import 'package:zatch_app/model/register_response_model.dart';
@@ -41,41 +42,45 @@ class ApiService {
 
   ApiService._internal() {
     // Add interceptor for 401
-    _dio.interceptors.add(InterceptorsWrapper(
-      onError: (e, handler) async {
-        if (e.response?.statusCode == 401) {
-          // Unauthorized → force logout
-          _token = null;
-          _dio.options.headers.remove("Authorization");
-          await LocalStorage.clearToken();
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (e, handler) async {
+          if (e.response?.statusCode == 401) {
+            // Unauthorized → force logout
+            _token = null;
+            _dio.options.headers.remove("Authorization");
+            await LocalStorage.clearToken();
 
-          // Navigate to login page if possible
-          if (navigatorKey.currentState != null) {
-            Navigator.pushNamedAndRemoveUntil(
-              navigatorKey.currentState!.context,
-              '/login',
-                  (route) => false,
-            );
+            // Navigate to login page if possible
+            if (navigatorKey.currentState != null) {
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentState!.context,
+                '/login',
+                (route) => false,
+              );
+            }
           }
-        }
-        handler.next(e);
-      },
-    ));
+          handler.next(e);
+        },
+      ),
+    );
   }
 
   static const String baseUrl = "https://zatch-e9ye.onrender.com/api/v1";
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
-    headers: {"Content-Type": "application/json"},
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 40),
-    sendTimeout: const Duration(seconds: 15),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      headers: {"Content-Type": "application/json"},
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 40),
+      sendTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   String? _token;
 
   static final GlobalKey<NavigatorState> navigatorKey =
-  GlobalKey<NavigatorState>();
+      GlobalKey<NavigatorState>();
 
   /// Initialize service: load token from storage if available
   Future<void> init() async {
@@ -123,7 +128,7 @@ class ApiService {
       Navigator.pushNamedAndRemoveUntil(
         navigatorKey.currentState!.context,
         '/login',
-            (route) => false,
+        (route) => false,
       );
     }
   }
@@ -179,7 +184,9 @@ class ApiService {
   Future<RegisterResponse> registerUser(RegisterRequest request) async {
     try {
       final response = await _dio.post(
-          "/user/register", data: request.toJson());
+        "/user/register",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       final registerResponse = RegisterResponse.fromJson(data);
       setToken(registerResponse.token);
@@ -206,7 +213,9 @@ class ApiService {
   Future<VerifyApiResponse> verifyOtp(VerifyOtpRequest request) async {
     try {
       final response = await _dio.post(
-          "/twilio-sms/verify-otp", data: request.toJson());
+        "/twilio-sms/verify-otp",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       return VerifyApiResponse.fromJson(data);
     } on DioException catch (e) {
@@ -218,7 +227,9 @@ class ApiService {
   Future<ResponseApi> sendOtp(SendOtpRequest request) async {
     try {
       final response = await _dio.post(
-          "/twilio-sms/send-otp", data: request.toJson());
+        "/twilio-sms/send-otp",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       return ResponseApi.fromJson(response.data);
     } on DioException catch (e) {
@@ -259,7 +270,6 @@ class ApiService {
     }
   }
 
-
   /// CATEGORIES
   Future<List<Category>> getCategories() async {
     try {
@@ -282,7 +292,9 @@ class ApiService {
       if (data is Map<String, dynamic>) {
         return LiveSessionsResponse.fromJson(data);
       } else {
-        print("Error: Expected a Map for LiveSessionsResponse but got ${data.runtimeType}");
+        print(
+          "Error: Expected a Map for LiveSessionsResponse but got ${data.runtimeType}",
+        );
         throw Exception("Invalid data format received for live sessions.");
       }
     } on DioException catch (e) {
@@ -300,13 +312,14 @@ class ApiService {
       final response = await _dio.post(joinEndpoint);
       debugPrint("Successfully joined live session $sessionId");
       return _decodeResponse(response.data);
-
     } on DioException catch (e) {
       debugPrint("joinLiveSession DioException: ${e.response?.data}");
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("Unexpected error joining live session: $e");
-      throw Exception("An unexpected error occurred while joining the session.");
+      throw Exception(
+        "An unexpected error occurred while joining the session.",
+      );
     }
   }
 
@@ -373,7 +386,9 @@ class ApiService {
   Future<Map<String, dynamic>> sendEmailOtp(String email) async {
     try {
       final response = await _dio.post(
-          "/brevo/send-email-otp", data: {"email": email});
+        "/brevo/send-email-otp",
+        data: {"email": email},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -384,7 +399,9 @@ class ApiService {
   Future<Map<String, dynamic>> verifyEmailOtp(String otp) async {
     try {
       final response = await _dio.post(
-          "/brevo/verify-email-otp", data: {"otp": otp});
+        "/brevo/verify-email-otp",
+        data: {"otp": otp},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -392,13 +409,15 @@ class ApiService {
   }
 
   /// Send OTP to phone
-  Future<Map<String, dynamic>> sendPhoneOtp(String countryCode,
-      String phoneNumber) async {
+  Future<Map<String, dynamic>> sendPhoneOtp(
+    String countryCode,
+    String phoneNumber,
+  ) async {
     try {
-      final response = await _dio.post("/twilio-sms/send-otp", data: {
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-      });
+      final response = await _dio.post(
+        "/twilio-sms/send-otp",
+        data: {"countryCode": countryCode, "phoneNumber": phoneNumber},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -406,14 +425,20 @@ class ApiService {
   }
 
   /// Verify OTP for phone
-  Future<Map<String, dynamic>> verifyPhoneOtp(String countryCode,
-      String phoneNumber, String otp) async {
+  Future<Map<String, dynamic>> verifyPhoneOtp(
+    String countryCode,
+    String phoneNumber,
+    String otp,
+  ) async {
     try {
-      final response = await _dio.post("/twilio-sms/verify-otp", data: {
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-        "otp": otp,
-      });
+      final response = await _dio.post(
+        "/twilio-sms/verify-otp",
+        data: {
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+          "otp": otp,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -421,14 +446,20 @@ class ApiService {
   }
 
   /// Send OTPs for both email and phone
-  Future<Map<String, dynamic>> sendBothOtp(String email, String countryCode,
-      String phoneNumber) async {
+  Future<Map<String, dynamic>> sendBothOtp(
+    String email,
+    String countryCode,
+    String phoneNumber,
+  ) async {
     try {
-      final response = await _dio.post("/otp/send-both", data: {
-        "email": email,
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-      });
+      final response = await _dio.post(
+        "/otp/send-both",
+        data: {
+          "email": email,
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -444,13 +475,16 @@ class ApiService {
     required String phoneOtp,
   }) async {
     try {
-      final response = await _dio.post("/otp/verify-both", data: {
-        "email": email,
-        "emailOtp": emailOtp,
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-        "phoneOtp": phoneOtp,
-      });
+      final response = await _dio.post(
+        "/otp/verify-both",
+        data: {
+          "email": email,
+          "emailOtp": emailOtp,
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+          "phoneOtp": phoneOtp,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -552,17 +586,16 @@ class ApiService {
         throw Exception(response.data["message"] ?? "Failed to fetch product");
       }
     } on DioException catch (e) {
-      final errorMessage = e.response?.data is Map &&
-          e.response?.data["message"] != null
-          ? e.response?.data["message"]
-          : e.message ?? "API Error";
+      final errorMessage =
+          e.response?.data is Map && e.response?.data["message"] != null
+              ? e.response?.data["message"]
+              : e.message ?? "API Error";
 
       throw Exception(errorMessage);
     } catch (e) {
       throw Exception("Unexpected error: $e");
     }
   }
-
 
   Future<int> likeProduct(String productId) async {
     try {
@@ -592,30 +625,29 @@ class ApiService {
     }
   }
 
-
-  Future<List<TrendingBit>> fetchTrendingBits() async {try {
-    // This endpoint returns both 'live' and 'bits' lists.
-    final response = await _dio.get("/trending/trending");
-    final Map<String, dynamic> data = response.data;
-    final List<dynamic> liveJson = data['live'] as List<dynamic>? ?? [];
-    final List<dynamic> bitsJson = data['bits'] as List<dynamic>? ?? [];
-    final List<dynamic> combinedJson = [...liveJson, ...bitsJson];
-  if (combinedJson.isNotEmpty) {
-      return combinedJson
-          .map((json) => TrendingBit.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } else {
-      return [];
+  Future<List<TrendingBit>> fetchTrendingBits() async {
+    try {
+      // This endpoint returns both 'live' and 'bits' lists.
+      final response = await _dio.get("/trending/trending");
+      final Map<String, dynamic> data = response.data;
+      final List<dynamic> liveJson = data['live'] as List<dynamic>? ?? [];
+      final List<dynamic> bitsJson = data['bits'] as List<dynamic>? ?? [];
+      final List<dynamic> combinedJson = [...liveJson, ...bitsJson];
+      if (combinedJson.isNotEmpty) {
+        return combinedJson
+            .map((json) => TrendingBit.fromJson(json as Map<String, dynamic>))
+            .toList();
+      } else {
+        return [];
+      }
+    } on DioException catch (e) {
+      debugPrint("DioException fetching trending bits: ${e.response?.data}");
+      throw Exception("Failed to fetch trending bits due to a network error.");
+    } catch (e) {
+      debugPrint("Unexpected error fetching trending bits: $e");
+      throw Exception("Failed to fetch trending bits: $e");
     }
-  } on DioException catch (e) {
-    debugPrint("DioException fetching trending bits: ${e.response?.data}");
-    throw Exception("Failed to fetch trending bits due to a network error.");
-  } catch (e) {
-    debugPrint("Unexpected error fetching trending bits: $e");
-    throw Exception("Failed to fetch trending bits: $e");
   }
-  }
-
 
   /// Get the user's search history
   Future<SearchHistoryResponse> getUserSearchHistory() async {
@@ -642,16 +674,20 @@ class ApiService {
 
   Future<SearchResult> search(String query) async {
     if (query.isEmpty) {
-      return SearchResult(success: false,
-          message: "Empty query",
-          products: [],
-          people: [],
-          all: []);
+      return SearchResult(
+        success: false,
+        message: "Empty query",
+        products: [],
+        people: [],
+        all: [],
+      );
     }
 
     try {
       final response = await _dio.get(
-          "/search/search", queryParameters: {"query": query});
+        "/search/search",
+        queryParameters: {"query": query},
+      );
       final data = _decodeResponse(response.data);
 
       print("🔹 Search API Response: $data"); // debug log
@@ -692,15 +728,8 @@ class ApiService {
     try {
       final response = await _dio.put(
         "/user/change-password",
-        data: {
-          'newPassword': newPassword,
-          'confirmPassword': confirmPassword,
-        },
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $_token',
-          },
-        ),
+        data: {'newPassword': newPassword, 'confirmPassword': confirmPassword},
+        options: Options(headers: {'Authorization': 'Bearer $_token'}),
       );
 
       // Log response for debugging
@@ -728,16 +757,14 @@ class ApiService {
       debugPrint("❌ DioException (changePassword): ${e.response?.data}");
       return {
         'success': false,
-        'message': e.response?.data is Map
-            ? e.response?.data['message'] ?? 'Password change failed'
-            : _handleError(e),
+        'message':
+            e.response?.data is Map
+                ? e.response?.data['message'] ?? 'Password change failed'
+                : _handleError(e),
       };
     } catch (e) {
       debugPrint("❌ Unexpected error (changePassword): $e");
-      return {
-        'success': false,
-        'message': 'Unexpected error: $e',
-      };
+      return {'success': false, 'message': 'Unexpected error: $e'};
     }
   }
 
@@ -753,10 +780,7 @@ class ApiService {
 
       debugPrint("Seller Registration Step $step → $body");
 
-      final response = await _dio.post(
-        "/user/seller/register",
-        data: body,
-      );
+      final response = await _dio.post("/user/seller/register", data: body);
 
       final data = _decodeResponse(response.data);
       debugPrint("Seller Registration Step $step Response: $data");
@@ -780,16 +804,16 @@ class ApiService {
       throw Exception("Error fetching terms: $e");
     }
   }
-  Future<Map<String, dynamic>> submitProductStep(Map<String, dynamic> payload) async {
+
+  Future<Map<String, dynamic>> submitProductStep(
+    Map<String, dynamic> payload,
+  ) async {
     try {
       debugPrint("🔹 Submitting Product Step ${payload['step']} -> $payload");
 
       const String productCreateUrl = "/product/create";
 
-      final response = await _dio.post(
-        productCreateUrl,
-        data: payload,
-      );
+      final response = await _dio.post(productCreateUrl, data: payload);
 
       final data = _decodeResponse(response.data);
       debugPrint("✅ Product Step ${payload['step']} Response: $data");
@@ -800,7 +824,9 @@ class ApiService {
         throw Exception(data['message'] ?? 'API returned success=false');
       }
     } on DioException catch (e) {
-      debugPrint("❌ Product Step ${payload['step']} Error: ${e.response?.data}");
+      debugPrint(
+        "❌ Product Step ${payload['step']} Error: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     }
   }
@@ -832,20 +858,23 @@ class ApiService {
     try {
       final response = await _dio.post("/bits/$bitId/toggleLike");
       final data = _decodeResponse(response.data);
-      if (data['success'] == true && data.containsKey('likeCount') && data.containsKey('message')) {
+      if (data['success'] == true &&
+          data.containsKey('likeCount') &&
+          data.containsKey('message')) {
         final int likeCount = data['likeCount'] as int;
         final String message = data['message'] as String;
-         final bool isLiked = message.toLowerCase().contains("liked");
+        final bool isLiked = message.toLowerCase().contains("liked");
 
-        debugPrint("Successfully toggled like for bit: $bitId. New count: $likeCount, isLiked: $isLiked");
-        return {
-          'likeCount': likeCount,
-          'isLiked': isLiked,
-        };
-
+        debugPrint(
+          "Successfully toggled like for bit: $bitId. New count: $likeCount, isLiked: $isLiked",
+        );
+        return {'likeCount': likeCount, 'isLiked': isLiked};
       } else {
         // If the response format is unexpected, throw an error.
-        throw Exception(data['message'] ?? 'Failed to toggle like status or invalid response format');
+        throw Exception(
+          data['message'] ??
+              'Failed to toggle like status or invalid response format',
+        );
       }
     } on DioException catch (e) {
       debugPrint("API Error toggling like for bit $bitId: ${e.response?.data}");
@@ -861,13 +890,19 @@ class ApiService {
       final response = await _dio.post("/product/$productId/like");
       final data = _decodeResponse(response.data);
       if (data['success'] == true && data.containsKey('likeCount')) {
-        debugPrint("Successfully toggled like for product: $productId. New count: ${data['likeCount']}");
+        debugPrint(
+          "Successfully toggled like for product: $productId. New count: ${data['likeCount']}",
+        );
         return data['likeCount'] as int;
       } else {
-        throw Exception(data['message'] ?? 'Failed to toggle product like status');
+        throw Exception(
+          data['message'] ?? 'Failed to toggle product like status',
+        );
       }
     } on DioException catch (e) {
-      debugPrint("API Error toggling like for product $productId: ${e.response?.data}");
+      debugPrint(
+        "API Error toggling like for product $productId: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("Unexpected error toggling like for product $productId: $e");
@@ -887,19 +922,23 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<SaveProductResponse> toggleSaveProduct(String productId) async {
     try {
       final response = await _dio.post("/product/$productId/save");
       final data = _decodeResponse(response.data);
       return SaveProductResponse.fromJson(data);
     } on DioException catch (e) {
-      debugPrint("API Error toggling save for product $productId: ${e.response?.data}");
+      debugPrint(
+        "API Error toggling save for product $productId: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("Unexpected error toggling save for product $productId: $e");
       rethrow;
     }
   }
+
   Future<SaveBitResponse> toggleSaveBit(String bitId) async {
     try {
       final response = await _dio.post("/bits/$bitId/save");
@@ -913,14 +952,12 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<Comment> addCommentToBit(String bitId, String text) async {
     final String commentEndpoint = "/bits/$bitId/comments";
 
     try {
-      final response = await _dio.post(
-        commentEndpoint,
-        data: {'text': text},
-      );
+      final response = await _dio.post(commentEndpoint, data: {'text': text});
 
       final data = _decodeResponse(response.data);
 
@@ -943,10 +980,13 @@ class ApiService {
       final response = await _dio.get(detailsEndpoint);
       final decodedData = _decodeResponse(response.data);
 
-      if (decodedData is Map<String, dynamic> && decodedData['success'] == true) {
+      if (decodedData is Map<String, dynamic> &&
+          decodedData['success'] == true) {
         return decodedData;
       } else {
-        throw Exception(decodedData['message'] ?? "Failed to get live session details.");
+        throw Exception(
+          decodedData['message'] ?? "Failed to get live session details.",
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -954,8 +994,14 @@ class ApiService {
       throw Exception("Error fetching session details: $e");
     }
   }
-  Future<List<LiveComment>> getLiveSessionComments(String sessionId, {int limit = 20, int offset = 0}) async {
-    final String commentsEndpoint = "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
+
+  Future<List<LiveComment>> getLiveSessionComments(
+    String sessionId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final String commentsEndpoint =
+        "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
     try {
       final response = await _dio.get(commentsEndpoint);
       final data = _decodeResponse(response.data);
@@ -973,13 +1019,10 @@ class ApiService {
   }
 
   Future<LiveComment> postLiveComment(String sessionId, String text) async {
-     final String commentEndpoint = "/live/session/$sessionId/comment";
+    final String commentEndpoint = "/live/session/$sessionId/comment";
 
     try {
-      final response = await _dio.post(
-        commentEndpoint,
-        data: {'text': text},
-      );
+      final response = await _dio.post(commentEndpoint, data: {'text': text});
 
       final data = _decodeResponse(response.data);
 
@@ -1036,6 +1079,7 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<UpdatedCartModel?> updateCartItem({
     required String productId,
     required int quantity,
@@ -1067,4 +1111,22 @@ class ApiService {
     }
   }
 
+  //seller
+
+  Future<LiveSummaryModel> getLiveSummary(String timeFilter) async {
+    try {
+      final response = await _dio.get(
+        "/live/dashboard",
+        queryParameters: {"timeFilter": timeFilter},
+      );
+
+      final data = _decodeResponse(response.data);
+
+      final liveSummary = LiveSummaryModel.fromJson(data);
+
+      return liveSummary;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
 }
