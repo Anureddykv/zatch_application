@@ -1,8 +1,7 @@
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:zatch_app/view/profile/profile_screen.dart';
 import '../controller/follower_controller.dart';
-import '../view/sellers/see_all_followers_screen.dart'; // Import the model for type safety
+import '../view/sellers/see_all_followers_screen.dart';
 
 class FollowersWidget extends StatefulWidget {
   const FollowersWidget({super.key});
@@ -40,44 +39,30 @@ class _FollowersWidgetState extends State<FollowersWidget> {
   }
 
   Future<void> _handleToggleFollow(String userId, String username) async {
-    setState(() {}); // Optimistically update UI to show loading
+    setState(() {}); // Optimistically update UI
 
     try {
       await _controller.toggleFollow(userId);
-      final user = _controller.followers.firstWhere((u) => u.id == userId);
-      if (mounted) {
-       /* Flushbar(
-          title: user.isFollowing ? "Followed" : "Unfollowed",
-          message:
-          "${user.isFollowing ? "You are now following" : "You have unfollowed"} $username",
-          duration: const Duration(seconds: 3),
-          backgroundColor: Colors.green,
-          margin: const EdgeInsets.all(8),
-          borderRadius: BorderRadius.circular(8),
-          icon: const Icon(Icons.check_circle_outline, size: 28.0, color: Colors.white),
-          flushbarPosition: FlushbarPosition.TOP,
-        ).show(context);*/
-      }
+      // Logic to show Flushbar if needed remains here
     } catch (e) {
-      if (mounted) {
-      }
+      debugPrint("Error toggling follow: $e");
     } finally {
       if (mounted) {
-        setState(() {}); // Rebuild to remove loading spinner
+        setState(() {});
       }
     }
   }
 
   @override
   void dispose() {
-    // It's good practice to dispose of controllers if they have listeners.
-    // _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      // Matches the vertical padding implicitly from the height,
+      // but kept flexible for the parent view.
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +82,7 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => SeeAllFollowersScreen(
-                          followers: _controller.followers, // Pass the full list
+                          followers: _controller.followers,
                         ),
                       ),
                     );
@@ -122,19 +107,21 @@ class _FollowersWidgetState extends State<FollowersWidget> {
   Widget _buildSellerList() {
     // Loading State
     if (_controller.isLoading && _controller.followers.isEmpty) {
-      return const SizedBox(height: 190, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(
+          height: 130, child: Center(child: CircularProgressIndicator()));
     }
 
     // Error State
     if (_controller.errorMessage != null && _controller.followers.isEmpty) {
       return SizedBox(
-        height: 190,
+        height: 130,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text('Error: ${_controller.errorMessage}',
-                  style: TextStyle(color: Colors.red[700]), textAlign: TextAlign.center),
+                  style: TextStyle(color: Colors.red[700]),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 10),
               ElevatedButton(onPressed: _fetchData, child: const Text('Retry'))
             ],
@@ -145,81 +132,155 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
     // Empty State
     if (!_controller.isLoading && _controller.followers.isEmpty) {
-      return const SizedBox(height: 190, child: Center(child: Text('No sellers found to explore.')));
+      return const SizedBox(
+          height: 130,
+          child: Center(child: Text('No sellers found to explore.')));
     }
 
-    // Data State
+    // Data State - Adjusted height to match Figma design (approx 114 - 130px safe area)
     return SizedBox(
-      height: 190,
+      height: 140,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _controller.followers.length > 5 ? 5 : _controller.followers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        // Limit to 5 items for "Explore", show more in "See All"
+        itemCount: _controller.followers.length > 5
+            ? 5
+            : _controller.followers.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
           final user = _controller.followers[index];
-          final String imageUrl = (user.profilePic.url?.isNotEmpty ?? false)
-              ? user.profilePic.url!
-              : (user.profileImageUrl?.isNotEmpty ?? false)
-              ? user.profileImageUrl!
-              : 'https://placehold.co/80x80/E0E0E0/B0B0B0?text=${user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : "S"}';
 
-          return GestureDetector(onTap: (){
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(userId: user.id),
-              ),
-            );
-          },
+          // Check if we have a valid image URL
+          final String? imageUrl = (user.profilePic.url?.isNotEmpty ?? false)
+              ? user.profilePic.url
+              : (user.profileImageUrl?.isNotEmpty ?? false)
+              ? user.profileImageUrl
+              : null;
+
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProfileScreen(userId: user.id),
+                ),
+              );
+            },
             child: Column(
-              key: ValueKey(user.id),
               mainAxisSize: MainAxisSize.min,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(40),
-                  child: Image.network(
-                    imageUrl,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, __) => Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                          color: Colors.grey[300], borderRadius: BorderRadius.circular(40)),
-                      child: Icon(Icons.person_outline, color: Colors.grey[600], size: 40),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: _controller.isButtonLoading(user.id)
-                      ? null
-                      : () => _handleToggleFollow(user.id, user.displayName),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: user.isFollowing ? Colors.white : const Color(0xFFB7DF4B),
-                    foregroundColor: Colors.black,
-                    shape: const StadiumBorder(),
-                    side: const BorderSide(color: Color(0xFFB7DF4B), width: 1.5),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    elevation: 0,
-                    fixedSize: const Size(100, 32),
-                  ),
-                  child: _controller.isButtonLoading(user.id)
-                      ? const SizedBox(
-                      width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(user.isFollowing ? 'Following' : 'Follow',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(height: 8),
+                // This Stack replicates the Profile Image + Floating Button design
                 SizedBox(
-                  width: 90,
+                  width: 86, // Slightly wider to accommodate button overflow if needed
+                  height: 96, // Height to hold image (83) + button overhang
+                  child: Stack(
+                    children: [
+                      // Profile Image
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          width: 85.44,
+                          height: 83,
+                          decoration: ShapeDecoration(
+                            color: Colors.grey[300], // Fallback color if no image
+                            image: imageUrl != null
+                                ? DecorationImage(
+                              image: NetworkImage(imageUrl),
+                              fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {
+                                // Error handling is internal to image provider,
+                                // but the container color acts as the visual fallback
+                              },
+                            )
+                                : null,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          // Only show initial if no image is available
+                          child: imageUrl == null
+                              ? Center(
+                            child: Text(
+                              user.displayName.isNotEmpty
+                                  ? user.displayName[0].toUpperCase()
+                                  : "S",
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                              : null,
+                        ),
+                      ),
+                      // Follow/Following Button
+                      Positioned(
+                        bottom: 0, // Aligns bottom of button
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: InkWell(
+                            onTap: _controller.isButtonLoading(user.id)
+                                ? null
+                                : () => _handleToggleFollow(
+                                user.id, user.displayName),
+                            borderRadius: BorderRadius.circular(48),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4),
+                              decoration: ShapeDecoration(
+                                color: user.isFollowing
+                                    ? Colors.white
+                                    : const Color(0xFFA2DC00),
+                                shape: RoundedRectangleBorder(
+                                  side: user.isFollowing
+                                      ? const BorderSide(
+                                      width: 1, color: Color(0xFFA2DC00))
+                                      : BorderSide.none,
+                                  borderRadius: BorderRadius.circular(48),
+                                ),
+                              ),
+                              child: _controller.isButtonLoading(user.id)
+                                  ? const SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 1.5))
+                                  : Text(
+                                user.isFollowing ? 'Following' : 'Follow',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontFamily: 'Encode Sans',
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.50,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Name Text
+                SizedBox(
+                  width: 85,
                   child: Text(
                     user.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                    textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w400, // Adjust weight based on preference
+                    ),
                   ),
                 ),
               ],

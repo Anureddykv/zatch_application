@@ -1,4 +1,6 @@
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/carts_model.dart';
@@ -9,8 +11,7 @@ import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/profile/profile_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
-import 'cart_screen.dart';
-import 'package:agora_uikit/agora_uikit.dart';
+
 
 class LiveStreamScreen extends StatefulWidget {
   final LiveStreamController controller;
@@ -23,7 +24,7 @@ class LiveStreamScreen extends StatefulWidget {
 }
 
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
-  late final AgoraClient _agoraClient;
+  late RtcEngine _engine;
   bool showComments = false;
   bool _isLoading = true;
   final TextEditingController _commentController = TextEditingController();
@@ -31,8 +32,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   int likeCount = 0;
   Map<String, dynamic>? _sessionDetails;
   List<LiveComment> _comments = [];
-  late PageController _pageController;
-  int _currentPage = 0; // To track the currently featured product
+  int _currentPage = 0;
+  int? _remoteUid;
 
   String _formatNumber(int number) {
     if (number < 1000) {
@@ -45,85 +46,98 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
     _commentController.dispose();
+    _leaveChannel();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(
-      viewportFraction: 0.85, // Shows a bit of the next/prev items
-      initialPage: _currentPage,
-    );
-
-    _pageController.addListener(() {
-      final newPage = _pageController.page?.round();
-      if (newPage != null && newPage != _currentPage) {
-        setState(() {
-          _currentPage = newPage;
-        });
-      }
-    });
-
     _initializeStream();
   }
 
   Future<void> _initializeStream() async {
-    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       final sessionId = widget.controller.session?.id;
-      if (sessionId == null || sessionId.isEmpty) {
-        throw Exception("Session ID is missing. Cannot load stream.");
-      }
+      if (sessionId == null || sessionId.isEmpty) throw "Missing sessionId";
+
       final results = await Future.wait([
         ApiService().getLiveSessionDetails(sessionId),
         ApiService().getLiveSessionComments(sessionId, limit: 20),
         ApiService().joinLiveSession(sessionId),
       ]);
-      final details = results[0] as Map<String, dynamic>;
-      final comments = results[1] as List<LiveComment>;
-      final joinResponse = results[2] as Map<String, dynamic>;
-      debugPrint("✅ Join session response: $joinResponse");
-      final sessionData = joinResponse['session'];
 
-      _agoraClient = AgoraClient(
-        agoraConnectionData: AgoraConnectionData(
-          appId: sessionData['appId'],
-          channelName: sessionData['channelName'],
-          tempToken: sessionData['token'],
-          username: widget.username, // or some user identifier
+      if (results[0] is Map<String, dynamic>) {
+        _sessionDetails = results[0] as Map<String, dynamic>;
+
+        if (_sessionDetails != null && _sessionDetails!.containsKey('products')) {
+          final productListData = _sessionDetails!['products'] as List<dynamic>;
+          final List<Product> sessionProducts = productListData
+              .map((json) => Product.fromJson(json))
+              .toList();
+          widget.controller.products.clear();
+          widget.controller.products.addAll(sessionProducts);
+        }
+
+        if (_sessionDetails != null) {
+          isLiked = _sessionDetails!['isLiked'] ?? false;
+          likeCount = _sessionDetails!['likeCount'] ?? 0;
+        }
+      }
+
+      _comments = results[1] as List<LiveComment>;
+
+      final joinResponse = results[2] as Map<String, dynamic>;
+      final sessionData = joinResponse["session"];
+
+      await [Permission.camera, Permission.microphone].request();
+
+      _engine = createAgoraRtcEngine();
+      await _engine.initialize(
+        RtcEngineContext(
+          appId: sessionData["appId"],
+          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
         ),
       );
-      await _agoraClient.initialize();
-      if (mounted) {
-        setState(() {
-          _sessionDetails = details;
-          _comments = comments;
-          _isLoading = false;
-          likeCount = details['likeCount'] as int? ?? 0;
-          isLiked = details['isLiked'] as bool? ?? false;
-        });
-      }
+
+      _engine.registerEventHandler(
+        RtcEngineEventHandler(
+          onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+            debugPrint("Local user ${connection.localUid} joined");
+          },
+          onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+            debugPrint("Remote user $remoteUid joined");
+            setState(() => _remoteUid = remoteUid);
+          },
+          onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+            debugPrint("Remote user $remoteUid left channel");
+            setState(() => _remoteUid = null);
+          },
+        ),
+      );
+
+      await _engine.enableVideo();
+      await _engine.joinChannel(
+        token: sessionData["token"],
+        channelId: sessionData["channelName"],
+        uid: sessionData["uid"],
+        options: const ChannelMediaOptions(
+          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+          clientRoleType: ClientRoleType.clientRoleAudience,
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: true,
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint("Failed to initialize stream: $e");
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Could not load stream. It may have ended."),
-            backgroundColor: Colors.red,
-          ),
-        );
-        /* Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        });*/
-      }
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      debugPrint("Agora initialization failed: $e");
     }
   }
 
@@ -147,9 +161,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
       if (mounted) {
         _commentController.text = originalText;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Couldn't post comment. Please try again."),
-          ),
+          const SnackBar(content: Text("Couldn't post comment. Please try again.")),
         );
       }
       debugPrint("Failed to post comment: $e");
@@ -157,7 +169,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   }
 
   Future<void> _toggleLike() async {
-    final sessionId = widget.controller.sessionDetails?.id;
+    final sessionId = widget.controller.session?.id;
     if (sessionId == null) return;
 
     setState(() {
@@ -166,11 +178,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
     });
 
     try {
-      final response = await ApiService().toggleLike(sessionId);
+      final response = await ApiService().toggleLiveSessionLike(sessionId);
       if (mounted) {
         setState(() {
           likeCount = response['likeCount'];
-          isLiked = response['isLiked'];
+          isLiked = response['hasLiked'] ?? response['isLiked'] ?? false;
         });
       }
     } catch (e) {
@@ -179,13 +191,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
           isLiked = !isLiked;
           likeCount += isLiked ? 1 : -1;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Couldn't update like status. Please try again."),
-          ),
-        );
       }
-      debugPrint("Failed to toggle like: $e");
     }
   }
 
@@ -202,14 +208,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
     final session = widget.controller.session;
     final hostName = session?.host?.username ?? "Host";
-    final rating = session?.host?.rating ?? "0";
+    final rating = session?.host?.rating ?? "5.0";
     final viewersCount = _sessionDetails?['viewersCount'] as int? ?? 0;
-    final hostProfilePic =
-        _sessionDetails?['host']?['profilePicUrl'] ??
+    final viewer = _sessionDetails?['views'] as int? ?? 0;
+    final hostProfilePic = _sessionDetails?['host']?['profilePicUrl'] ??
         session?.host?.profilePicUrl ??
         "https://placehold.co/100x100?text=H";
-    final backgroundUrl =
-        _sessionDetails?['thumbnail'] ??
+    final backgroundUrl = _sessionDetails?['thumbnail'] ??
         session?.host?.profilePicUrl ??
         "https://placehold.co/428x926/333/FFF?text=Live";
     final likeIcon = isLiked ? Icons.favorite : Icons.favorite_border;
@@ -246,13 +251,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
   // Helper to group background and host info widgets
   Widget _buildBackgroundAndHostInfo(
-    String backgroundUrl,
-    String hostProfilePic,
-    String hostName,
-    String rating,
-    int viewersCount,
-    String? hostId,
-  ) {
+      String backgroundUrl,
+      String hostProfilePic,
+      String hostName,
+      String rating,
+      int viewersCount,
+      String? hostId,
+      ) {
     return Stack(
       children: [
         Positioned.fill(
@@ -331,6 +336,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(20),
                 ),
+
                 child: Row(
                   children: [
                     const Icon(Icons.visibility, color: Colors.white, size: 16),
@@ -357,7 +363,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   Widget _buildSidebar(IconData likeIcon, int likeCount, int commentCount) {
     return Positioned(
       right: 15,
-      bottom: 250,
+      bottom: 180, // Adjusted to sit above product card
       child: Column(
         children: [
           _SidebarItem(
@@ -386,19 +392,19 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
     );
   }
 
+
   Widget _buildProductAndChatUI() {
     final controller = widget.controller;
-    // Get the currently featured product based on the PageView's active page
-    final featuredProduct = controller.products[_currentPage];
+    final products = controller.products;
 
     return Stack(
       children: [
-        // ... The chat bubble ListView remains the same
+        // 1. Chat Bubbles (Floating above product)
         Positioned(
           left: 20,
-          right: 80,
-          bottom: 250,
-          height: 120,
+          bottom: 260,
+          right: 100, // Leave space for sidebar
+          height: 150,
           child: IgnorePointer(
             child: ListView.builder(
               reverse: true,
@@ -417,105 +423,152 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
             ),
           ),
         ),
+
+        // 2. "Product" Label and "View All"
         Positioned(
           left: 20,
           right: 20,
-          bottom: 200,
+          bottom: 190,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Product",
-                style: TextStyle(color: Colors.white, fontSize: 13),
+                'Product',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               GestureDetector(
                 onTap: () => _showCatalogueBottomSheet(context),
                 child: const Text(
-                  "View all",
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  'View all',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        // --- REPLACED ListView with PageView ---
+
+        // 3. Product Card (Horizontal Scroll)
         Positioned(
           left: 0,
           right: 0,
-          bottom: 110,
+          bottom: 100,
           height: 80,
-          child: PageView.builder(
-            // Use PageView for better control
-            controller: _pageController,
-            itemCount: controller.products.length,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: products.length,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             itemBuilder: (context, index) {
-              final product = controller.products[index];
-              final productImage =
-                  product.images.isNotEmpty
-                      ? product.images.first.url
-                      : "https://placehold.co/100x100/222/FFF?text=P";
+              final product = products[index];
+              final bool hasValidImage = product.images.isNotEmpty &&
+                  product.images.first.url.isNotEmpty;
+              final String productImage = hasValidImage
+                  ? product.images.first.url
+                  : "https://placehold.co/95x118";
+
               return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8.0,
-                ), // Adjust padding
+                padding: EdgeInsets.only(right: index == products.length - 1 ? 0 : 12),
                 child: GestureDetector(
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => ProductDetailScreen(productId: product.id),
-                        ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(productId: product.id),
                       ),
+                    );
+                  },
+                  // Matches the Container styling from your design
                   child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(16),
+                    width: MediaQuery.of(context).size.width * 0.85,
+                    height: 80,
+                    padding: const EdgeInsets.all(10), // Padding for inner content
+                    decoration: ShapeDecoration(
+                      color: Colors.white.withOpacity(0.20),
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(
+                          width: 1,
+                          strokeAlign: BorderSide.strokeAlignOutside,
+                          color: Colors.white.withOpacity(0.30),
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                        // Product Image
+                        Container(
+                          width: 54,
+                          height: 54,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: ShapeDecoration(
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(
+                                width: 1,
+                                color: Colors.white.withOpacity(0.30),
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
                           child: Image.network(
                             productImage,
-                            width: 54,
-                            height: 54,
                             fit: BoxFit.cover,
+                            errorBuilder: (ctx, _, __) => Container(color: Colors.grey),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 15),
+
+                        // Texts
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 product.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                                  fontFamily: 'Encode Sans',
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(height: 4),
                               Text(
                                 product.category?.name ?? "Category",
                                 style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
+                                  color: Colors.white, // Design uses white for subtitle too
+                                  fontSize: 10,
+                                  fontFamily: 'Encode Sans',
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ],
                           ),
                         ),
+
+                        // Price
                         Text(
                           "${product.price} ₹",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
+                            fontFamily: 'Encode Sans',
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
+                        const SizedBox(width: 10),
                       ],
                     ),
                   ),
@@ -524,58 +577,55 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
             },
           ),
         ),
-        // --- CORRECTED BUTTONS ---
+
+        // 4. Action Buttons (Zatch / Buy)
         Positioned(
-          left: 20,
-          right: 20,
+          left: 30,
+          right: 30,
           bottom: 25,
           child: Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  // Use the 'featuredProduct' for the action
-                  onPressed:
-                      () => _showBuyOrZatchBottomSheet(
-                        context,
-                        featuredProduct,
-                        "zatch",
-                      ),
+                  onPressed: () => _showCatalogueBottomSheet(context),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFCCF656)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(width: 1, color: Color(0xFFCCF656)),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.transparent,
                   ),
                   child: const Text(
-                    "Zatch",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    'Zatch',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 15),
               Expanded(
-                child: ElevatedButton(
-                  // Use the 'featuredProduct' for the action
-                  onPressed:
-                      () => _showBuyOrZatchBottomSheet(
-                        context,
-                        featuredProduct,
-                        "buy",
-                      ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFCCF656),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                child: OutlinedButton(
+                  onPressed: () => _showCatalogueBottomSheet(context),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(width: 1, color: Color(0xFFCCF656)),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.transparent,
                   ),
                   child: const Text(
-                    "Buy",
+                    'Buy',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -587,22 +637,17 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
     );
   }
 
-  // --- (FIX) Corrected Full Chat UI Layout ---
   Widget _buildFullChatUI() {
-    // This widget now fills the screen and handles its own background dismissal.
     return Positioned.fill(
       child: GestureDetector(
-        onTap:
-            () =>
-                setState(() => showComments = false), // Tap background to close
+        onTap: () => setState(() => showComments = false),
         child: Container(
           color: Colors.black.withOpacity(0.3),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               GestureDetector(
-                onTap:
-                    () {}, // Prevents taps inside the chat area from closing it
+                onTap: () {}, // Prevents closing on tap inside
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.5,
                   decoration: BoxDecoration(
@@ -623,10 +668,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                     children: [
                       Expanded(
                         child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 20,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                           itemCount: _comments.length,
                           reverse: true,
                           itemBuilder: (context, index) {
@@ -644,11 +686,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                       ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
-                          12,
-                          4,
-                          12,
-                          MediaQuery.of(context).viewInsets.bottom + 10,
-                        ),
+                            12, 4, 12, MediaQuery.of(context).viewInsets.bottom + 10),
                         child: Row(
                           children: [
                             Container(
@@ -659,13 +697,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                 shape: BoxShape.circle,
                               ),
                               child: IconButton(
-                                onPressed:
-                                    () => setState(() => showComments = false),
-                                icon: const Icon(
-                                  Icons.arrow_back_ios_new,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
+                                onPressed: () => setState(() => showComments = false),
+                                icon: const Icon(Icons.arrow_back_ios_new,
+                                    color: Colors.black, size: 20),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -675,26 +709,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                  ),
+                                  border: Border.all(color: Colors.white.withOpacity(0.2)),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: TextField(
                                         controller: _commentController,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
+                                        style: const TextStyle(color: Colors.white),
                                         decoration: const InputDecoration(
                                           hintText: "Comment",
-                                          hintStyle: TextStyle(
-                                            color: Colors.white54,
-                                          ),
+                                          hintStyle: TextStyle(color: Colors.white54),
                                           border: InputBorder.none,
                                           isDense: true,
                                         ),
@@ -709,11 +735,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                           color: Color(0xFFCCFF55),
                                           shape: BoxShape.circle,
                                         ),
-                                        child: const Icon(
-                                          Icons.send,
-                                          color: Colors.black,
-                                          size: 22,
-                                        ),
+                                        child: const Icon(Icons.send,
+                                            color: Colors.black, size: 22),
                                       ),
                                     ),
                                   ],
@@ -733,7 +756,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
       ),
     );
   }
-
   Color _getColorFromString(String colorString) {
     switch (colorString.toUpperCase()) {
       case 'BLUE':
@@ -1011,48 +1033,48 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children:
-                              availableSizes.map((s) {
-                                final isSelected = selectedSize == s; // Simplified check
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap:
-                                        () =>
-                                            setState(() => selectedSize = s),
-                                    child: Container(
-                                      width: 26,
-                                      height: 26,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isSelected
-                                                ? const Color(0xFF292526)
-                                                : Colors.transparent,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: const Color(0xFFDFDEDE),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        s,
-                                        style: TextStyle(
-                                          color:
-                                              isSelected
-                                                  ? const Color(0xFFFDFDFD)
-                                                  : const Color(0xFF292526),
-                                          fontSize: 12,
-                                          fontFamily: 'Encode Sans',
-                                          fontWeight:
-                                              isSelected
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w400,
-                                        ),
-                                      ),
+                          availableSizes.map((s) {
+                            final isSelected = selectedSize == s; // Simplified check
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap:
+                                    () =>
+                                    setState(() => selectedSize = s),
+                                child: Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color:
+                                    isSelected
+                                        ? const Color(0xFF292526)
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFDFDEDE),
+                                      width: 1,
                                     ),
                                   ),
-                                );
-                              }).toList(),
+                                  child: Text(
+                                    s,
+                                    style: TextStyle(
+                                      color:
+                                      isSelected
+                                          ? const Color(0xFFFDFDFD)
+                                          : const Color(0xFF292526),
+                                      fontSize: 12,
+                                      fontFamily: 'Encode Sans',
+                                      fontWeight:
+                                      isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ],
                     ),
@@ -1075,45 +1097,45 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children:
-                                availableColors.map((c) {
-                                  final isSelected = selectedColor == c;
-                                  return GestureDetector(
-                                    onTap:
-                                        () =>
-                                            setState(() => selectedColor = c),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(right: 8),
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border:
-                                            isSelected
-                                                ? Border.all(
-                                                  color: const Color(
-                                                    0xFFAFE80C,
-                                                  ),
-                                                  width: 2,
-                                                )
-                                                : null,
+                            availableColors.map((c) {
+                              final isSelected = selectedColor == c;
+                              return GestureDetector(
+                                onTap:
+                                    () =>
+                                    setState(() => selectedColor = c),
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border:
+                                    isSelected
+                                        ? Border.all(
+                                      color: const Color(
+                                        0xFFAFE80C,
                                       ),
-                                      child: Container(
-                                        width: 22,
-                                        height: 22,
-                                        decoration: BoxDecoration(
-                                          color: c,
-                                          shape: BoxShape.circle,
-                                          border:
-                                              c == Colors.white
-                                                  ? Border.all(
-                                                    color:
-                                                        Colors.grey.shade300,
-                                                  )
-                                                  : null,
-                                        ),
-                                      ),
+                                      width: 2,
+                                    )
+                                        : null,
+                                  ),
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: c,
+                                      shape: BoxShape.circle,
+                                      border:
+                                      c == Colors.white
+                                          ? Border.all(
+                                        color:
+                                        Colors.grey.shade300,
+                                      )
+                                          : null,
                                     ),
-                                  );
-                                }).toList(),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
                       ],
@@ -1181,7 +1203,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                       ),
                     ),
                   ),
-                 /* const SizedBox(width: 12),
+                  /* const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -1213,10 +1235,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   }
 
   void _showBuyOrZatchBottomSheet(
-    BuildContext context,
-    Product product,
-    String defaultOption,
-  ) {
+      BuildContext context,
+      Product product,
+      String defaultOption,
+      ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1361,8 +1383,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                               IconButton(
                                 onPressed:
                                     () => setState(() {
-                                      if (quantity > 1) quantity--;
-                                    }),
+                                  if (quantity > 1) quantity--;
+                                }),
                                 icon: const Icon(Icons.remove_circle_outline),
                               ),
                               Text("$quantity"),
@@ -1424,8 +1446,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                   IconButton(
                                     onPressed:
                                         () => setState(() {
-                                          if (quantity > 1) quantity--;
-                                        }),
+                                      if (quantity > 1) quantity--;
+                                    }),
                                     icon: const Icon(
                                       Icons.remove_circle_outline,
                                     ),
@@ -1450,12 +1472,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                   min: 100,
                                   max: price,
                                   divisions:
-                                      (price - 100).toInt() > 0
-                                          ? (price - 100).toInt()
-                                          : 1,
+                                  (price - 100).toInt() > 0
+                                      ? (price - 100).toInt()
+                                      : 1,
                                   onChanged:
                                       (val) =>
-                                          setState(() => bargainPrice = val),
+                                      setState(() => bargainPrice = val),
                                 ),
                               ),
                               Text("${bargainPrice.toStringAsFixed(0)} ₹"),
@@ -1485,8 +1507,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                 .toList(),
                             productType: cart_model.ProductType(
                               // Mock this data, not critical for checkout
-                              hasColor: product.color != null,
-                              hasSize: product.size != null,
+                              hasColor: product.variants.any((v) => v.shade.isNotEmpty),// Check if any variant has a size
+                              hasSize: product.variants.any((v) => v.sku != null && v.sku!.isNotEmpty),
                             ),
                           );
 
@@ -1524,31 +1546,31 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                             MaterialPageRoute(
                               builder:
                                   (_) => ZatchingDetailsScreen(
-                                    zatch: Zatch(
-                                      id:
-                                          "temp_${DateTime.now().millisecondsSinceEpoch}",
-                                      name: product.name,
-                                      description:
-                                          product.category?.description ?? "",
-                                      seller:
-                                          widget
-                                              .controller
-                                              .session
-                                              ?.host
-                                              ?.username ??
-                                          "Seller",
-                                      imageUrl: product.images.first.url,
-                                      active: true,
-                                      status: "My Offer",
-                                      quotePrice:
-                                          "${bargainPrice.toStringAsFixed(0)} ₹",
-                                      sellerPrice: "",
-                                      quantity: quantity,
-                                      subTotal:
-                                          "${(bargainPrice * quantity).toStringAsFixed(0)} ₹",
-                                      date: DateTime.now().toIso8601String(),
-                                    ),
-                                  ),
+                                zatch: Zatch(
+                                  id:
+                                  "temp_${DateTime.now().millisecondsSinceEpoch}",
+                                  name: product.name,
+                                  description:
+                                  product.category?.description ?? "",
+                                  seller:
+                                  widget
+                                      .controller
+                                      .session
+                                      ?.host
+                                      ?.username ??
+                                      "Seller",
+                                  imageUrl: product.images.first.url,
+                                  active: true,
+                                  status: "My Offer",
+                                  quotePrice:
+                                  "${bargainPrice.toStringAsFixed(0)} ₹",
+                                  sellerPrice: "",
+                                  quantity: quantity,
+                                  subTotal:
+                                  "${(bargainPrice * quantity).toStringAsFixed(0)} ₹",
+                                  date: DateTime.now().toIso8601String(),
+                                ),
+                              ),
                             ),
                           );
                         }
@@ -1586,6 +1608,15 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
         );
       },
     );
+  }
+
+  Future<void> _leaveChannel() async {
+    try {
+      await _engine.leaveChannel();
+      await _engine.release();
+    } catch (e) {
+      debugPrint("Error leaving channel: $e");
+    }
   }
 }
 
@@ -1664,20 +1695,20 @@ class _ChatBubble extends StatelessWidget {
         CircleAvatar(
           radius: 14,
           backgroundImage:
-              avatarUrl != null && avatarUrl!.isNotEmpty
-                  ? NetworkImage(avatarUrl!)
-                  : null,
+          avatarUrl != null && avatarUrl!.isNotEmpty
+              ? NetworkImage(avatarUrl!)
+              : null,
           child:
-              (avatarUrl == null || avatarUrl!.isEmpty)
-                  ? Text(
-                    user.isNotEmpty ? user[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                  : null,
+          (avatarUrl == null || avatarUrl!.isEmpty)
+              ? Text(
+            user.isNotEmpty ? user[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          )
+              : null,
         ),
         const SizedBox(width: 8),
         Flexible(

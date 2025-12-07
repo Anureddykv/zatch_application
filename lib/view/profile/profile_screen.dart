@@ -15,6 +15,7 @@ import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/profile_image_viewer.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
 
+import '../../model/ExploreApiRes.dart';
 import '../../model/user_profile_response.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -560,6 +561,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               status: event.scheduledStartTime.toIso8601String(),
               viewersCount: 0,
               scheduledStartTime: event.scheduledStartTime.toIso8601String(),
+              thumbnail: Thumbnail(url: "https://picsum.photos/seed/${event.id}/200/300",publicId: ""),
             );
 
             final liveController = LiveStreamController(session: session);

@@ -323,8 +323,7 @@ class _SearchScreenState extends State<SearchScreen>
             "Explore",
             exploreBits,
             onSeeAll: () {
-              _searchController.text =
-              " "; // Use space to trigger search mode
+              _searchController.text = " ";
               _performSearch(" ");
               _tabController.index = 3;
             },
@@ -439,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen>
                 children: [
                   Image.network(
                     // Use the bit's thumbnail URL if it exists, otherwise a placeholder
-                    bit.thumbnail.publicId ?? "https://placehold.co/300x500",
+                    bit.thumbnail.url ?? "https://placehold.co/300x500",
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       color: Colors.grey.shade300,

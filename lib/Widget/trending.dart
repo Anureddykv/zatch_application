@@ -1,7 +1,5 @@
-// C:/Users/anureddy.kv/Downloads/zatch_app-main/zatch_app-main/lib/Widget/trending.dart
 
 import 'package:flutter/material.dart';
-// Import the staggered grid view package
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/TrendingBit.dart';
@@ -10,7 +8,7 @@ import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
 import 'package:zatch_app/view/reel/AllTrendingScreen.dart';
-
+import 'package:zatch_app/model/ExploreApiRes.dart';
 class TrendingSection extends StatefulWidget {
   const TrendingSection({super.key});
 
@@ -180,6 +178,9 @@ class _TrendingCardState extends State<TrendingCard> {
     return GestureDetector(
       onTap: () {
         if (widget.bit.isLive) {
+          final thumbnailObj = Thumbnail.fromJson({
+            'url': widget.bit.thumbnailUrl
+          });
           final liveSession = Session(
             id: widget.bit.id,
             title: widget.bit.title,
@@ -190,7 +191,7 @@ class _TrendingCardState extends State<TrendingCard> {
             status: "live",
             viewersCount: widget.bit.viewCount,
             channelName: '',
-            thumbnail: widget.bit.thumbnailUrl,
+            thumbnail: thumbnailObj,
           );
           // Assuming you have a LiveStreamScreen to navigate to
           // If not, this might be LiveDetailsScreen

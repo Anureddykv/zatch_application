@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:zatch_app/Widget/bargain_picks_widget.dart';
-import 'package:zatch_app/Widget/top_picks_this_week_widget.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:zatch_app/Widget/bargain_picks_widget.dart';import 'package:zatch_app/Widget/top_picks_this_week_widget.dart';
 import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/model/carts_model.dart';
-// Make sure you import your real Comment model. It's inside product_response.dart
 import 'package:zatch_app/model/product_response.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/cart_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
-import 'package:intl/intl.dart'; // Import for date formatting
+import 'package:intl/intl.dart';
 
 import '../setting_view/profile_screen.dart';
 
@@ -80,7 +79,6 @@ class AllReviewsScreen extends StatelessWidget {
   }
 }
 
-// CORRECTED: AllCommentsScreen now uses the real `Comment` model
 class AllCommentsScreen extends StatelessWidget {
   final List<Comment> comments;
   const AllCommentsScreen({super.key, required this.comments});
@@ -101,9 +99,6 @@ class AllCommentsScreen extends StatelessWidget {
   }
 }
 
-// REMOVED: The placeholder `Comments` class is no longer needed.
-// Your real `Comment` model is used instead.
-
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
 
@@ -122,6 +117,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   final TextEditingController _commentController = TextEditingController();
   int _selectedSizeIndex = -1;
   int _selectedColorIndex = -1;
+  int _selectedVariantIndex = -1;
   final ApiService _apiService = ApiService();
 
   final ScrollController _scrollController = ScrollController();
@@ -133,9 +129,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   List<Product> similarProducts = [];
   bool _showAllCommunity = false;
   bool _showAllReviews = false;
-
-  // REMOVED: Mock comment generation is no longer needed.
-  // We will use `product.comments` from the API response.
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -151,6 +145,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     _commentController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+  Future<void> _refreshUserProfile() async {
+    try {
+      final profile = await _apiService.getUserProfile();
+      if (mounted) {
+        setState(() {
+          userProfile = profile;
+        });
+      }
+    } catch (e) {
+      print("Error refreshing profile: $e");
+    }
   }
 
   Future<void> _loadProductDetails() async {
@@ -251,9 +257,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  // ... (All other _build methods like _buildSliverAppBar, _buildTitlePriceAndRating, etc., remain the same)
-  // ... (I'm omitting them for brevity, but you should keep them in your file)
-
   Widget _buildCircleIcon(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -270,12 +273,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  bool _isSaving = false;
-
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 450.0,
-      pinned: true,
+      expandedHeight: 450.0,pinned: true,
       elevation: 0,
       stretch: true,
       backgroundColor: Colors.white,
@@ -302,75 +302,168 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
           )
         else
-          _buildCircleIcon(Icons.bookmark_border, () async {
-            if (_isSaving) return;
-            setState(() {
-              _isSaving = true;
-            });
 
+          _buildCircleIcon(
+              (userProfile != null && _isProductSaved(userProfile!, widget.productId))
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+
+                  () async {
+                if (_isSaving) return;
+                setState(() {
+                  _isSaving = true;
+                });
+
+                try {
+                  await _apiService.toggleSaveProduct(widget.productId);
+
+                  await _refreshUserProfile();
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Wishlist updated!")),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Error: $e")),
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isSaving = false;
+                    });
+                  }
+                }
+              }
+          ),
+        const SizedBox(width: 8),
+        _buildCircleIcon(Icons.add_shopping_cart_outlined, () async {
+          if (product.variants.isNotEmpty && _selectedVariantIndex == -1) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please select a color/size first"),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Adding to cart..."),
+              duration: Duration(seconds: 1),
+            ),
+          );
+
+          try {
+            String? finalColor;
+            String? finalSize;
+
+            if (_selectedVariantIndex != -1) {
+              finalColor = product.variants[_selectedVariantIndex].shade;
+              finalSize = product.variants[_selectedVariantIndex].sku;
+            }
+            print("🚀 SENDING ADD TO CART REQUEST:");
+            print("Product ID: ${widget.productId}");
+            print("Quantity: 1");
+            print("Color: $finalColor");
+            print("Size: $finalSize");
+            await _apiService.updateCartItem(
+              productId: widget.productId,
+              quantity: 1,
+              color: finalColor,
+
+            );
             try {
-              await _apiService.toggleSaveProduct(widget.productId);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Successfully added to Saved Items!"),
-                  ),
-                );
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfileScreen(userProfile),
-                  ),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Error: Failed to save item. $e")),
-                );
-              }
-            } finally {
+              final updatedProfile = await _apiService.getUserProfile();
               if (mounted) {
                 setState(() {
-                  _isSaving = false;
+                  userProfile = updatedProfile;
                 });
               }
+            } catch (e) {
+              print("Failed to refresh profile: $e");
+              // We don't stop execution here because the cart item was added successfully
             }
-          }),
-        const SizedBox(width: 8),
-        _buildCircleIcon(Icons.add_shopping_cart_outlined, () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => CartScreen()),
-          );
+
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Successfully added to Cart!"),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CartScreen()),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString()),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
         }),
         const SizedBox(width: 16),
       ],
       flexibleSpace: FlexibleSpaceBar(
-        background: ClipRRect(
-          child: product.images.isNotEmpty
-              ? GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => FullScreenImageViewer(
-                    imageUrl: product.images.first.url,
+        background: Stack(
+          children: [
+            // 1. The Carousel PageView
+            product.images.isNotEmpty
+                ? PageView.builder(
+              controller: _pageController,
+              itemCount: product.images.length,
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenImageViewer(
+                          imageUrl: product.images[index].url,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Image.network(
+                    product.images[index].url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                    const Center(child: Icon(Icons.error)),
+                  ),
+                );
+              },
+            )
+                : Container(
+              color: Colors.grey[200],
+              child: const Center(child: Icon(Icons.image_not_supported)),
+            ),
+
+            // 2. The Dots Indicator (Only show if more than 1 image)
+            if (product.images.length > 1)
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SmoothPageIndicator(
+                    controller: _pageController,
+                    count: product.images.length,
                   ),
                 ),
-              );
-            },
-            child: Image.network(
-              product.images.first.url,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.error),
-            ),
-          )
-              : Container(
-            color: Colors.grey[200],
-            child: const Icon(Icons.image_not_supported),
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -462,16 +555,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
+  // === UPDATED TO USE CLASS VARIABLES ===
   Widget _buildSizeSelector() {
-    final List<String> sizes = ["XS", "S", "M", "L", "XL", "XXL"];
-    if (_selectedSizeIndex == -1 && product.size != null) {
-      final initialIndex = sizes.indexWhere(
-            (s) => s.toLowerCase() == product.size!.toLowerCase(),
-      );
-      if (initialIndex != -1) {
-        _selectedSizeIndex = initialIndex;
-      }
-    }
+    final variantsWithSizes = product.variants
+        .where((v) => v.sku != null && v.sku!.isNotEmpty)
+        .toList();
+
+    if (variantsWithSizes.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,28 +574,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: List.generate(sizes.length, (index) {
-            final isSelected = _selectedSizeIndex == index;
+          children: List.generate(variantsWithSizes.length, (index) {
+            final variant = variantsWithSizes[index];
+            // Match global index
+            final originalIndex = product.variants.indexOf(variant);
+            final isSelected = _selectedVariantIndex == originalIndex;
+
             return GestureDetector(
-              onTap: () => setState(() => _selectedSizeIndex = index),
+              onTap: () =>
+                  setState(() => _selectedVariantIndex = originalIndex),
               child: Container(
-                width: 33,
-                height: 33,
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color:
                   isSelected ? const Color(0xFF292526) : Colors.transparent,
                   border: Border.all(color: const Color(0xFFDFDEDE)),
                   borderRadius: BorderRadius.circular(32),
                 ),
-                child: Center(
-                  child: Text(
-                    sizes[index],
-                    style: TextStyle(
-                      color:
-                      isSelected ? Colors.white : const Color(0xFF292526),
-                      fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w400,
-                    ),
+                child: Text(
+                  variant.sku!,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF292526),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),
               ),
@@ -516,72 +607,65 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
+  // Updated: Shows text names (e.g. "Ruby Red") inside chips
   Widget _buildColorSelector() {
-    final Map<String, Color> colorMap = {
-      "Grey": const Color(0xFF787676),
-      "Dark Grey": const Color(0xFF433F40),
-      "Red": const Color(0xFFFF7979),
-      "Orange": const Color(0xFFFFB979),
-      "Green": const Color(0xFFB7FF79),
-      "Sky Blue": const Color(0xFF79E6FF),
-      "Blue": const Color(0xFF798BFF),
-      "Purple": const Color(0xFFA579FF),
-      "Pink": const Color(0xFFFF79F1),
-      "Dark Red": const Color(0xFFE10E12),
-    };
-    final List<String> colorNames = colorMap.keys.toList();
-    final List<Color> colors = colorMap.values.toList();
-    if (_selectedColorIndex == -1 && product.color != null) {
-      final initialIndex = colorNames.indexWhere(
-            (c) => c.toLowerCase() == product.color!.toLowerCase(),
-      );
-      if (initialIndex != -1) {
-        _selectedColorIndex = initialIndex;
-      }
-    }
+    // Filter variants that have a shade
+    final variantsWithColor =
+    product.variants.where((v) => v.shade.isNotEmpty).toList();
+
+    if (variantsWithColor.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Color',
+          'Choose Color / Shade',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(colors.length, (index) {
-              final isSelected = _selectedColorIndex == index;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedColorIndex = index),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                      isSelected
-                          ? const Color(0xFF433F40)
-                          : Colors.transparent,
-                      width: 2,
-                    ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: List.generate(variantsWithColor.length, (index) {
+            final variant = variantsWithColor[index];
+
+            // Find the global index of this variant to set selection
+            final originalIndex = product.variants.indexOf(variant);
+            final isSelected = _selectedVariantIndex == originalIndex;
+
+            return GestureDetector(
+              onTap: () =>
+                  setState(() => _selectedVariantIndex = originalIndex),
+              child: Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  // Highlight selected item
+                  color: isSelected ? const Color(0xFF292526) : Colors.white,
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF292526)
+                        : const Color(0xFFDFDEDE),
                   ),
-                  child: CircleAvatar(
-                    radius: 13,
-                    backgroundColor: colors[index],
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Text(
+                  variant.shade, // Shows "Ruby Red", "Pink Blush" directly
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF292526),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                    fontSize: 14,
                   ),
                 ),
-              );
-            }),
-          ),
+              ),
+            );
+          }),
         ),
       ],
     );
   }
 
-  // CORRECTED: _buildInfoTabs now uses `product.comments`
+
   Widget _buildInfoTabs() {
     return Column(
       children: [
@@ -609,7 +693,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             indicatorSize: TabBarIndicatorSize.tab,
             tabs: [
               const Tab(text: 'Basic Info'),
-              // Use real comment count from the product object
               Tab(text: 'Comments (${product.comments?.length ?? 0})'),
               Tab(text: 'Reviews (${product.reviews.length})'),
             ],
@@ -644,23 +727,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(product.info1.toString()),
+          Text(product.description.toString()),
           const SizedBox(height: 16),
           const Text(
             "Additional Information",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(product.info2.toString()),
+          Text(product.description.toString()),
         ],
       ),
     );
   }
 
-
-  // CORRECTED: _buildCommunityTab now uses live data from `product.comments`
   Widget _buildCommunityTab() {
-    final comments = product.comments ?? []; // Ensure comments list is not null
+    final comments = product.comments ?? [];
     if (comments.isEmpty) {
       return const Center(
         child: Padding(
@@ -1033,19 +1114,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                final Map<String, Color> colorMap = {
-                  "Grey": const Color(0xFF787676),
-                  "Dark Grey": const Color(0xFF433F40),
-                  "Red": const Color(0xFFFF7979),
-                  "Orange": const Color(0xFFFFB979),
-                  "Green": const Color(0xFFB7FF79),
-                  "Sky Blue": const Color(0xFF79E6FF),
-                  "Blue": const Color(0xFF798BFF),
-                  "Purple": const Color(0xFFA579FF),
-                  "Pink": const Color(0xFFFF79F1),
-                  "Dark Red": const Color(0xFFE10E12),
-                };
-                final List<String> colorNames = colorMap.keys.toList();
+                if (product.variants.isNotEmpty &&
+                    _selectedVariantIndex == -1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please select a color/size")),
+                  );
+                  return;
+                }
+
+                String? selectedShade;
+                String? selectedSize;
+
+                if (_selectedVariantIndex != -1) {
+                  selectedShade = product.variants[_selectedVariantIndex].shade;
+                  selectedSize =  product.variants[_selectedVariantIndex].sku;
+                }
                 final productForCart = cart_model.ProductModel(
                   id: product.id,
                   name: product.name,
@@ -1056,31 +1139,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       id: img.id, publicId: img.publicId, url: img.url))
                       .toList(),
                   productType: cart_model.ProductType(
-                    // Mock this data as it's not critical for checkout
-                    hasColor: product.color != null,
-                    hasSize: product.size != null,
+                    hasColor: product.variants[_selectedVariantIndex].shade != null,
+                    hasSize:  product.variants[_selectedVariantIndex].sku!= null,
                   ),
                 );
 
-                // 2. Create the cart_model.CartItemModel to pass to the next screen
                 final itemToPurchase = cart_model.CartItemModel(
-                  id: "temp_${product.id}", // Use a temporary ID
-                  qty: 1, // Default quantity for "Buy Now"
+                  id: "temp_${product.id}",
+                  qty: 1,
                   product: productForCart,
                   variant: cart_model.VariantModel(
-                    // Pass selected color/size if available
-                    color: _selectedColorIndex != -1
-                        ? colorNames[_selectedColorIndex]
-                        : null,
+                    color: selectedShade,
                   ),
                 );
 
                 final List<cart_model.CartItemModel> itemsForCheckout = [itemToPurchase];
-                final double totalPrice = product.price; // Use displayPrice getter
-                const double shippingFee = 10.0; // Example shipping fee
+                final double totalPrice = product.price;
+                const double shippingFee = 10.0;
                 final double subTotalPrice = totalPrice + shippingFee;
 
-                // 3. Navigate with the correctly typed list
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1093,11 +1170,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     ),
                   ),
                 );
-                // --- CORRECTION ENDS HERE ---
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: const Color(0xFF249B3E), // Make it a solid button
+                backgroundColor: const Color(0xFF249B3E),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1105,13 +1181,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ),
               child: const Text(
                 'Buy Now',
-                style: TextStyle(color: Colors.white, fontSize: 16), // White text for solid button
+                style: TextStyle(color: Colors.white, fontSize: 16),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  bool _isProductSaved(UserProfileResponse profile, String productId) {
+    return false;
   }
 }
 class FullScreenImageViewer extends StatelessWidget {
@@ -1153,7 +1233,7 @@ class FullScreenImageViewer extends StatelessWidget {
 }
 
 class CommentWidget extends StatefulWidget {
-  final Comment comment; // Use real Comment model
+  final Comment comment;
   const CommentWidget({super.key, required this.comment});
 
   @override
@@ -1255,7 +1335,6 @@ class _CommentWidgetState extends State<CommentWidget> {
     final avatarUrl = user?.profilePic.url ?? '';
     final hasAvatar = avatarUrl.isNotEmpty;
 
-    // Format creation time
     final timeAgo =
         '${DateTime.now().difference(widget.comment.createdAt).inHours}h';
 
@@ -1358,6 +1437,48 @@ class _CommentWidgetState extends State<CommentWidget> {
             ),
           ),
       ],
+    );
+  }
+}
+class SmoothPageIndicator extends StatelessWidget {
+  final PageController controller;
+  final int count;
+
+  const SmoothPageIndicator({
+    super.key,
+    required this.controller,
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        // Calculate current page safely
+        int currentPage = 0;
+        if (controller.hasClients && controller.page != null) {
+          currentPage = controller.page!.round();
+        }
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(count, (index) {
+            bool isSelected = index == currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isSelected ? 20 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.black : Colors.black.withOpacity(
+                    0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

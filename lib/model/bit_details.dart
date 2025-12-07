@@ -23,7 +23,7 @@ class BitDetailsResponse {
         success: json["success"] ?? false,
         message: json["message"] ?? "",
         // The 'bits' key contains a single object, so we pass it to BitDetails.fromJson
-        bit: BitDetails.fromJson(json["bits"] ?? {}),
+        bit: BitDetails.fromJson(json["bitsDetails"] ?? {}),
       );
 }
 
@@ -42,6 +42,8 @@ class BitDetails {
   final int viewCount;
   final int shareCount;
   final int saveCount;
+  final bool isSaved;
+  final UploadedBy uploadedBy;
   final String shareLink;
   final DateTime createdAt;
   final List<Comment> comments;
@@ -63,6 +65,8 @@ class BitDetails {
     required this.shareLink,
     required this.createdAt,
     required this.comments,
+    required this.uploadedBy,
+    required this.isSaved,
   });
 
   factory BitDetails.fromJson(Map<String, dynamic> json) {
@@ -91,11 +95,34 @@ class BitDetails {
       // ✅ 3. Parse the new field from JSON with a safe default
       saveCount: json['saveCount'] as int? ?? 0,
       shareLink: json['shareLink'] as String? ?? '',
+      isSaved: json['isSaved'] ?? false,
+      uploadedBy: UploadedBy.fromJson(json['uploadedBy'] ?? {}),
       createdAt:
       DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       comments: commentsList
           .map((c) => Comment.fromJson(c as Map<String, dynamic>))
           .toList(),
+    );
+  }
+}
+class UploadedBy {
+  final String id;
+  final String username;
+  final ProfilePic profilePic;
+  final String followerCount;
+
+  UploadedBy({
+    required this.id,
+    required this.username,
+    required this.profilePic,
+    this.followerCount = "0",
+  });
+  factory UploadedBy.fromJson(Map<String, dynamic> json) {
+    return UploadedBy(
+      id: json['_id'] ?? '',
+      username: json['username'] ?? 'Unknown',
+      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
+      followerCount: (json['followerCount'] ?? 0).toString(),
     );
   }
 }

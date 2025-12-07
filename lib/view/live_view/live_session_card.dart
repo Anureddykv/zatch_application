@@ -22,9 +22,7 @@ class LiveSessionCard extends StatelessWidget {
     final String sessionTopic = liveSession.title ?? "General";
     final String hostAvatarUrl = liveSession.host?.profilePicUrl ??
         'https://placehold.co/40x40/777777/ffffff?text=${hostName.isNotEmpty ? hostName[0].toUpperCase() : 'L'}';
-    final String sessionBackgroundUrl = liveSession.host?.profilePicUrl ??
-        'https://placehold.co/131x158/cccccc/999999?text=${Uri.encodeComponent(sessionTopic)}';
-
+    final String sessionBackgroundUrl = liveSession.thumbnail.url;
     return GestureDetector(
       onTap: () {
         final liveController = LiveStreamController(session: liveSession);

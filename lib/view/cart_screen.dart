@@ -3,9 +3,8 @@ import 'package:zatch_app/model/CartApiResponse.dart';
 import 'package:zatch_app/model/carts_model.dart'; // Keep for Zatch model if it's there
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
+import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'zatching_details_screen.dart';
-
-// The local CartItem class is no longer needed as we'll use CartItemModel from the API.
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -19,12 +18,9 @@ class _CartScreenState extends State<CartScreen>
   late TabController _tabController;
   final ApiService _apiService = ApiService();
 
-  // State variables for API data
   late Future<CartModel?> _cartFuture;
   CartModel? _cart;
-  final Map<String, bool> _selectedItems = {}; // To manage checkbox state locally
-
-  // ⏱ Zatches mock data (can be replaced with API call later)
+  final Map<String, bool> _selectedItems = {};
   List<Zatch> zatches = [
     Zatch(
       id: "1",
@@ -69,7 +65,6 @@ class _CartScreenState extends State<CartScreen>
     try {
       final cart = await _apiService.getCart();
       if (cart != null) {
-        // Initialize selection state for all items
         for (var item in cart.items) {
           _selectedItems.putIfAbsent(item.id, () => true);
         }
@@ -120,30 +115,34 @@ class _CartScreenState extends State<CartScreen>
     }
   }
 
-  /// Remove an item from the cart via API (by setting quantity to 0)
   Future<void> _removeCartItem(CartItemModel item) async {
     try {
-      await _apiService.updateCartItem(
-        productId: item.product.id,
-        quantity: 0, // Setting quantity to 0 removes it
-        color: item.variant.color,
-      );
-      setState(() {
-        _cart!.items.removeWhere((i) => i.id == item.id);
-        _selectedItems.remove(item.id);
-      });
-      if(mounted) {
+      await _apiService.removeCartItem(productId: item.product.id);
+      if (mounted && _cart != null) {
+        setState(() {
+          _cart!.items.removeWhere((i) => i.id == item.id);
+          _selectedItems.remove(item.id);
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("${item.product.name} removed from cart"),
-            duration: const Duration(seconds: 2),
+            content: Text("${item.product.name} removed"),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1),
           ),
         );
       }
     } catch (e) {
+      final errorMessage = e.toString().replaceAll("Exception:", "").trim();
+
+      debugPrint("Error removing item: $e");
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to remove item: ${e.toString()}")),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -162,7 +161,9 @@ class _CartScreenState extends State<CartScreen>
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Are you sure?'),
-          content: const Text('Do you want to remove this product from the cart?'),
+          content: const Text(
+            'Do you want to remove this product from the cart?',
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -235,18 +236,28 @@ class _CartScreenState extends State<CartScreen>
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
-        if (!snapshot.hasData || snapshot.data == null || snapshot.data!.items.isEmpty) {
+        if (!snapshot.hasData ||
+            snapshot.data == null ||
+            snapshot.data!.items.isEmpty) {
           return const Center(
-            child: Text("Your cart is empty.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+            child: Text(
+              "Your cart is empty.",
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
           );
         }
 
-        // Use the cart data from the state
         final cartItems = _cart?.items ?? [];
 
-        final selectedCartItems = cartItems.where((item) => _selectedItems[item.id] ?? false).toList();
+        final selectedCartItems =
+            cartItems
+                .where((item) => _selectedItems[item.id] ?? false)
+                .toList();
         int selectedItemsCount = selectedCartItems.length;
-        double itemsTotalPriceValue = selectedCartItems.fold(0, (sum, i) => sum + (i.product.price * i.qty));
+        double itemsTotalPriceValue = selectedCartItems.fold(
+          0,
+          (sum, i) => sum + (i.product.price * i.qty),
+        );
         double shippingFeeValue = selectedItemsCount > 0 ? 10.0 : 0.0;
         double subTotalPriceValue = itemsTotalPriceValue + shippingFeeValue;
 
@@ -261,27 +272,52 @@ class _CartScreenState extends State<CartScreen>
                   key: Key(item.id),
                   direction: DismissDirection.endToStart,
                   onDismissed: (direction) => _removeCartItem(item),
-                  confirmDismiss: (direction) => _showRemoveItemDialog(item).then((_) => false), // Let dialog handle removal
+                  confirmDismiss:
+                      (direction) => _showRemoveItemDialog(
+                        item,
+                      ).then((_) => false), // Let dialog handle removal
                   background: Container(
                     margin: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(14)),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   child: GestureDetector(
-                    onTap: (){
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: item.product.id)));
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => ProductDetailScreen(
+                                productId: item.product.id,
+                              ),
+                        ),
+                      );
                     },
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4, offset: const Offset(0, 2))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade300,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                        ),
                         leading: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -289,7 +325,11 @@ class _CartScreenState extends State<CartScreen>
                               value: _selectedItems[item.id] ?? true,
                               shape: const CircleBorder(),
                               activeColor: const Color(0xFFB7DF4B),
-                              onChanged: (val) => setState(() => _selectedItems[item.id] = val ?? false),
+                              onChanged:
+                                  (val) => setState(
+                                    () =>
+                                        _selectedItems[item.id] = val ?? false,
+                                  ),
                             ),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
@@ -298,21 +338,49 @@ class _CartScreenState extends State<CartScreen>
                                 width: 48,
                                 height: 48,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                errorBuilder:
+                                    (context, error, stackTrace) =>
+                                        const Icon(Icons.error),
                               ),
                             ),
                           ],
                         ),
                         title: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min, // Add this
                           children: [
-                            Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Flexible(
+                              // Wrap Text in Flexible
+                              child: Text(
+                                item.product.name,
+                                maxLines: 1, // Limit lines
+                                overflow:
+                                    TextOverflow
+                                        .ellipsis, // Add dots if too long
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
                             if (item.variant.color != null)
-                              Text("Color: ${item.variant.color}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text(
+                                "Color: ${item.variant.color}",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             const SizedBox(height: 4),
-                            Text("${item.product.price.toStringAsFixed(2)}₹", style: const TextStyle(fontWeight: FontWeight.w500)),
+                            Text(
+                              "${item.product.price.toStringAsFixed(2)}₹",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
+
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -328,12 +396,18 @@ class _CartScreenState extends State<CartScreen>
                                 }
                               },
                             ),
-                            Text("${item.qty}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              "${item.qty}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline),
                               color: Colors.grey,
                               iconSize: 20,
-                              onPressed: () => _updateCartItem(item, item.qty + 1),
+                              onPressed:
+                                  () => _updateCartItem(item, item.qty + 1),
                             ),
                           ],
                         ),
@@ -353,8 +427,17 @@ class _CartScreenState extends State<CartScreen>
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(20.0), topRight: Radius.circular(20.0)),
-                  boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black26, offset: Offset(0, -2))],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20.0),
+                    topRight: Radius.circular(20.0),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 8,
+                      color: Colors.black26,
+                      offset: Offset(0, -2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -368,13 +451,25 @@ class _CartScreenState extends State<CartScreen>
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [const Text("Shipping Fee"), Text("${shippingFeeValue.toStringAsFixed(2)}₹")],
+                      children: [
+                        const Text("Shipping Fee"),
+                        Text("${shippingFeeValue.toStringAsFixed(2)}₹"),
+                      ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Sub Total", style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text("${subTotalPriceValue.toStringAsFixed(2)}₹", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Text(
+                          "Sub Total",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          "${subTotalPriceValue.toStringAsFixed(2)}₹",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -382,15 +477,35 @@ class _CartScreenState extends State<CartScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFB7DF4B),
                         minimumSize: const Size.fromHeight(45),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      onPressed: selectedItemsCount > 0
-                          ? () {
-                        // TODO: Re-implement checkout navigation with API models
-                        // Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutOrPaymentsScreen(...)));
-                      }
-                          : null,
-                      child: const Text("Pay", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                      onPressed:
+                          selectedItemsCount > 0
+                              ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => CheckoutOrPaymentsScreen(
+                                          isCheckout: true,
+                                          selectedItems: selectedCartItems,
+                                          itemsTotalPrice: itemsTotalPriceValue,
+                                          shippingFee: shippingFeeValue,
+                                          subTotalPrice: subTotalPriceValue,
+                                        ),
+                                  ),
+                                );
+                              }
+                              : null,
+                      child: const Text(
+                        "Pay",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -408,11 +523,17 @@ class _CartScreenState extends State<CartScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text("Active Zatches", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text(
+          "Active Zatches",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         for (final zatch in zatches.where((z) => z.active)) _zatchItem(zatch),
         const SizedBox(height: 20),
-        const Text("Expired", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text(
+          "Expired",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         for (final zatch in zatches.where((z) => !z.active)) _zatchItem(zatch),
       ],
@@ -422,23 +543,36 @@ class _CartScreenState extends State<CartScreen>
   Widget _zatchItem(Zatch zatch) {
     return InkWell(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ZatchingDetailsScreen(zatch: zatch)));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ZatchingDetailsScreen(zatch: zatch),
+          ),
+        );
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
+          color:
+              zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: zatch.active ? Colors.green.shade200 : Colors.grey.shade300),
+          border: Border.all(
+            color: zatch.active ? Colors.green.shade200 : Colors.grey.shade300,
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(zatch.imageUrl, width: 60, height: 60, fit: BoxFit.cover),
+              child: Image.network(
+                zatch.imageUrl,
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -449,25 +583,67 @@ class _CartScreenState extends State<CartScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(zatch.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(zatch.date, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      Text(
+                        zatch.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        zatch.date,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
-                  Text("Sold by: ${zatch.seller}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    "Sold by: ${zatch.seller}",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                   const SizedBox(height: 4),
-                  Text(zatch.status, style: TextStyle(fontWeight: FontWeight.bold, color: zatch.active ? Colors.green : Colors.orange)),
+                  Text(
+                    zatch.status,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: zatch.active ? Colors.green : Colors.orange,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Expanded(child: Text("Quote Price: ${zatch.quotePrice}", style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          "Quote Price: ${zatch.quotePrice}",
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       if (zatch.sellerPrice.isNotEmpty)
-                        Expanded(child: Text("Seller Price: ${zatch.sellerPrice}", style: TextStyle(fontSize: 12, color: zatch.active ? Colors.red : Colors.grey[700], fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            "Seller Price: ${zatch.sellerPrice}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  zatch.active ? Colors.red : Colors.grey[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                     ],
                   ),
                   if (zatch.expiresIn != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(zatch.expiresIn!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.red)),
+                      child: Text(
+                        zatch.expiresIn!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red,
+                        ),
+                      ),
                     ),
                 ],
               ),

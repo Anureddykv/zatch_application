@@ -76,12 +76,15 @@ class _ReelDetailsScreenState extends State<ReelDetailsScreen>
     if (text.isEmpty) {
       return;
     }
+    const currentUserId = "CurrentUser";
+
     final optimisticCommentId = DateTime.now().millisecondsSinceEpoch.toString();
     FocusScope.of(context).unfocus();
     _commentController.clear();
+
     final optimisticComment = Comment(
       id: optimisticCommentId,
-      userId: "temp_user", // A temporary user ID
+      userId: currentUserId, // A temporary user ID
       text: text,
       createdAt: DateTime.now(),
     );
@@ -123,7 +126,7 @@ if (mounted) {
           _bitDetails = bitDetails;
           likeCount = bitDetails.likeCount;
           isLiked = bitDetails.likeCount > 0;
-          isSaved = bitDetails.saveCount > 0;
+          isSaved = bitDetails.isSaved;
           _comments.clear();
           _comments.addAll(bitDetails.comments);
            });
@@ -168,8 +171,6 @@ if (mounted) {
   }
 
 
-// In _ReelDetailsScreenState class
-
   Future<void> _toggleSave() async {
     final previousState = isSaved;
     setState(() {
@@ -179,11 +180,7 @@ if (mounted) {
     try {
       final response = await ApiService().toggleSaveBit(widget.bitId);
       final serverState = response.isSaved;
-
-      // ✅ PRINT THE RESPONSE
-      // Assuming your response model has a toJson() method or a readable toString()
-      print("Save Toggled: Server responded with: ${response.toJson()}"); // Or response.toString()
-
+   print("Save Toggled: Server responded with: ${response.toJson()}");
       if (mounted && isSaved != serverState) {
         setState(() {
           isSaved = serverState;
@@ -221,6 +218,12 @@ if (mounted) {
   @override
   Widget build(BuildContext context) {
     final products = _bitDetails?.products ?? [];
+    final uploadedBy = _bitDetails?.uploadedBy;
+    final username = uploadedBy?.username ?? "Unknown User";
+    final profilePicUrl = uploadedBy?.profilePic.url;
+    final userId = uploadedBy?.id ?? "";
+    final viewCount = _bitDetails?.viewCount ?? 0;
+
 
     if (_isLoading) {
       return const Scaffold(
@@ -248,13 +251,10 @@ if (mounted) {
     }
 
     return Scaffold(
-      // ✅ FIX: Use resizeToAvoidBottomInset: false to prevent the UI from resizing when the keyboard appears.
-      // The comments section will handle the adjustment itself.
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ... (Video Player, Gradient, Mute Icon, Top Bar, and Sidebar are unchanged)
           Positioned.fill(
             child: GestureDetector(
               onTap: _toggleMute,
@@ -326,11 +326,17 @@ if (mounted) {
                         width: 2,
                       ),
                     ),
-                    // In the main build() method's top bar
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(_bitDetails?.thumbnail.url ?? "..."),
-                    ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey,
+                backgroundImage: (profilePicUrl != null && profilePicUrl.isNotEmpty)
+                    ? NetworkImage(profilePicUrl)
+                    : null,
+                child: (profilePicUrl == null || profilePicUrl.isEmpty)
+                    ? Text(username.isNotEmpty ? username[0].toUpperCase() : "U", style: const TextStyle(color: Colors.white))
+                    : null,
+              ),
+
 
                   ),
                   const SizedBox(width: 12),
@@ -338,7 +344,7 @@ if (mounted) {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _bitDetails?.title ?? "Jemma Ray",
+                      username?? "Jemma Ray",
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -414,9 +420,6 @@ if (mounted) {
               ],
             ),
           ),
-
-          // ✅ RENDER EITHER PRODUCT/BUTTONS OR THE COMMENT SECTION
-          // This removes the overlap and ensures only one is visible.
           if (!showComments)
             _buildProductAndActionUI(products)
           else
@@ -434,9 +437,9 @@ if (mounted) {
     return Stack(
       children: [
         Positioned(
-          left: 30,
-          right: 30,
-          bottom: MediaQuery.of(context).padding.bottom + 180,
+          left: 20,
+          right: 20,
+          bottom: MediaQuery.of(context).padding.bottom + 190,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -474,7 +477,7 @@ if (mounted) {
         Positioned(
           left: 0,
           right: 0,
-          bottom: MediaQuery.of(context).padding.bottom + 85,
+          bottom: MediaQuery.of(context).padding.bottom + 100,
           height: 80,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -500,7 +503,7 @@ if (mounted) {
                     );
                   },
                   child: Container(
-                    width: MediaQuery.of(context).size.width * 0.85,
+                    width: MediaQuery.of(context).size.width * 0.89,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.20),
@@ -644,9 +647,7 @@ if (mounted) {
         alignment: Alignment.bottomCenter,
         child: Container(
           color: Colors.transparent,
-          // ✅ FIX: Changed from a percentage to a more compact, fixed height
-          // to match the design.
-          height: 380, // Previously: MediaQuery.of(context).size.height * 0.55
+           height: 380, // Previously: MediaQuery.of(context).size.height * 0.55
           width: double.infinity,
           child: Column(
             children: [
@@ -670,10 +671,12 @@ if (mounted) {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                     itemCount: _comments.length,
                     itemBuilder: (context, index) {
-                      final comment = _comments[index];
-                      // Use a temporary username format until you have real user data
-                      final String username = "User ${comment.userId.substring(comment.userId.length - 4)}";
-                      final userColor = _getUserColor(username);
+                      final comment = _comments[index];                      String shortId = "";
+                      String displayUsername = "User";
+                      if (comment.user != null && comment.user!.username.isNotEmpty) {
+                        displayUsername = comment.user!.username;
+                      }
+                      final userColor = _getUserColor(displayUsername);
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
@@ -684,7 +687,7 @@ if (mounted) {
                               radius: 22,
                               backgroundColor: userColor.withOpacity(0.8),
                               child: Text(
-                                username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                                displayUsername.isNotEmpty ? displayUsername[0].toUpperCase() : 'U',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -698,7 +701,7 @@ if (mounted) {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    username,
+                                    displayUsername,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
@@ -1514,9 +1517,10 @@ if (mounted) {
                               id: img.id, publicId: img.publicId, url: img.url))
                               .toList(),
                           productType: cart_model.ProductType(
-                            hasColor: product.color != null,
-                            hasSize: product.size != null,
+                            hasColor: product.variants.any((v) => v.shade.isNotEmpty),
+                            hasSize: product.variants.any((v) => v.sku.isNotEmpty),
                           ),
+
                         );
 
 

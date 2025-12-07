@@ -8,20 +8,39 @@ class SeeAllTopPicksScreen extends StatelessWidget {
 
   const SeeAllTopPicksScreen({super.key, required this.products});
 
-  String formatPrice(num price) =>
-      NumberFormat.currency(locale: 'en_US', symbol: "\$").format(price);
-  String formatSold(num sold) => NumberFormat.decimalPattern().format(sold);
+  String formatPrice(num? price) => NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: "\₹",
+    decimalDigits: 0,
+  ).format(price ?? 0);
+
+  String formatSold(num? sold) =>
+      NumberFormat.decimalPattern().format(sold ?? 0);
+
+  // Helper to calculate discount percentage
+  String? getDiscountPercentage(num? originalPrice, num? discountedPrice) {
+    if (originalPrice == null ||
+        discountedPrice == null ||
+        originalPrice == 0 ||
+        discountedPrice >= originalPrice) {
+      return null;
+    }
+    final double discount =
+        ((originalPrice - discountedPrice) / originalPrice) * 100;
+    return '${discount.round()}%';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[100], // Or Colors.white depending on preference
       appBar: AppBar(
         title: const Text('Top Picks This Week'),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        elevation: 1,
+        elevation: 0, // Flat style often looks better with modern UI
+        surfaceTintColor: Colors.transparent,
       ),
       body: products.isEmpty
           ? const Center(
@@ -36,22 +55,39 @@ class SeeAllTopPicksScreen extends StatelessWidget {
           itemCount: products.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 159 / 266, // Aspect ratio from the reference card
+            mainAxisSpacing: 12, // Matched spacing
+            crossAxisSpacing: 12, // Matched spacing
+            childAspectRatio: 159 / 280, // Adjusted ratio to prevent overflow
           ),
           itemBuilder: (context, index) {
             final product = products[index];
-            // Using category image URL as in the reference widget
-            final imgUrl = product.category?.image?.url ??
-                "https://via.placeholder.com/159x177";
+
+            // 1. Image Logic: prioritize product images
+            final imgUrl = product.images.isNotEmpty
+                ? product.images.first.url
+                : product.category?.image?.url ??
+                "https://placehold.co/159x177?text=No+Image";
+
+            // 2. Rating Logic
+            final String rating = "5.0";
+
+            // 3. Discount Logic
+            final String? discountPercent = getDiscountPercentage(
+                product.price, product.discountedPrice);
+
+            // 4. Display Price Logic
+            final num displayPrice = product.discountedPrice != null &&
+                product.discountedPrice! < (product.price ?? 0)
+                ? product.discountedPrice!
+                : product.price ?? 0;
 
             return GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ProductDetailScreen(productId: product.id),
+                    builder: (_) =>
+                        ProductDetailScreen(productId: product.id),
                   ),
                 );
               },
@@ -68,113 +104,143 @@ class SeeAllTopPicksScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Product Image - using Expanded to fill available space
-                        Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              image: DecorationImage(
-                                image: NetworkImage(imgUrl),
-                                fit: BoxFit.contain,
-                              ),
+                        // Image Area
+                        Container(
+                          width: double.infinity,
+                          height: 170, // Fixed height like the horizontal widget
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: NetworkImage(imgUrl),
+                              fit: BoxFit.cover, // Changed to cover for better look
+                              onError: (e, s) {},
                             ),
                           ),
                         ),
+
                         // Details Section
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.category?.name ?? "No Category",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF272727),
-                                  fontSize: 12,
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    formatPrice(product.price),
-                                    style: const TextStyle(
-                                      color: Color(0xFF272727),
-                                      fontSize: 12,
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Title
+                                Text(
+                                  product.name ?? "No Name",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF272727),
+                                    fontSize: 12,
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.5,
                                   ),
-                                  Row(
-                                    children: const [
-                                      Icon(Icons.star,
-                                          size: 14, color: Colors.amber),
-                                      SizedBox(width: 2),
-                                      Text(
-                                        '5.0', // Assuming a static value
-                                        style: TextStyle(
-                                          color: Colors.black,
+                                ),
+                                const SizedBox(height: 4),
+
+                                // Price & Rating Row
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        formatPrice(displayPrice),
+                                        style: const TextStyle(
+                                          color: Color(0xFF272727),
                                           fontSize: 12,
-                                          fontFamily: 'Encode Sans',
-                                          fontWeight: FontWeight.w400,
+                                          fontFamily: 'Plus Jakarta Sans',
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                width: double.infinity,
-                                height: 1,
-                                color: const Color(0xFFDDDDDD),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${formatSold(product.stock ?? 0)} sold this week',
-                                style: const TextStyle(
-                                  color: Color(0xFF249B3E),
-                                  fontSize: 12,
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontWeight: FontWeight.w600,
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.star,
+                                            size: 14, color: Colors.amber),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          rating,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontFamily: 'Encode Sans',
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.50,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+
+                                // Divider
+                                Container(
+                                  width: double.infinity,
+                                  height: 1,
+                                  color: const Color(0xFFDDDDDD),
+                                ),
+                                const SizedBox(height: 6),
+
+                                // Sold Count
+                                Text(
+                                  '${formatSold(product.totalStock)} sold this week',
+                                  style: const TextStyle(
+                                    color: Color(0xFF249B3E),
+                                    fontSize: 10,
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.50,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
+
                     // Discount Badge
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFBBF711),
-                          borderRadius: BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomLeft: Radius.circular(12),
+                    if (discountPercent != null)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          width: 42,
+                          height: 43.65,
+                          decoration: const ShapeDecoration(
+                            color: Color(0xFFBBF711),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(8),
+                                bottomLeft: Radius.circular(16),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Text(
-                          '56% OFF', // Assuming a static value
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 10,
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontWeight: FontWeight.w800,
+                          child: Center(
+                            child: SizedBox(
+                              width: 35,
+                              child: Text(
+                                '$discountPercent\nOFF',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 9,
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),

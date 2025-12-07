@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/Widget/bargain_picks_widget.dart';
-import 'package:zatch_app/view/reel_player_screen.dart'; // Correct import for ReelPlayer
+import 'package:zatch_app/view/reel_player_screen.dart';
 import 'package:zatch_app/model/ExploreApiRes.dart';
 
 class SeeAllBargainPicksScreen extends StatelessWidget {
@@ -13,10 +13,6 @@ class SeeAllBargainPicksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Card dimensions can be calculated or fixed
-    const double cardImageWidth = 160.0;
-    const double cardImageHeight = 220.0;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -28,48 +24,62 @@ class SeeAllBargainPicksScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
-        elevation: 1,
+        elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16.0),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // Two cards per row
-          crossAxisSpacing: 12.0, // Horizontal space between cards
-          mainAxisSpacing: 12.0, // Vertical space between cards
-          childAspectRatio: 0.65, // Adjust this ratio to fit your design
-        ),
-        itemCount: picks.length,
-        itemBuilder: (context, index) {
-          final pick = picks[index];
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate responsive Item Width
+          // (Total Width - (Padding Left + Padding Right + Spacing)) / 2
+          final double itemWidth = (constraints.maxWidth - (16 + 16 + 12)) / 2;
 
-          return InkWell(
-            onTap: () {
-               final List<String> allReelIds = picks.map((p) => p.id).toList();
+          // Calculate Aspect Ratio:
+          // We want the height to be (Width * 1.5) roughly.
+          // This ensures the card is taller than it is wide.
+          final double itemHeight = itemWidth * 1.5;
+          final double aspectRatio = itemWidth / itemHeight;
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ReelPlayerScreen(
-                    bitIds: allReelIds,
-                    initialIndex: index,
-                  ),
+          return GridView.builder(
+            padding: const EdgeInsets.all(16.0),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12.0,
+              mainAxisSpacing: 12.0,
+              childAspectRatio: aspectRatio, // Dynamic ratio prevents overflow
+            ),
+            itemCount: picks.length,
+            itemBuilder: (context, index) {
+              final pick = picks[index];
+
+              return InkWell(
+                onTap: () {
+                  final List<String> allReelIds = picks.map((p) => p.id).toList();
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReelPlayerScreen(
+                        bitIds: allReelIds,
+                        initialIndex: index,
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(9),
+                child: BargainPickCard(
+                  imageUrl: pick.thumbnail.url ?? '',
+                  title: pick.title,
+                  priceInfo: "Zatch now!",
+                  // Pass null here to let the GridView control the size
+                  cardImageWidth: null,
+                  cardImageHeight: null,
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(12),
-            child: BargainPickCard(
-              imageUrl: pick.thumbnail.publicId ?? '',
-              title: pick.title,
-              priceInfo: "Zatch now!",
-              cardImageWidth: cardImageWidth,
-              cardImageHeight: cardImageHeight,
-            ),
           );
         },
       ),
     );
   }
 }
-

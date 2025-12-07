@@ -1,6 +1,7 @@
 import 'package:zatch_app/model/categories_response.dart';
 
 import 'ExploreApiRes.dart';
+// import 'ExploreApiRes.dart'; // Unused based on provided JSON, remove if not needed
 
 class ProductResponse {
   final bool success;
@@ -14,31 +15,52 @@ class ProductResponse {
   });
 
   factory ProductResponse.fromJson(Map<String, dynamic> json) {
+    List<Product> parsedProducts = [];
+
+    // Case 1: Response contains a list of products (e.g., /list)
+    if (json['products'] != null) {
+      parsedProducts = (json['products'] as List<dynamic>)
+          .map((e) => Product.fromJson(e))
+          .toList();
+    }
+    // Case 2: Response contains a single product (e.g., /details)
+    // We wrap it in a list to maintain consistency for the UI
+    else if (json['product'] != null) {
+      parsedProducts = [Product.fromJson(json['product'])];
+    }
+
     return ProductResponse(
       success: json['success'] ?? false,
       message: json['message'] ?? '',
-      products: (json['products'] as List<dynamic>? ?? [])
-          .map((e) => Product.fromJson(e))
-          .toList(),
+      products: parsedProducts,
     );
   }
 }
-class Seller {
-  final String id;
-  final String username;
-  final ProfilePic profilePic;
 
-  Seller({
-    required this.id,
-    required this.username,
-    required this.profilePic,
+class ProductVariant {
+  final String shade;
+  final String sku;
+  final int stock;
+  final String? size; // Kept as nullable in case other products have size
+  final List<ProductImage> images;
+
+  ProductVariant({
+    required this.shade,
+    required this.sku,
+    required this.stock,
+    this.size,
+    this.images = const [],
   });
 
-  factory Seller.fromJson(Map<String, dynamic> json) {
-    return Seller(
-      id: json['_id'] ?? '',
-      username: json['username'] ?? '',
-      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
+  factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    return ProductVariant(
+      shade: json['shade'] ?? '',
+      sku: json['SKU'] ?? '', // Note: API sends 'SKU' (uppercase)
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
+      size: json['size'],
+      images: (json['images'] as List<dynamic>? ?? [])
+          .map((e) => ProductImage.fromJson(e))
+          .toList(),
     );
   }
 }
@@ -48,17 +70,15 @@ class Product {
   final String name;
   final String description;
   final double price;
+  final double? discountedPrice;
   final List<ProductImage> images;
   final Category? category;
-  final int? stock;
-  final String? condition;
-  final String? color;
-  final String? size;
-  final String? info1;
-  final String? info2;
+  final SubCategory? subCategory; // Added based on JSON
+  final int? totalStock;
+  final List<ProductVariant> variants;
   final bool? isTopPick;
   final int? saveCount;
-  int? likeCount;
+  final int? likeCount;
   final int? viewCount;
   final Seller? seller;
   final List<Review> reviews;
@@ -71,15 +91,13 @@ class Product {
     required this.name,
     required this.description,
     required this.price,
+    this.discountedPrice,
     required this.images,
     required this.reviews,
     this.category,
-    this.stock,
-    this.condition,
-    this.color,
-    this.size,
-    this.info1,
-    this.info2,
+    this.subCategory,
+    this.totalStock,
+    required this.variants,
     this.isTopPick,
     this.saveCount,
     this.likeCount,
@@ -91,50 +109,56 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    final bool isNested = json.containsKey('stepData') && json['stepData']?['step1'] != null;
-    final Map<String, dynamic> dataSource = isNested ? json['stepData']['step1'] : json;
+    // Parse Category (Can be String ID or Object based on API endpoint)
     Category? parsedCategory;
-    final categoryData = dataSource['category']; // Use the correct data source.
+    final categoryData = json['category'];
     if (categoryData != null) {
       if (categoryData is Map<String, dynamic>) {
-        // Handles detailed product structure
+        // If name is missing in map, provide default
+        if (categoryData['name'] == null && categoryData['name'] == "") {
+          categoryData['name'] = "Unknown Category";
+        }
         parsedCategory = Category.fromJson(categoryData);
       } else if (categoryData is String) {
-        // Handles summary product structure (from /bits/list)
         parsedCategory = Category(id: categoryData, name: categoryData);
       }
     }
+
+    // Parse SubCategory
+    SubCategory? parsedSubCategory;
+    if (json['subCategory'] != null && json['subCategory'] is Map<String, dynamic>) {
+      parsedSubCategory = SubCategory.fromJson(json['subCategory']);
+    }
+
+    // Parse Seller
     Seller? parsedSeller;
-    final sellerData = json['sellerId']; // sellerId is always at the top level.
+    final sellerData = json['seller'] ?? json['sellerId'];
     if (sellerData != null) {
       if (sellerData is Map<String, dynamic>) {
-        // Handles detailed product structure
         parsedSeller = Seller.fromJson(sellerData);
       } else if (sellerData is String) {
-        // Handles summary product structure (from /bits/list)
-        parsedSeller = Seller(id: sellerData, username: 'Unknown', profilePic: ProfilePic(publicId: '', url: ''));
+        parsedSeller = Seller(
+            id: sellerData,
+            username: 'Unknown',
+            profilePic: ProfilePic(publicId: '', url: ''));
       }
     }
 
     return Product(
       id: json['_id'] ?? '',
-      name: dataSource['name'] ?? '',
-      description: dataSource['description'] ?? '',
-      price: (dataSource['price'] as num?)?.toDouble() ?? 0.0,
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      discountedPrice: (json['discountedPrice'] as num?)?.toDouble(),
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
       images: (json['images'] as List<dynamic>? ?? [])
           .map((e) => ProductImage.fromJson(e))
           .toList(),
-      category: json['category'] != null
-          ? (json['category'] is Map
-          ? Category.fromJson(json['category'])
-          : null)
-          : null,
-      stock: json['stock'],
-      condition: json['condition'],
-      color: json['color'],
-      size: json['size'],
-      info1: json['info1'],
-      info2: json['info2'],
+      category: parsedCategory,
+      subCategory: parsedSubCategory,
+      variants: (json['variants'] as List<dynamic>? ?? [])
+          .map((e) => ProductVariant.fromJson(e))
+          .toList(),
+      totalStock: json['totalStock'] ?? json['stock'],
       isTopPick: json['isTopPick'] ?? false,
       saveCount: json['saveCount'] ?? 0,
       likeCount: json['likeCount'] ?? 0,
@@ -144,21 +168,27 @@ class Product {
           .map((e) => Review.fromJson(e))
           .toList(),
       commentCount: json['commentCount'] ?? 0,
-      // The JSON has an empty 'comments' array, so we parse it.
       comments: (json['comments'] as List<dynamic>? ?? [])
           .map((e) => Comment.fromJson(e))
           .toList(),
+      seller: parsedSeller,
     );
   }
+}
 
-  /// Returns a list of available colors (for compatibility with UI)
-  List<String> get availableColors {
-    return color != null ? [color!] : ['Black', 'Grey', 'Blue'];
-  }
+class SubCategory {
+  final String id;
+  final String name;
+  final String slug;
 
-  /// Returns a list of available sizes (for compatibility with UI)
-  List<String> get availableSizes {
-    return size != null ? [size!] : ['S', 'M', 'L', 'XL'];
+  SubCategory({required this.id, required this.name, required this.slug});
+
+  factory SubCategory.fromJson(Map<String, dynamic> json) {
+    return SubCategory(
+      id: json['_id'] ?? '',
+      name: json['name'] ?? '',
+      slug: json['slug'] ?? '',
+    );
   }
 }
 
@@ -178,6 +208,26 @@ class ProductImage {
       publicId: json['public_id'] ?? '',
       url: json['url'] ?? '',
       id: json['_id'] ?? '',
+    );
+  }
+}
+
+class Seller {
+  final String id;
+  final String username;
+  final ProfilePic profilePic;
+
+  Seller({
+    required this.id,
+    required this.username,
+    required this.profilePic,
+  });
+
+  factory Seller.fromJson(Map<String, dynamic> json) {
+    return Seller(
+      id: json['_id'] ?? '',
+      username: json['username'] ?? '',
+      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
     );
   }
 }
@@ -244,3 +294,34 @@ class ProfilePic {
     );
   }
 }
+
+/*class Comment {
+  final String id;
+  final String text;
+  final DateTime createdAt;
+  final Reviewer? user; // Assuming structure
+  final int likes;
+  final List<Comment> replies;
+
+  Comment({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+    this.user,
+    this.likes = 0,
+    this.replies = const [],
+  });
+
+  factory Comment.fromJson(Map<String, dynamic> json) {
+    return Comment(
+      id: json['_id'] ?? '',
+      text: json['text'] ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      user: json['user'] != null ? Reviewer.fromJson(json['user']) : null,
+      likes: json['likes'] ?? 0,
+      replies: (json['replies'] as List<dynamic>? ?? [])
+          .map((e) => Comment.fromJson(e))
+          .toList(),
+    );
+  }
+}*/

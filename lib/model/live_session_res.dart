@@ -1,6 +1,7 @@
-// Removed unnecessary import 'dart:ffi';
 
 import 'dart:convert';
+import 'ExploreApiRes.dart';
+import 'LiveSessionResponse.dart';
 
 class LiveSessionsResponse {
   final bool success;
@@ -39,7 +40,7 @@ class Session {
   final String? scheduledStartTime; // for scheduled
   final String? channelName;
   final Host? host;
-  final String? thumbnail;
+  final Thumbnail thumbnail;
 
   Session({
     required this.id,
@@ -51,7 +52,7 @@ class Session {
     this.scheduledStartTime,
     this.channelName,
     this.host,
-    this.thumbnail,
+    required this.thumbnail,
   });
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -67,7 +68,9 @@ class Session {
       host: json['hostId'] != null && json['hostId'] is Map<String, dynamic>
           ? Host.fromJson(json['hostId'])
           : null,
-      thumbnail: json['thumbnail'] is String ? json['thumbnail'] : null,    );
+      thumbnail: Thumbnail.fromJson(json['thumbnail'] ?? {}),
+
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -100,7 +103,6 @@ class Host {
   });
 
   factory Host.fromJson(Map<String, dynamic> json) {
-    // Safely get profile picture URL, assuming it could be in a nested object.
     String? picUrl;
     if (json['profilePic'] is Map) {
       picUrl = json['profilePic']['url'];
@@ -135,57 +137,4 @@ SessionDetails sessionDetailsFromApiResponse(String str) {
   }
 }
 
-class SessionDetails {
-  final String id;
-  final String channelName;
-  final String title;
-  final String description;
-  final Host host;
-  final String status;
-  final DateTime scheduledStartTime;
-  final int viewersCount;
-  final int peakViewers;
-  final List<String> products;
-  final String? thumbnail;
-  final bool isLive;
-  final bool isHost;
-  final String shareLink;
-
-  SessionDetails({
-    required this.id,
-    required this.channelName,
-    required this.title,
-    required this.description,
-    required this.host,
-    required this.status,
-    required this.scheduledStartTime,
-    required this.viewersCount,
-    required this.peakViewers,
-    required this.products,
-    this.thumbnail,
-    required this.isLive,
-    required this.isHost,
-    required this.shareLink,
-  });
-
-  factory SessionDetails.fromJson(Map<String, dynamic> json) {
-    return SessionDetails(
-      id: json["_id"],
-      channelName: json["channelName"],
-      title: json["title"],
-      description: json["description"],
-      host: Host.fromJson(json["host"]),
-      status: json["status"],
-      scheduledStartTime: DateTime.parse(json["scheduledStartTime"]),
-      viewersCount: json["viewersCount"],
-      peakViewers: json["peakViewers"],
-      // Safely parse the list of product strings
-      products: List<String>.from(json["products"].map((x) => x)),
-      thumbnail: json["thumbnail"],
-      isLive: json["isLive"],
-      isHost: json["isHost"],
-      shareLink: json["shareLink"],
-    );
-  }
-}
 

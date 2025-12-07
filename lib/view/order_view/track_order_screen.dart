@@ -85,17 +85,15 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                     width: 200, // Give it a clear width
                     child: InkWell(
                       onTap: () {
-                        // NOTE: This creates a placeholder product. In a real app,
-                        // you would use the actual product data from the order.
-                        final productToBuy = Product(
+                         final productToBuy = Product(
                             id: 'prod_123',
                             name: 'Modern light clothes',
                             images: [ProductImage(url: "https://i.pravatar.cc/100?img=5", publicId: '', id: '')],
                             price: 212.99,
-                            // You might need to add other required fields depending on your model
-                            color: "red",
-                            size: "M",
-                            likeCount: 5, description: '', reviews: []
+                            variants: [],
+                            likeCount: 5,
+                            description: '',
+                            reviews: []
                         );
                         _showBuyOrZatchBottomSheet(context, productToBuy, "buy");
                       },
@@ -402,10 +400,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                     name: 'Modern light clothes',
                     images: [ProductImage(url: "https://i.pravatar.cc/100?img=5", publicId: '', id: '')],
                     price: 212.99,
-                    // You might need to add other required fields depending on your model
-                    color: "red",
-                    size: "M",
-                    likeCount: 5, description: '', reviews: []
+                    variants: [],
+                    likeCount: 5,
+                    description: '',
+                    reviews: []
                 );
                 _showBuyOrZatchBottomSheet(context, productToBuy, "buy");
 
@@ -425,10 +423,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                   name: 'Modern light clothes',
                   images: [ProductImage(url: "https://i.pravatar.cc/100?img=5", publicId: '', id: '')],
                   price: 212.99,
-                  // You might need to add other required fields depending on your model
-                  color: "red",
-                  size: "M",
-                  likeCount: 5, description: '', reviews: []
+                  variants: [],
+                  likeCount: 5,
+                  description: '',
+                  reviews: []
               );
               _showBuyOrZatchBottomSheet(context, productToBuy, "buy");
 

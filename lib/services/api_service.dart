@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/CartApiResponse.dart';
 import 'package:zatch_app/model/ExploreApiRes.dart';
+import 'package:zatch_app/model/LiveSessionResponse.dart';
 import 'package:zatch_app/model/SaveBitResponse.dart';
 import 'package:zatch_app/model/SaveProductResponse.dart';
 import 'package:zatch_app/model/SearchHistoryResponse.dart';
@@ -23,7 +24,6 @@ import 'package:zatch_app/model/login_response.dart';
 import 'package:zatch_app/model/share_profile_response.dart';
 import 'package:zatch_app/model/toggle_save_bit.dart';
 import 'package:zatch_app/model/top_pick_res.dart' hide Product;
-import 'package:zatch_app/model/user_profile_model.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/model/verify_otp_request.dart';
 import 'package:zatch_app/model/verify_otp_response.dart';
@@ -32,7 +32,6 @@ import 'package:zatch_app/model/otp_response_model.dart';
 import 'package:zatch_app/model/categories_response.dart';
 import 'package:zatch_app/utils/local_storage.dart';
 
-import '../model/bit_response.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -293,19 +292,20 @@ class ApiService {
     }
   }
 
-  Future<dynamic> joinLiveSession(String sessionId) async {
+  Future<JoinLiveSessionResponse> joinLiveSession(String sessionId) async {
     final String joinEndpoint = "/live/session/$sessionId/join";
     try {
-      debugPrint("🔹 Joining live session with ID: $sessionId");
-      final response = await _dio.post(joinEndpoint);
-      debugPrint("Successfully joined live session $sessionId");
-      return _decodeResponse(response.data);
+      debugPrint("🔹 Joining live session → ID: $sessionId");
+      final Response response = await _dio.get(joinEndpoint);
 
+      final data = _decodeResponse(response.data);
+      debugPrint("✅ Successfully joined live session");
+      return JoinLiveSessionResponse.fromJson(data);
     } on DioException catch (e) {
-      debugPrint("joinLiveSession DioException: ${e.response?.data}");
+      debugPrint("❌ joinLiveSession DioException: ${e.response?.data}");
       throw Exception(_handleError(e));
     } catch (e) {
-      debugPrint("Unexpected error joining live session: $e");
+      debugPrint("❌ Unexpected error joining live session: $e");
       throw Exception("An unexpected error occurred while joining the session.");
     }
   }
@@ -621,10 +621,43 @@ class ApiService {
   Future<SearchHistoryResponse> getUserSearchHistory() async {
     try {
       final response = await _dio.get("/user/search-history");
-      final data = _decodeResponse(response.data);
+      final dynamic data = _decodeResponse(response.data);      // FIX: Handle case where API returns a raw List instead of a Map
+      if (data is List) {
+        final List<Map<String, dynamic>> formattedList = data.map((item) {
+          // If items are already maps, use them; otherwise, treat as strings
+          if (item is Map<String, dynamic>) return item;
+          return {
+            "query": item.toString(),
+            "createdAt": DateTime.now().toIso8601String(),
+            "_id": DateTime.now().millisecondsSinceEpoch.toString(),
+          };
+        }).toList();
+
+        // Manually construct the response map expected by fromJson
+        return SearchHistoryResponse.fromJson({
+          "success": true,
+          "message": "Fetched successfully",
+          "searchHistory": formattedList
+        });
+      }
+
+      // Standard case: API returns a Map
       return SearchHistoryResponse.fromJson(data);
     } on DioException catch (e) {
-      throw Exception(_handleError(e));
+      // Safe fallback: Return empty history instead of crashing the app
+      debugPrint("API Error fetching search history: $e");
+      return SearchHistoryResponse(
+        success: false,
+        message: _handleError(e),
+        searchHistory: [],
+      );
+    } catch (e) {
+      debugPrint("Unexpected error fetching search history: $e");
+      return SearchHistoryResponse(
+        success: false,
+        message: e.toString(),
+        searchHistory: [],
+      );
     }
   }
 
@@ -936,17 +969,54 @@ class ApiService {
       throw Exception("Could not post comment. Please try again.");
     }
   }
+  Future<Map<String, dynamic>> toggleLiveSessionLike(String sessionId) async {
+    final String endpoint = "/live/session/$sessionId/like";
+    try {
+      final response = await _dio.post(endpoint);
+      final data = _decodeResponse(response.data);
 
-  Future<Map<String, dynamic>> getLiveSessionDetails(String sessionId) async {
+      if (data is Map<String, dynamic> && data['success'] == true) {
+        return {
+          'likeCount': data['likeCount'] ?? 0,
+          // The API returns 'hasLiked', we map it to 'isLiked'
+          'isLiked': data['hasLiked'] ?? false,
+          'triggerAnimation': data['triggerAnimation'] ?? false,
+        };
+      } else {
+        if (data['message'] == "Already liked" || data['message'] == "Liked successfully") {
+          return {
+            'likeCount': data['likeCount'] ?? 0,
+            'isLiked': true,
+            'triggerAnimation': false,
+          };
+        }
+        throw Exception(data['message'] ?? "Failed to toggle live session like.");
+      }
+    } on DioException catch (e) {
+      // If it's a 400 'Already liked', treat as success/synced
+      if(e.response?.statusCode == 400 && e.response?.data['message'] == "Already liked") {
+        return {
+          'likeCount': e.response?.data['likeCount'] ?? 0,
+          'isLiked': true,
+          'triggerAnimation': false,
+        };
+      }
+      debugPrint("API Error toggling live like: ${e.response?.data}");
+      throw Exception(_handleError(e));
+    } catch (e) {
+      rethrow;
+    }
+  }
+  Future<SessionDetails> getLiveSessionDetails(String sessionId) async {
     final String detailsEndpoint = "/live/session/$sessionId/details";
     try {
-      final response = await _dio.get(detailsEndpoint);
-      final decodedData = _decodeResponse(response.data);
+      final Response response = await _dio.get(detailsEndpoint);
+      final data = _decodeResponse(response.data);
 
-      if (decodedData is Map<String, dynamic> && decodedData['success'] == true) {
-        return decodedData;
+      if (data is Map<String, dynamic> && data['success'] == true && data['sessionDetails'] != null) {
+        return SessionDetails.fromJson(data['sessionDetails']);
       } else {
-        throw Exception(decodedData['message'] ?? "Failed to get live session details.");
+        throw Exception(data['message'] ?? "Failed to get live session details.");
       }
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -954,6 +1024,7 @@ class ApiService {
       throw Exception("Error fetching session details: $e");
     }
   }
+
   Future<List<LiveComment>> getLiveSessionComments(String sessionId, {int limit = 20, int offset = 0}) async {
     final String commentsEndpoint = "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
     try {
@@ -1064,6 +1135,68 @@ class ApiService {
     } catch (e) {
       debugPrint("Unexpected error in updateCartItem: $e");
       rethrow;
+    }
+  }
+
+  Future<void> removeCartItem({required String productId}) async {
+    const String endpoint = "/cart/remove";
+    try {
+       final response = await _dio.post(
+        endpoint,
+        queryParameters: {"productId": productId},
+      );
+
+      final dynamic data = _decodeResponse(response.data);
+
+      if (data is Map<String, dynamic> && data['success'] == true) {
+        return;
+      } else if (data is Map<String, dynamic> && data['message'] != null) {
+        throw Exception(data['message']);
+      } else {
+        throw Exception("Failed to remove item. Unknown server response.");
+      }
+    } on DioException catch (e) {
+      debugPrint("❌ Remove Cart Error: ${e.response?.statusCode} - ${e.response?.data}");
+      if (e.response?.statusCode == 404) {
+        throw Exception("Endpoint not found (404). Please check API URL.");
+      }
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in removeCartItem: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> applyCoupon(String couponId, String code, double cartTotal, List<String> productIds) async {
+    final String endpoint = "/coupons/apply/$couponId";
+    try {
+      final response = await _dio.post(endpoint, data: {
+        "code": code,
+        "cartTotal": cartTotal,
+        "productIds": productIds,
+      });
+      final data = _decodeResponse(response.data);
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? "Failed to apply coupon");
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+  Future<List<dynamic>> getCoupons() async {
+    const String endpoint = "/coupons/list";
+    try {
+      final response = await _dio.get(endpoint);
+      final data = _decodeResponse(response.data);
+      if (data['success'] == true) {
+        return data['coupons'] as List<dynamic>;
+      } else {
+        throw Exception(data['message'] ?? "Failed to fetch coupons");
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
     }
   }
 
