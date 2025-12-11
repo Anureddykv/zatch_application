@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zatch_app/Widget/Header.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/user_model.dart';
 import 'package:zatch_app/model/product_response.dart';
@@ -26,6 +27,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen>
     with SingleTickerProviderStateMixin {
+  bool _hasSubmittedSearch = false;
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
   final FocusNode _searchFocusNode = FocusNode();
@@ -85,35 +87,49 @@ class _SearchScreenState extends State<SearchScreen>
     final trimmedQuery = query.trim().toLowerCase();
     if (trimmedQuery.isEmpty) {
       setState(() {
+        _hasSubmittedSearch = false;
         _searchResultsPeople.clear();
         _searchResultsProducts.clear();
-        // MODIFIED: Clear search bits and default to all
         _searchResultsBits = exploreBits;
       });
       return;
     }
-    _addSearch(query);
+   /* _addSearch(query);*/
     setState(() {
       _searchResultsPeople = _allPeople
-          .where(
-            (u) => u.displayName.toLowerCase().contains(trimmedQuery),
-      )
+          .where((u) => u.displayName.toLowerCase().contains(trimmedQuery))
           .toList();
 
       _searchResultsProducts = _allProducts
-          .where(
-            (p) =>
-        p.name.toLowerCase().contains(trimmedQuery) ||
-            p.description.toLowerCase().contains(trimmedQuery),
-      )
+          .where((p) => p.name.toLowerCase().contains(trimmedQuery) ||
+          p.description.toLowerCase().contains(trimmedQuery))
           .toList();
 
-      // MODIFIED: Filter bits by their title
       _searchResultsBits = exploreBits
           .where((bit) => bit.title.toLowerCase().contains(trimmedQuery))
           .toList();
     });
   }
+
+  void _onSearchSubmitted(String query) {
+    final trimmed = query.trim();
+    if (trimmed.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enter at least 3 characters to search"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _hasSubmittedSearch = true;
+    });
+    _addSearch(trimmed);
+    _performSearch(trimmed);
+  }
+
 
   Future<void> _loadSearchHistory() async {
     final prefs = await SharedPreferences.getInstance();
@@ -156,7 +172,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bool isSearching = _searchController.text.isNotEmpty;
+    final bool isSearching = _hasSubmittedSearch && _searchController.text.isNotEmpty;
 
     return WillPopScope(
       onWillPop: () async {
@@ -171,112 +187,43 @@ class _SearchScreenState extends State<SearchScreen>
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
-        appBar: _buildAppBar(context),
-        body: isLoading
-            ? const Center(
-          child: CircularProgressIndicator(color: Color(0xffd5ff4d)),
-        )
-            : isSearching
-            ? _buildSearchResults()
-            : _buildInitialBody(),
-      ),
-    );
-  }
-
-  AppBar _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: const Color(0xffd5ff4d),
-      automaticallyImplyLeading: false,
-      elevation: 0,
-      title: Padding(
-        padding: const EdgeInsets.only(top: 6.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: "Hello, Zatcher ",
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  WidgetSpan(child: Text("👋", style: TextStyle(fontSize: 12))),
-                ],
-              ),
-              style: TextStyle(color: Colors.black87),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.userProfile?.user.username ?? "",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(
-                  userId: widget.userProfile?.user.id,
+        body: SafeArea(
+          child: Column(
+            children: [
+               HeaderWidget(
+                userProfile: widget.userProfile,
+                onCartTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CartScreen()),
                 ),
-              ),
-            );
-          },
-          icon: const Icon(Icons.bookmark_border, color: Colors.black),
-        ),
-        IconButton(
-          onPressed: () => Navigator.pushNamed(context, '/notification'),
-          icon: const Icon(Icons.notifications_none, color: Colors.black),
-        ),
-        IconButton(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CartScreen()),
-          ),
-          icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(70),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: TextField(
-            focusNode: _searchFocusNode,
-            controller: _searchController,
-            onSubmitted: _performSearch,
-            onChanged: _performSearch,
-            decoration: InputDecoration(
-              hintText: "Search...",
-              filled: true,
-              fillColor: Colors.white,
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  _performSearch('');
-                  FocusScope.of(context).unfocus();
+                isSearchable: true,
+                searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
+                onSearchSubmitted: _onSearchSubmitted,
+                onSearchChanged: (val) {
+                  if (val.isEmpty) {
+                    _performSearch('');
+                  } else {
+                    setState(() {});
+                  }
                 },
-              )
-                  : null,
-              contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
+
+                onSearchTap: () {
+                  FocusScope.of(context).requestFocus(_searchFocusNode);
+                },
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide(color: Colors.grey.shade400),
+
+              Expanded(
+                child: isLoading
+                    ? const Center(
+                  child: CircularProgressIndicator(
+                      color: Color(0xffd5ff4d)),
+                )
+                    : isSearching
+                    ? _buildSearchResults()
+                    : _buildInitialBody(),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -691,7 +638,7 @@ class _SearchScreenState extends State<SearchScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        product.category?.name ?? "Product",
+                        product.category ?? "Product",
                         style: const TextStyle(
                           color: Color(0xFF787676),
                           fontSize: 10,

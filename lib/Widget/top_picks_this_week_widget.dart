@@ -4,11 +4,13 @@ import 'package:zatch_app/model/product_response.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import '../view/product_view/see_all_top_picks_screen.dart';
+import 'package:zatch_app/model/categories_response.dart';
 
 class TopPicksThisWeekWidget extends StatefulWidget {
   final String? title;
   final bool showSeeAll;
-  const TopPicksThisWeekWidget({super.key, this.title, this.showSeeAll = true});
+  final Category? category;
+  const TopPicksThisWeekWidget({super.key, this.title, this.showSeeAll = true, this.category});
 
   @override
   State<TopPicksThisWeekWidget> createState() => _TopPicksThisWeekWidgetState();
@@ -25,11 +27,36 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
     _loadTopPicks();
   }
 
+  @override
+  void didUpdateWidget(TopPicksThisWeekWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category?.id != widget.category?.id) {
+      _loadTopPicks();
+    }
+  }
+
   Future<void> _loadTopPicks() async {
     if (!mounted) return;
     setState(() => loading = true);
     try {
-      topPicks = await _apiService.getTopPicks();
+      var fetchedPicks = await _apiService.getTopPicks();
+      // Filter locally if category is selected and not "Explore All"
+      if (widget.category != null && widget.category!.name.toLowerCase() != 'explore all') {
+        final selectedSlug = widget.category!.slug;
+        final selectedId = widget.category!.id;
+        final selectedName = widget.category!.name;
+        
+        fetchedPicks = fetchedPicks.where((p) {
+          final cat = p.category;
+          if (cat == null) return false;
+          // Check against slug, id, or name to be robust
+          return (selectedSlug != null && cat== selectedSlug) ||
+                 cat== selectedId ||
+                 (selectedSlug != null && cat== selectedSlug) ||
+                 cat== selectedName;
+        }).toList();
+      }
+      topPicks = fetchedPicks;
     } catch (e) {
       debugPrint("Failed to load top picks: ${e.toString()}");
     } finally {
@@ -66,6 +93,11 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
         height: 266,
         child: Center(child: CircularProgressIndicator()),
       );
+    }
+    
+    // If empty after filter, hide widget
+    if (topPicks.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     final displayList = topPicks.take(5).toList();
@@ -119,18 +151,7 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
         // --- Product Cards List ---
         SizedBox(
           height: 280,
-          child: displayList.isEmpty
-              ? const Center(
-            child: Text(
-              "No active top picks available",
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 14,
-                fontFamily: 'Plus Jakarta Sans',
-              ),
-            ),
-          )
-              : ListView.separated(
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             itemCount: displayList.length,
@@ -141,18 +162,15 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
               // Image Logic
               final imgUrl = product.images.isNotEmpty
                   ? product.images.first.url
-                  : product.category?.image?.url ??
-                  "https://placehold.co/159x177?text=No+Image";
+                  : "https://placehold.co/159x177?text=No+Image";
+
 
               final String rating = "5.0";
 
               // Calculate Discount
-              // Assuming product.price is original and product.discountedPrice is the sale price
-              // If your model uses different field names, adjust here.
               final String? discountPercent = getDiscountPercentage(
                   product.price, product.discountedPrice);
 
-              // Determine which price to show as the main price
               final num displayPrice = product.discountedPrice != null &&
                   product.discountedPrice! < (product.price ?? 0)
                   ? product.discountedPrice!
@@ -170,7 +188,6 @@ class _TopPicksThisWeekWidgetState extends State<TopPicksThisWeekWidget> {
                 },
                 child: Container(
                   width: 159,
-                  // Fixed Height to prevent overflow
                   height: 280,
                   clipBehavior: Clip.antiAlias,
                   decoration: ShapeDecoration(

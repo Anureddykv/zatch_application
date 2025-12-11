@@ -3,9 +3,11 @@ import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/reel/see_all_bargain_picks_screen.dart';
 import 'package:zatch_app/view/reel_player_screen.dart';
+import 'package:zatch_app/model/categories_response.dart';
 
 class BargainPicksWidget extends StatefulWidget {
-  const BargainPicksWidget({super.key});
+  final Category? category;
+  const BargainPicksWidget({super.key, this.category});
 
   @override
   State<BargainPicksWidget> createState() => _BargainPicksWidgetState();
@@ -18,7 +20,19 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
   @override
   void initState() {
     super.initState();
-    _picksFuture = _apiService.getExploreBits();
+    _fetchPicks();
+  }
+
+  @override
+  void didUpdateWidget(BargainPicksWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category?.name != widget.category?.name) {
+      _fetchPicks();
+    }
+  }
+
+  void _fetchPicks() {
+    _picksFuture = _apiService.getExploreBits(); 
   }
 
   @override
@@ -38,8 +52,22 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
         if (picks == null || picks.isEmpty) {
           return const SizedBox.shrink();
         }
+        
+        // Filter picks by widget.category
+        List<Bits> filteredPicks = picks;
+        if (widget.category != null && widget.category!.name.toLowerCase() != 'explore all') {
+          filteredPicks = picks.where((bit) {
+             // Check if any product in the bit belongs to the category
+             // Note: Product category might be null or ID matching might be needed
+             return bit.products.any((p) => p.category == widget.category!.name);
+          }).toList();
+        }
 
-        final displayedPicks = picks.length > 5 ? picks.sublist(0, 5) : picks;
+        if (filteredPicks.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final displayedPicks = filteredPicks.length > 5 ? filteredPicks.sublist(0, 5) : filteredPicks;
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -70,13 +98,14 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
                             maxLines: 2,
                           ),
                         ),
+                        if (filteredPicks.length > 5)
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => SeeAllBargainPicksScreen(
-                                  picks: picks,
+                                  picks: filteredPicks,
                                 ),
                               ),
                             );
@@ -104,7 +133,7 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
                       itemBuilder: (context, index) {
                         final pick = displayedPicks[index];
                         final List<String> allReelIds =
-                        picks.map((p) => p.id).toList();
+                        filteredPicks.map((p) => p.id).toList();
 
                         return Padding(
                           padding: EdgeInsets.only(

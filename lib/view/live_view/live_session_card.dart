@@ -3,6 +3,8 @@ import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/view/LiveDetailsScreen.dart';
 
+import 'live_session_screen.dart';
+
 class LiveSessionCard extends StatelessWidget {
   final Session liveSession;
   final double? width;
@@ -17,7 +19,6 @@ class LiveSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // --- Data Handling with Fallbacks ---
     final String hostName = liveSession.host?.username ?? 'Live Event';
     final String sessionTopic = liveSession.title ?? "General";
     final String hostAvatarUrl = liveSession.host?.profilePicUrl ??
@@ -25,14 +26,22 @@ class LiveSessionCard extends StatelessWidget {
     final String sessionBackgroundUrl = liveSession.thumbnail.url;
     return GestureDetector(
       onTap: () {
-        final liveController = LiveStreamController(session: liveSession);
+          Navigator.push(
+              context,MaterialPageRoute(
+              builder: (context) => LiveSessionScreen(
+                sessionId: liveSession.id ?? "",
+              )
+          )
+          );
+
+        /* final liveController = LiveStreamController(session: liveSession);
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => LiveStreamScreen(
                 controller: liveController, username: liveSession.host?.username),
           ),
-        );
+        );*/
       },
       child: SizedBox(
         width: width ?? 131,

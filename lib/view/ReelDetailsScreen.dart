@@ -390,30 +390,30 @@ if (mounted) {
             bottom: MediaQuery.of(context).padding.bottom + 230,
             child: Column(
               children: [
-                _SidebarItem(
+                SidebarItem(
                     icon: Icons.share_outlined,
                     onTap: () {
                       widget.controller?.share(context);
                     }),
                 const SizedBox(height: 20),
-                _SidebarItem(
+                SidebarItem(
                   icon: isLiked ? Icons.favorite : Icons.favorite_border,
                   label: likeCount.toString(),
                   onTap: _toggleLike,
                 ),
                 const SizedBox(height: 20),
-                _SidebarItem(
+                SidebarItem(
                   icon: Icons.chat_bubble_outline,
                   label: _comments.length.toString(),
                   onTap: () => setState(() => showComments = !showComments),
                 ),
                 const SizedBox(height: 20),
-                _SidebarItem(
+                SidebarItem(
                   icon: isSaved ? Icons.bookmark : Icons.bookmark_border,
                   onTap: _toggleSave,
                 ),
                 const SizedBox(height: 20),
-                _SidebarItem(
+                SidebarItem(
                   icon: Icons.add_shopping_cart_sharp,
                   onTap: () => _pushAndPause(CartScreen()),
                 ),
@@ -546,7 +546,7 @@ if (mounted) {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                product.category?.name ?? "Dress modern",
+                                product.category   ?? "Dress modern",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -1009,7 +1009,7 @@ if (mounted) {
                                             Row(
                                               children: [
                                                 Text(
-                                                  product.category?.name ?? 'Dress modern',
+                                                  product.category ?? 'Dress modern',
                                                   style: const TextStyle(
                                                     color: Color(0xFF787676),
                                                     fontSize: 10,
@@ -1507,67 +1507,75 @@ if (mounted) {
                       Navigator.pop(context);
                       if (selectedOption == "buy") {
                         if (product == null) return;
-                        final productForCart = cart_model.ProductModel(
-                          id: product.id,
-                          name: product.name,
-                          price: product.price,
-                          discountedPrice: product.price,
-                          images: product.images
-                              .map((img) => cart_model.ImageModel(
-                              id: img.id, publicId: img.publicId, url: img.url))
-                              .toList(),
-                          productType: cart_model.ProductType(
-                            hasColor: product.variants.any((v) => v.shade.isNotEmpty),
-                            hasSize: product.variants.any((v) => v.sku.isNotEmpty),
-                          ),
+                        Navigator.pop(context);
+                        if (selectedOption == "buy") {
+                          if (product == null) return;
 
-                        );
+                          final itemToCheckout = cart_model.CartItemModel(
+                            id: "temp_reel_${product.id}",
+                            productId: product.id,
+                            name: product.name,
+                            description: product.description ?? "",
+                            price: product.price,
+                            discountedPrice: product.discountedPrice ??
+                                product.price,
+                            image: product.images.isNotEmpty ? product.images
+                                .first.url : "",
+                            images: product.images
+                                .map((e) =>
+                                cart_model.ImageModel(
+                                    id: e.id, publicId: e.publicId, url: e.url))
+                                .toList(),
+                            selectedVariant: null,
+                            quantity: quantity,
+                            category: product.category ?? "",
+                            subCategory: product.subCategory ?? "",
+                            lineTotal: (product.price * quantity).toInt(),
+                            variant: cart_model.VariantModel(color: ""),
+                          );
 
+                          final List<
+                              cart_model.CartItemModel> itemsForCheckout = [
+                            itemToCheckout
+                          ];
+                          final double itemsTotal = product.price * quantity;
+                          const double shippingFee = 50.0;
+                          final double subTotal = itemsTotal + shippingFee;
 
-                        final itemToCheckout = cart_model.CartItemModel(
-                          id: "temp_reel_${product.id}",
-                          qty: quantity,
-                          product: productForCart,
-                          variant: cart_model.VariantModel(
-                            color: 'Reel Product',
-                          ),
-                        );
-
-                        final List<cart_model.CartItemModel> itemsForCheckout = [itemToCheckout];
-                        final double itemsTotal = product.price * quantity;
-                        const double shippingFee = 50.0;
-                        final double subTotal = itemsTotal + shippingFee;
-
-                        _pushAndPause(
-                          CheckoutOrPaymentsScreen(
-                            isCheckout: true,
-                            selectedItems: itemsForCheckout,
-                            itemsTotalPrice: itemsTotal,
-                            shippingFee: shippingFee,
-                            subTotalPrice: subTotal,
-                          ),
-                        );
-                      } else {
-                        _pushAndPause(
-                          ZatchingDetailsScreen(
-                            zatch: Zatch(
-                              id: "temp1",
-                              name: product?.name ?? '',
-                              description: product?.category?.description ?? "",
-                              seller: "Seller Name",
-                              imageUrl: (product?.images.isNotEmpty ?? false)
-                                  ? product!.images.first.url
-                                  : "https://placehold.co/100x100?text=P",
-                              active: true,
-                              status: "My Offer",
-                              quotePrice: "${bargainPrice.toStringAsFixed(0)} ₹",
-                              sellerPrice: "",
-                              quantity: quantity,
-                              subTotal: "${(bargainPrice * quantity).toStringAsFixed(0)} ₹",
-                              date: DateTime.now().toString(),
+                          _pushAndPause(
+                            CheckoutOrPaymentsScreen(
+                              isCheckout: true,
+                              selectedItems: itemsForCheckout,
+                              itemsTotalPrice: itemsTotal,
+                              shippingFee: shippingFee,
+                              subTotalPrice: subTotal,
                             ),
-                          ),
-                        );
+                          );
+                        } else {
+                          _pushAndPause(
+                            ZatchingDetailsScreen(
+                              zatch: Zatch(
+                                id: "temp1",
+                                name: product?.name ?? '',
+                                description: product.description ??
+                                    "",
+                                seller: "Seller Name",
+                                imageUrl: (product?.images.isNotEmpty ?? false)
+                                    ? product!.images.first.url
+                                    : "https://placehold.co/100x100?text=P",
+                                active: true,
+                                status: "My Offer",
+                                quotePrice: "${bargainPrice.toStringAsFixed(
+                                    0)} ₹",
+                                sellerPrice: "",
+                                quantity: quantity,
+                                subTotal: "${(bargainPrice * quantity)
+                                    .toStringAsFixed(0)} ₹",
+                                date: DateTime.now().toString(),
+                              ),
+                            ),
+                          );
+                        }
                       }
                     },
                     child: Text(selectedOption == "buy" ? "Buy" : "Bargain"),
@@ -1699,7 +1707,7 @@ if (mounted) {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          product.category?.name ?? 'Category',
+                                          product.category ?? 'Category',
                                           style: const TextStyle(
                                             color: Color(0xFF787676),
                                             fontSize: 10,
@@ -1858,64 +1866,74 @@ if (mounted) {
   }
 }
 
-class _SidebarItem extends StatelessWidget {
+class SidebarItem extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String? label;
   final VoidCallback onTap;
 
-  const _SidebarItem({required this.icon, this.label, required this.onTap});
+  const SidebarItem({
+    required this.icon,
+    this.iconColor = Colors.white,
+    this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // If there is NO label, it's a simple circular icon (Share, Bookmark, Cart)
-    if (label == null || label!.isEmpty) {
+    // If there is a label, use the rounded rectangle container (Like, Comment, etc.)
+    if (label != null && label!.isNotEmpty) {
       return GestureDetector(
         onTap: onTap,
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.10),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withOpacity(0.30),
-            ),
-          ),
-          child: Icon(icon, color: Colors.white, size: 24),
-        ),
-      );
-    }
-
-    // If there IS a label, use the rounded rectangle container (Like, Comment)
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 59,
-        height: 80, // Fixed height from the design reference
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.30),
-            width: 1,
-          ),
-        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 28),
-            const SizedBox(height: 5),
-            Text(
-              label!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontFamily: 'Plus Jakarta Sans',
-                fontWeight: FontWeight.w500,
+            Container(
+              width: 59,
+              height: 80, // Fixed height from the design reference
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.30),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: iconColor, size: 28),
+                  const SizedBox(height: 5),
+                  Text(
+                    label!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      );
+    }
+
+    // If there is NO label, it's a simple circular icon (Share, Bookmark, Cart)
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.30),
+          ),
+        ),
+        child: Icon(icon, color: iconColor, size: 24),
       ),
     );
   }

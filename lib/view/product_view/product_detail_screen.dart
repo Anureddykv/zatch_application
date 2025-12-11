@@ -115,8 +115,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   final _pageController = PageController();
   late final TabController _tabController;
   final TextEditingController _commentController = TextEditingController();
-  int _selectedSizeIndex = -1;
-  int _selectedColorIndex = -1;
   int _selectedVariantIndex = -1;
   final ApiService _apiService = ApiService();
 
@@ -363,14 +361,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             String? finalSize;
 
             if (_selectedVariantIndex != -1) {
-              finalColor = product.variants[_selectedVariantIndex].shade;
+              finalColor = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color;
               finalSize = product.variants[_selectedVariantIndex].sku;
             }
             print("🚀 SENDING ADD TO CART REQUEST:");
             print("Product ID: ${widget.productId}");
             print("Quantity: 1");
             print("Color: $finalColor");
-            print("Size: $finalSize");
             await _apiService.updateCartItem(
               productId: widget.productId,
               quantity: 1,
@@ -576,24 +573,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           runSpacing: 8,
           children: List.generate(variantsWithSizes.length, (index) {
             final variant = variantsWithSizes[index];
-            // Match global index
             final originalIndex = product.variants.indexOf(variant);
             final isSelected = _selectedVariantIndex == originalIndex;
 
             return GestureDetector(
-              onTap: () =>
-                  setState(() => _selectedVariantIndex = originalIndex),
+              onTap: () {
+                setState(() {
+                  _selectedVariantIndex = originalIndex;
+                });
+              },
               child: Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color:
-                  isSelected ? const Color(0xFF292526) : Colors.transparent,
+                  color: isSelected ? const Color(0xFF292526) : Colors.transparent,
                   border: Border.all(color: const Color(0xFFDFDEDE)),
                   borderRadius: BorderRadius.circular(32),
                 ),
                 child: Text(
-                  variant.sku!,
+                  variant.sku ?? "",
                   style: TextStyle(
                     color: isSelected ? Colors.white : const Color(0xFF292526),
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
@@ -603,68 +600,69 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             );
           }),
         ),
+
       ],
     );
   }
 
-  // Updated: Shows text names (e.g. "Ruby Red") inside chips
   Widget _buildColorSelector() {
-    // Filter variants that have a shade
-    final variantsWithColor =
-    product.variants.where((v) => v.shade.isNotEmpty).toList();
+    // Filter only variants that actually have color or shade
+    final variants = product.variants
+        .where((v) => (v.shade?.isNotEmpty == true) || (v.color?.isNotEmpty == true))
+        .toList();
 
-    if (variantsWithColor.isEmpty) return const SizedBox.shrink();
+    if (variants.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Choose Color / Shade',
+          'Choose Color',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
         const SizedBox(height: 12),
+
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: List.generate(variantsWithColor.length, (index) {
-            final variant = variantsWithColor[index];
-
-            // Find the global index of this variant to set selection
+          children: List.generate(variants.length, (index) {
+            final variant = variants[index];
+            final label = variant.shade?.isNotEmpty == true
+                ? variant.shade!
+                : variant.color ?? "";
             final originalIndex = product.variants.indexOf(variant);
             final isSelected = _selectedVariantIndex == originalIndex;
 
             return GestureDetector(
-              onTap: () =>
-                  setState(() => _selectedVariantIndex = originalIndex),
+              onTap: () {
+                setState(() {
+                  _selectedVariantIndex = originalIndex;
+                });
+              },
               child: Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  // Highlight selected item
-                  color: isSelected ? const Color(0xFF292526) : Colors.white,
+                  color: isSelected ? Colors.black : Colors.white,
                   border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF292526)
-                        : const Color(0xFFDFDEDE),
+                    color: isSelected ? Colors.black : const Color(0xFFDFDEDE),
                   ),
                   borderRadius: BorderRadius.circular(32),
                 ),
                 child: Text(
-                  variant.shade, // Shows "Ruby Red", "Pink Blush" directly
+                  label,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF292526),
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                    fontSize: 14,
+                    color: isSelected ? Colors.white : Colors.black,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
                   ),
                 ),
               ),
             );
           }),
         ),
+
       ],
     );
   }
-
 
   Widget _buildInfoTabs() {
     return Column(
@@ -1080,7 +1078,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       zatch: Zatch(
                         id: "temp1",
                         name: product.name,
-                        description: product.category?.description ?? "",
+                        description: product?.description ?? "",
                         seller: "Seller Name", // TODO: Update with real data
                         imageUrl: product.images.isNotEmpty
                             ? product.images.first.url
@@ -1126,31 +1124,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 String? selectedSize;
 
                 if (_selectedVariantIndex != -1) {
-                  selectedShade = product.variants[_selectedVariantIndex].shade;
+                  selectedShade = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color;
                   selectedSize =  product.variants[_selectedVariantIndex].sku;
                 }
-                final productForCart = cart_model.ProductModel(
-                  id: product.id,
+                final itemToPurchase = cart_model.CartItemModel(
+                  id: "temp_${product.id}",
+                  productId: product.id,
                   name: product.name,
-                  price: product.price,
-                  discountedPrice: product.price,
+                  description: product.description,
+                  price: product.price.toDouble(),
+                  discountedPrice: product.price.toDouble(),
+                  image: product.images.isNotEmpty ? product.images.first.url : "",
                   images: product.images
                       .map((img) => cart_model.ImageModel(
                       id: img.id, publicId: img.publicId, url: img.url))
                       .toList(),
-                  productType: cart_model.ProductType(
-                    hasColor: product.variants[_selectedVariantIndex].shade != null,
-                    hasSize:  product.variants[_selectedVariantIndex].sku!= null,
-                  ),
-                );
-
-                final itemToPurchase = cart_model.CartItemModel(
-                  id: "temp_${product.id}",
-                  qty: 1,
-                  product: productForCart,
                   variant: cart_model.VariantModel(
                     color: selectedShade,
+                    size: selectedSize,
                   ),
+                  selectedVariant: {
+                    "color": selectedShade,
+                    "size": selectedSize,
+                  },
+                  quantity: 1,
+                  category: product.category ?? "",
+                  subCategory: product.subCategory ?? "",
+                  lineTotal: product.price.toInt(),
                 );
 
                 final List<cart_model.CartItemModel> itemsForCheckout = [itemToPurchase];

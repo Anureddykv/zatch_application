@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: ApiService.navigatorKey, // <- important!
+      navigatorKey: ApiService.navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Zatch',
       theme: ThemeData(

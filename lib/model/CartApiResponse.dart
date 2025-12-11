@@ -1,17 +1,8 @@
-import 'dart:convert';
-
-// Helper function to decode JSON string
-CartApiResponse cartApiResponseFromJson(String str) =>
-    CartApiResponse.fromJson(json.decode(str));
-
 class CartApiResponse {
   final bool success;
   final CartModel? cart;
 
-  CartApiResponse({
-    required this.success,
-    this.cart,
-  });
+  CartApiResponse({required this.success, this.cart});
 
   factory CartApiResponse.fromJson(Map<String, dynamic> json) =>
       CartApiResponse(
@@ -19,119 +10,91 @@ class CartApiResponse {
         cart: json["cart"] != null ? CartModel.fromJson(json["cart"]) : null,
       );
 }
-
 class CartModel {
-  final String id;
-  final String user;
   final List<CartItemModel> items;
-  final dynamic coupon; // Can be null or an object, so dynamic is safer
-  final int discount;
   final int totalItems;
-  final double totalPrice;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final int totalUniqueProducts;
+  final int subtotal;
+  final int discount;
+  final int total;
+  final dynamic coupon;
 
   CartModel({
-    required this.id,
-    required this.user,
     required this.items,
-    this.coupon,
-    required this.discount,
     required this.totalItems,
-    required this.totalPrice,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.totalUniqueProducts,
+    required this.subtotal,
+    required this.discount,
+    required this.total,
+    this.coupon,
   });
 
-  factory CartModel.fromJson(Map<String, dynamic> json) {
-    int calculatedTotalItems = 0;
-    double calculatedTotalPrice = 0.0;
-    if (json["items"] != null) {
-      for (var item in json["items"]) {
-        int qty = item['qty'] ?? 0;
-        double price = (item['product']?['discountedPrice'] ?? item['product']?['price'] ?? 0).toDouble();
-        calculatedTotalItems += qty;
-        calculatedTotalPrice += qty * price;
-      }
-    }
-
-    return CartModel(
-      id: json["_id"] ?? '', // Added null check for safety
-      user: json["user"] ?? '', // Added null check for safety
-      items: json["items"] != null
-          ? List<CartItemModel>.from(
-          json["items"].map((x) => CartItemModel.fromJson(x)))
-          : [],
-      coupon: json["coupon"],
-      discount: json["discount"] ?? 0, // Added null check for safety
-      totalItems: calculatedTotalItems,
-      totalPrice: calculatedTotalPrice,
-
-      createdAt: json["createdAt"] != null
-          ? DateTime.parse(json["createdAt"])
-          : DateTime.now(), // Use current time as a fallback
-      updatedAt: json["updatedAt"] != null
-          ? DateTime.parse(json["updatedAt"])
-          : DateTime.now(), // Use current time as a fallback
-    );
-  }
+  factory CartModel.fromJson(Map<String, dynamic> json) => CartModel(
+    items: List<CartItemModel>.from(
+        json["items"].map((x) => CartItemModel.fromJson(x))),
+    totalItems: json["totalItems"],
+    totalUniqueProducts: json["totalUniqueProducts"],
+    subtotal: json["subtotal"],
+    discount: json["discount"],
+    total: json["total"],
+    coupon: json["coupon"],
+  );
 }
-
 class CartItemModel {
-  final VariantModel variant;
-  final ProductModel product;
-  final int qty;
   final String id;
+  final String productId;
+  final String? sellerId;
+  final String name;
+  final String description;
+  final double price;
+  final double discountedPrice;
+  final String image;
+  final List<ImageModel> images;
+  final VariantModel variant;
+  final Map<String, dynamic>? selectedVariant;
+  final int quantity;
+  final String? category;
+  final String? subCategory;
+  final String? productCategory;
+  final int lineTotal;
 
   CartItemModel({
-    required this.variant,
-    required this.product,
-    required this.qty,
     required this.id,
+    required this.productId,
+     this.sellerId,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.discountedPrice,
+    required this.image,
+    required this.images,
+    required this.variant,
+    required this.selectedVariant,
+    required this.quantity,
+    this.category,
+    this.subCategory,
+     this.productCategory,
+    required this.lineTotal,
   });
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) => CartItemModel(
-    variant: VariantModel.fromJson(json["variant"]),
-    product: ProductModel.fromJson(json["product"]),
-    qty: json["qty"],
     id: json["_id"],
-  );
-}
-
-class ProductModel {
-  final ProductType productType;
-  final String id;
-  final String name;
-  final double price;
-  final double discountedPrice;
-  final List<ImageModel> images;
-  final List<VariantModel>? variants; // As seen in the GET response
-
-  ProductModel({
-    required this.productType,
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.discountedPrice,
-    required this.images,
-    this.variants,
-  });
-
-  // A getter for easier access to the primary image
-  String get primaryImageUrl => images.isNotEmpty ? images.first.url : '';
-
-  factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
-    productType: ProductType.fromJson(json["productType"]),
-    id: json["_id"],
+    productId: json["productId"],
+    sellerId: json["sellerId"],
     name: json["name"],
+    description: json["description"] ?? "",
     price: (json["price"] as num).toDouble(),
     discountedPrice: (json["discountedPrice"] as num).toDouble(),
+    image: json["image"],
     images: List<ImageModel>.from(
         json["images"].map((x) => ImageModel.fromJson(x))),
-    variants: json["variants"] != null
-        ? List<VariantModel>.from(
-        json["variants"].map((x) => VariantModel.fromJson(x)))
-        : null,
+    variant: VariantModel.fromJson(json["variant"]),
+    selectedVariant: json["selectedVariant"],
+    quantity: json["quantity"],
+    category: json["category"] as String?,
+    subCategory: json["subCategory"] as String?,
+    productCategory: json["productCategory"],
+    lineTotal: json["lineTotal"],
   );
 }
 
@@ -169,19 +132,28 @@ class ProductType {
 }
 
 class VariantModel {
+  final String? SKU;
   final String? color;
-  final int? stock; // As seen in the GET response
-  final String? id; // As seen in the GET response
+  final String? size;
+  final String? shade;
+  final int? stock;
+  final String? image;
 
   VariantModel({
+    this.SKU,
     this.color,
+    this.size,
+    this.shade,
     this.stock,
-    this.id,
+    this.image,
   });
 
   factory VariantModel.fromJson(Map<String, dynamic> json) => VariantModel(
+    SKU: json["SKU"],
     color: json["color"],
+    size: json["size"],
+    shade: json["shade"],
     stock: json["stock"],
-    id: json["_id"],
+    image: json["image"],
   );
 }

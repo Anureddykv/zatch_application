@@ -10,10 +10,10 @@ import 'package:zatch_app/view/setting_view/account_details_screen.dart';
 import 'package:zatch_app/view/setting_view/add_new_address_screen.dart';
 import 'package:zatch_app/view/setting_view/payment_method_screen.dart';
 
-
 class CheckoutOrPaymentsScreen extends StatefulWidget {
   final bool isCheckout;
-  final List<cart_model.CartItemModel>? selectedItems;  final double? itemsTotalPrice;
+  final List<cart_model.CartItemModel>? selectedItems;
+  final double? itemsTotalPrice;
   final double? shippingFee;
   final double? subTotalPrice;
 
@@ -78,12 +78,9 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }
 
   void _selectPaymentMethod() async {
-
     final result = await Navigator.push<Object>(
       context,
-      MaterialPageRoute(
-        builder: (_) => const PaymentMethodScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const PaymentMethodScreen()),
     );
 
     if (result != null && mounted) {
@@ -92,7 +89,6 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
       });
     }
   }
-
 
   /// Applies the selected coupon and updates the totals.
   void _applyCoupon(Coupon coupon) {
@@ -122,9 +118,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     // The result can be a Coupon object or null
     final result = await Navigator.push<Coupon>(
       context,
-      MaterialPageRoute(
-        builder: (_) => const CouponApplyScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const CouponApplyScreen()),
     );
 
     // If the user selected a coupon and tapped "Apply"
@@ -133,9 +127,9 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     }
   }
 
-
   // --- Dialog for removing item ---
-  Future<void> _showRemoveItemDialog(cart_model.CartItemModel item) async {    return showDialog<void>(
+  Future<void> _showRemoveItemDialog(cart_model.CartItemModel item) async {
+    return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
@@ -259,14 +253,17 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                           final updatedAddress = await Navigator.push<Address>(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => AddNewAddressScreen(
-                                addressToEdit: address,
-                              ),
+                              builder:
+                                  (_) => AddNewAddressScreen(
+                                    addressToEdit: address,
+                                  ),
                             ),
                           );
                           if (updatedAddress != null) {
                             setState(() {
-                              final index = _addresses.indexWhere((a) => a.id == updatedAddress.id);
+                              final index = _addresses.indexWhere(
+                                (a) => a.id == updatedAddress.id,
+                              );
                               if (index != -1) {
                                 _addresses[index] = updatedAddress;
                               }
@@ -455,11 +452,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Color(0xFF8B0000),
-              ),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF8B0000)),
             ],
           ),
         ),
@@ -467,14 +460,15 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     }
   }
 
-
-  Widget _cartItem(cart_model.CartItemModel item) {    return Row(
+  Widget _cartItem(cart_model.CartItemModel item) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: Image.network(
-            item.product.primaryImageUrl,            width: 57,
+            item.image,
+            width: 57,
             height: 57,
             fit: BoxFit.cover,
           ),
@@ -485,7 +479,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.product.name,
+                item.name,
                 style: const TextStyle(
                   color: Color(0xFF121111),
                   fontSize: 14,
@@ -495,7 +489,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                item.variant.color?? "NA",
+                item.variant.color ?? item.variant.shade ?? "",
                 style: const TextStyle(
                   color: Color(0xFF787676),
                   fontSize: 10,
@@ -505,7 +499,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${item.product.price.toStringAsFixed(2)} ₹',
+                '${item.price.toStringAsFixed(2)} ₹',
                 style: const TextStyle(
                   color: Color(0xFF292526),
                   fontSize: 14,
@@ -527,21 +521,34 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                 _quantityButton(
                   icon: Icons.remove,
                   onPressed: () {
-                    if (item.qty > 1) {
+                    if (item.quantity > 1) {
                       setState(() {
-                        // Find the index of the item to update
-                        final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
+                        final index = widget.selectedItems!.indexWhere(
+                          (i) => i.id == item.id,
+                        );
+
                         if (index != -1) {
-                          // Create a new item with the updated quantity
-                          final updatedItem = cart_model.CartItemModel(
+                          widget
+                              .selectedItems![index] = cart_model.CartItemModel(
                             id: item.id,
-                            qty: item.qty - 1, // The new quantity
-                            product: item.product,
+                            productId: item.productId,
+                            sellerId: item.sellerId,
+                            name: item.name,
+                            description: item.description, // ✔ FIXED
+                            price: item.price,
+                            discountedPrice: item.discountedPrice,
+                            image: item.image,
+                            images: item.images, // ✔ FIXED
                             variant: item.variant,
+                            selectedVariant: item.selectedVariant,
+                            quantity: item.quantity - 1, // ✔ FIXED
+                            category: item.category,
+                            subCategory: item.subCategory,
+                            productCategory: item.productCategory,
+                            lineTotal:
+                                (item.discountedPrice * (item.quantity + 1))
+                                    .round(),
                           );
-                          // Replace the old item with the new one in the list
-                          widget.selectedItems![index] = updatedItem;
-                          // TODO: Recalculate totals if needed
                         }
                       });
                     } else {
@@ -550,10 +557,12 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   },
                 ),
                 const SizedBox(width: 12),
+
+                // ✔ FIXED quantity text
                 SizedBox(
-                  width: 7,
+                  width: 20,
                   child: Text(
-                    '${item.qty}',
+                    '${item.quantity}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF292526),
@@ -563,26 +572,42 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(width: 12),
+
                 _quantityButton(
                   icon: Icons.add,
                   onPressed: () {
                     setState(() {
-                      final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
+                      final index = widget.selectedItems!.indexWhere(
+                        (i) => i.id == item.id,
+                      );
+
                       if (index != -1) {
-                        // Create a new item with the updated quantity
-                        final updatedItem = cart_model.CartItemModel(
+                        widget.selectedItems![index] = cart_model.CartItemModel(
                           id: item.id,
-                          qty: item.qty + 1, // The new quantity
-                          product: item.product,
+                          productId: item.productId,
+                          sellerId: item.sellerId,
+                          name: item.name,
+                          description: item.description, // ✔ FIXED
+                          price: item.price,
+                          discountedPrice: item.discountedPrice,
+                          image: item.image,
+                          images: item.images, // ✔ FIXED
                           variant: item.variant,
+                          selectedVariant: item.selectedVariant,
+                          quantity: item.quantity + 1, // ✔ FIXED
+                          category: item.category,
+                          subCategory: item.subCategory,
+                          productCategory: item.productCategory,
+                          lineTotal:
+                              (item.discountedPrice * (item.quantity + 1))
+                                  .round(),
                         );
-                        // Replace the old item in the list
-                        widget.selectedItems![index] = updatedItem;
-                        // TODO: Recalculate totals if needed
                       }
                     });
-                  },                ),
+                  },
+                ),
               ],
             ),
           ],
@@ -658,11 +683,11 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }
 
   Widget _buildPriceRow(
-      String label,
-      String value, {
-        Color? valueColor,
-        bool isBold = false,
-      }) {
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -696,75 +721,76 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-      const Text(
-      'Contact Details',
-      style: TextStyle(
-        color: Colors.black,
-        fontSize: 14,
-        fontFamily: 'Encode Sans',
-        fontWeight: FontWeight.w600,
-        height: 1.14,
-      ),
-    ),
-    const SizedBox(height: 16),
-    Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    clipBehavior: Clip.antiAlias,
-    decoration: ShapeDecoration(
-    color: const Color(0xFFF2F2F2),
-    shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(20),
-    ),
-    ),
-    child: Column(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.start,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    const Text(
-    'Email',
-    style: TextStyle(
-    color: Color(0xFFABABAB),
-    fontSize: 14,
-    fontFamily: 'Encode Sans',
-    fontWeight: FontWeight.w500,
-    height: 1.71,
-    ),
-    ),
-    const SizedBox(height: 6),
-     Text(
-   email ?? 'd.v.a.v.raju@gmail.com',
-    style: TextStyle(
-    color: Color(0xFF121111),
-    fontSize: 14,
-    fontFamily: 'Encode Sans',
-    fontWeight: FontWeight.w500,
-    ),
-    ),const SizedBox(height: 16),
-      const Text(
-        'Phone Number',
-        style: TextStyle(
-          color: Color(0xFFABABAB),
-          fontSize: 14,
-          fontFamily: 'Encode Sans',
-          fontWeight: FontWeight.w500,
-          height: 1.71,
+        const Text(
+          'Contact Details',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 14,
+            fontFamily: 'Encode Sans',
+            fontWeight: FontWeight.w600,
+            height: 1.14,
+          ),
         ),
-      ),
-      const SizedBox(height: 6),
-       Text(
-       phone?? '+91 9966127833',
-        style: TextStyle(
-          color: Color(0xFF121111),
-          fontSize: 14,
-          fontFamily: 'Encode Sans',
-          fontWeight: FontWeight.w500,
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          clipBehavior: Clip.antiAlias,
+          decoration: ShapeDecoration(
+            color: const Color(0xFFF2F2F2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Email',
+                style: TextStyle(
+                  color: Color(0xFFABABAB),
+                  fontSize: 14,
+                  fontFamily: 'Encode Sans',
+                  fontWeight: FontWeight.w500,
+                  height: 1.71,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                email ?? 'd.v.a.v.raju@gmail.com',
+                style: TextStyle(
+                  color: Color(0xFF121111),
+                  fontSize: 14,
+                  fontFamily: 'Encode Sans',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Phone Number',
+                style: TextStyle(
+                  color: Color(0xFFABABAB),
+                  fontSize: 14,
+                  fontFamily: 'Encode Sans',
+                  fontWeight: FontWeight.w500,
+                  height: 1.71,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                phone ?? '+91 9966127833',
+                style: TextStyle(
+                  color: Color(0xFF121111),
+                  fontSize: 14,
+                  fontFamily: 'Encode Sans',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-    ),
-    ),
       ],
     );
   }
@@ -779,7 +805,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     return Dismissible(
       key: Key(address.id),
       direction:
-      DismissDirection.horizontal, // Allow swiping in both directions
+          DismissDirection.horizontal, // Allow swiping in both directions
 
       background: Container(
         decoration: BoxDecoration(
@@ -848,9 +874,9 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               side: BorderSide(
                 width: isSelected ? 2 : 1,
                 color:
-                isSelected
-                    ? const Color(0xFF2C2C2C)
-                    : const Color(0xFFD3D3D3),
+                    isSelected
+                        ? const Color(0xFF2C2C2C)
+                        : const Color(0xFFD3D3D3),
               ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -931,23 +957,23 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
           side: BorderSide(
             width: isSelected ? 2 : 1,
             color:
-            isSelected ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3),
+                isSelected ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3),
           ),
         ),
       ),
       child:
-      isSelected
-          ? Center(
-        child: Container(
-          width: 10,
-          height: 10,
-          decoration: const ShapeDecoration(
-            color: Color(0xFF2C2C2C),
-            shape: OvalBorder(),
-          ),
-        ),
-      )
-          : null,
+          isSelected
+              ? Center(
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const ShapeDecoration(
+                    color: Color(0xFF2C2C2C),
+                    shape: OvalBorder(),
+                  ),
+                ),
+              )
+              : null,
     );
   }
 
@@ -997,10 +1023,16 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         elevation: 1,
         child: ListTile(
           leading: Icon(icon, color: iconColor),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
           trailing: TextButton(
             onPressed: _selectPaymentMethod, // Allow user to change selection
-            child: const Text("Change", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Change",
+              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       );
@@ -1010,5 +1042,4 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
       return _addNewButton("Choose Payment Method", _selectPaymentMethod);
     }
   }
-
 }

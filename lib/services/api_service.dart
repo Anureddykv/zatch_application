@@ -225,7 +225,7 @@ class ApiService {
     }
   }
 
-  Future<UserProfileResponse> getUserProfile() async {
+  Future<UserProfileResponse>getUserProfile() async {
     try {
       final response = await _dio.get("/user/profile");
 
@@ -1025,14 +1025,16 @@ class ApiService {
     }
   }
 
-  Future<List<LiveComment>> getLiveSessionComments(String sessionId, {int limit = 20, int offset = 0}) async {
+  // Update return type to LiveCommentResponse to get access to 'total'
+  Future<LiveCommentResponse> getLiveSessionComments(String sessionId, {int limit = 20, int offset = 0}) async {
     final String commentsEndpoint = "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
     try {
       final response = await _dio.get(commentsEndpoint);
       final data = _decodeResponse(response.data);
+
       if (data is Map<String, dynamic> && data['success'] == true) {
-        final commentsList = data['comments'] as List<dynamic>? ?? [];
-        return commentsList.map((c) => LiveComment.fromJson(c)).toList();
+        // Use the model to parse the wrapper (success, comments, total)
+        return LiveCommentResponse.fromJson(data);
       } else {
         throw Exception("Failed to fetch live session comments.");
       }
@@ -1044,7 +1046,7 @@ class ApiService {
   }
 
   Future<LiveComment> postLiveComment(String sessionId, String text) async {
-     final String commentEndpoint = "/live/session/$sessionId/comment";
+    final String commentEndpoint = "/live/session/$sessionId/comment";
 
     try {
       final response = await _dio.post(
@@ -1055,10 +1057,16 @@ class ApiService {
       final data = _decodeResponse(response.data);
 
       if (data is Map<String, dynamic> && data['success'] == true) {
+        // If the post response structure matches the list item structure:
         if (data['comment'] is Map<String, dynamic>) {
           return LiveComment.fromJson(data['comment']);
-        } else {
-          throw Exception("API response is missing the 'comment' object.");
+        }
+        // Fallback: if 'comment' is missing but 'newComment' exists or similar
+        else if (data['newComment'] is Map<String, dynamic>) {
+          return LiveComment.fromJson(data['newComment']);
+        }
+        else {
+          throw Exception("API response is missing the comment object.");
         }
       } else {
         throw Exception(data['message'] ?? "Failed to post comment.");
@@ -1140,29 +1148,40 @@ class ApiService {
 
   Future<void> removeCartItem({required String productId}) async {
     const String endpoint = "/cart/remove";
+    print("🛒 Attempting to remove product with ID: $productId");
+
     try {
-       final response = await _dio.post(
+      final response = await _dio.post(
         endpoint,
         queryParameters: {"productId": productId},
       );
 
+      print("✅ API call completed. Status code: ${response.statusCode}");
+      print("Response data: ${response.data}");
+
       final dynamic data = _decodeResponse(response.data);
+      print("Decoded response: $data");
 
       if (data is Map<String, dynamic> && data['success'] == true) {
+        print("🎉 Item removed successfully.");
         return;
       } else if (data is Map<String, dynamic> && data['message'] != null) {
+        print("⚠️ API returned a message: ${data['message']}");
         throw Exception(data['message']);
       } else {
+        print("❌ Unexpected response from server: $data");
         throw Exception("Failed to remove item. Unknown server response.");
       }
     } on DioException catch (e) {
-      debugPrint("❌ Remove Cart Error: ${e.response?.statusCode} - ${e.response?.data}");
+      print("❌ DioException caught!");
+      print("Status code: ${e.response?.statusCode}");
+      print("Response data: ${e.response?.data}");
       if (e.response?.statusCode == 404) {
         throw Exception("Endpoint not found (404). Please check API URL.");
       }
       throw Exception(_handleError(e));
     } catch (e) {
-      debugPrint("Unexpected error in removeCartItem: $e");
+      print("⚠️ Unexpected error in removeCartItem: $e");
       rethrow;
     }
   }
@@ -1199,5 +1218,62 @@ class ApiService {
       throw Exception(_handleError(e));
     }
   }
+
+  Future<Map<String, dynamic>> joinLiveSessionWithToken(String sessionId) async {
+    final String endpoint = "/live/session/$sessionId/join";
+    try {
+      debugPrint("🔹 Joining session to get token: $sessionId");
+      final response = await _dio.post(endpoint);
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['session'] != null) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? "Failed to join live session.");
+      }
+    } on DioException catch (e) {
+      debugPrint("❌ joinLiveSessionWithToken Error: ${e.response?.data}");
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> getLiveSessionFullDetails(String sessionId) async {
+    final String endpoint = "/live/session/$sessionId/details";
+    try {
+      debugPrint("🔹 Fetching full session details: $sessionId");
+      final response = await _dio.get(endpoint);
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['sessionDetails'] != null) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? "Failed to fetch session details.");
+      }
+    } on DioException catch (e) {
+      debugPrint("❌ getLiveSessionFullDetails Error: ${e.response?.data}");
+      throw Exception(_handleError(e));
+    }
+  }
+  // Share Live Session
+  Future<String> shareLiveSession(String sessionId) async {
+    final String endpoint = "/live/session/$sessionId/share";
+    try {
+      final response = await _dio.get(endpoint);
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['shareLink'] != null) {
+        return data['shareLink'] as String;
+      } else {
+        return "https://zatch.live/live/$sessionId";
+      }
+    } catch (e) {
+      debugPrint("API Error sharing session: $e");
+      return "https://zatch.live/live/$sessionId";
+    }
+  }
+
+
 
 }

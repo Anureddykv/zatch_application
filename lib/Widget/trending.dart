@@ -9,8 +9,11 @@ import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
 import 'package:zatch_app/view/reel/AllTrendingScreen.dart';
 import 'package:zatch_app/model/ExploreApiRes.dart';
+import 'package:zatch_app/model/categories_response.dart';
+
 class TrendingSection extends StatefulWidget {
-  const TrendingSection({super.key});
+  final Category? category;
+  const TrendingSection({super.key, this.category});
 
   @override
   State<TrendingSection> createState() => _TrendingSectionState();
@@ -24,7 +27,19 @@ class _TrendingSectionState extends State<TrendingSection> {
   void initState() {
     super.initState();
     // This fetches and merges both 'live' and 'bits'
-    trendingFuture = _api.fetchTrendingBits();
+    _fetchTrending();
+  }
+
+  @override
+  void didUpdateWidget(TrendingSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category?.name != widget.category?.name) {
+      _fetchTrending();
+    }
+  }
+
+  void _fetchTrending() {
+     trendingFuture = _api.fetchTrendingBits();
   }
 
   @override
@@ -39,9 +54,9 @@ class _TrendingSectionState extends State<TrendingSection> {
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text("No trending items"));
         }
-
-        // 'bits' now contains a merged list of live streams and reels
-        final bits = snapshot.data!;
+        var bits = snapshot.data!;
+        
+        // TODO: Filter bits by widget.category if TrendingBit has category info in the future
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

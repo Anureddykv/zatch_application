@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:zatch_app/view/profile/profile_screen.dart';
 import '../controller/follower_controller.dart';
 import '../view/sellers/see_all_followers_screen.dart';
+import 'package:zatch_app/model/categories_response.dart';
+import 'package:zatch_app/model/user_model.dart';
 
 class FollowersWidget extends StatefulWidget {
-  const FollowersWidget({super.key});
+  final Category? category;
+  const FollowersWidget({super.key, this.category});
 
   @override
   State<FollowersWidget> createState() => _FollowersWidgetState();
@@ -18,6 +21,14 @@ class _FollowersWidgetState extends State<FollowersWidget> {
     super.initState();
     _controller = FollowerController();
     _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(FollowersWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category?.id != widget.category?.id) {
+      setState(() {}); // Trigger rebuild to apply filter
+    }
   }
 
   Future<void> _fetchData() async {
@@ -43,7 +54,6 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
     try {
       await _controller.toggleFollow(userId);
-      // Logic to show Flushbar if needed remains here
     } catch (e) {
       debugPrint("Error toggling follow: $e");
     } finally {
@@ -60,9 +70,27 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Filter followers based on category
+    List<UserModel> displayedFollowers = _controller.followers;
+    if (widget.category != null && widget.category!.name.toLowerCase() != 'explore all') {
+      displayedFollowers = displayedFollowers.where((user) {
+        final userCat = user.categoryType?.toLowerCase();
+        if (userCat == null) return false;
+        
+        final catName = widget.category!.name.toLowerCase();
+        final catSlug = widget.category!.slug?.toLowerCase();
+        
+        // Match against name or slug
+        return userCat == catName || (catSlug != null && userCat == catSlug) || userCat.contains(catName);
+      }).toList();
+    }
+
+    // Hide widget if no sellers match the category (optional, but cleaner)
+    if (!_controller.isLoading && displayedFollowers.isEmpty && _controller.followers.isNotEmpty) {
+       return const SizedBox.shrink();
+    }
+
     return Container(
-      // Matches the vertical padding implicitly from the height,
-      // but kept flexible for the parent view.
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,14 +103,14 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                 'Explore Sellers',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              if (_controller.followers.length > 4)
+              if (displayedFollowers.length > 4)
                 InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => SeeAllFollowersScreen(
-                          followers: _controller.followers,
+                          followers: displayedFollowers,
                         ),
                       ),
                     );
@@ -98,13 +126,13 @@ class _FollowersWidgetState extends State<FollowersWidget> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildSellerList(),
+          _buildSellerList(displayedFollowers),
         ],
       ),
     );
   }
 
-  Widget _buildSellerList() {
+  Widget _buildSellerList(List<UserModel> followers) {
     // Loading State
     if (_controller.isLoading && _controller.followers.isEmpty) {
       return const SizedBox(
@@ -131,26 +159,22 @@ class _FollowersWidgetState extends State<FollowersWidget> {
     }
 
     // Empty State
-    if (!_controller.isLoading && _controller.followers.isEmpty) {
+    if (!_controller.isLoading && followers.isEmpty) {
       return const SizedBox(
           height: 130,
           child: Center(child: Text('No sellers found to explore.')));
     }
 
-    // Data State - Adjusted height to match Figma design (approx 114 - 130px safe area)
+    // Data State
     return SizedBox(
       height: 140,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        // Limit to 5 items for "Explore", show more in "See All"
-        itemCount: _controller.followers.length > 5
-            ? 5
-            : _controller.followers.length,
+        itemCount: followers.length > 5 ? 5 : followers.length,
         separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
-          final user = _controller.followers[index];
+          final user = followers[index];
 
-          // Check if we have a valid image URL
           final String? imageUrl = (user.profilePic.url?.isNotEmpty ?? false)
               ? user.profilePic.url
               : (user.profileImageUrl?.isNotEmpty ?? false)
@@ -158,24 +182,25 @@ class _FollowersWidgetState extends State<FollowersWidget> {
               : null;
 
           return GestureDetector(
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(userId: user.id),
                 ),
               );
+              if (mounted) {
+                _fetchData();
+              }
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // This Stack replicates the Profile Image + Floating Button design
                 SizedBox(
-                  width: 86, // Slightly wider to accommodate button overflow if needed
-                  height: 96, // Height to hold image (83) + button overhang
+                  width: 86,
+                  height: 96,
                   child: Stack(
                     children: [
-                      // Profile Image
                       Positioned(
                         top: 0,
                         left: 0,
@@ -184,22 +209,17 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                           width: 85.44,
                           height: 83,
                           decoration: ShapeDecoration(
-                            color: Colors.grey[300], // Fallback color if no image
+                            color: Colors.grey[300],
                             image: imageUrl != null
                                 ? DecorationImage(
                               image: NetworkImage(imageUrl),
                               fit: BoxFit.cover,
-                              onError: (exception, stackTrace) {
-                                // Error handling is internal to image provider,
-                                // but the container color acts as the visual fallback
-                              },
                             )
                                 : null,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(28),
                             ),
                           ),
-                          // Only show initial if no image is available
                           child: imageUrl == null
                               ? Center(
                             child: Text(
@@ -216,9 +236,8 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                               : null,
                         ),
                       ),
-                      // Follow/Following Button
                       Positioned(
-                        bottom: 0, // Aligns bottom of button
+                        bottom: 0,
                         left: 0,
                         right: 0,
                         child: Center(
@@ -267,7 +286,6 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Name Text
                 SizedBox(
                   width: 85,
                   child: Text(
@@ -279,7 +297,7 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                       color: Colors.black,
                       fontSize: 14,
                       fontFamily: 'Plus Jakarta Sans',
-                      fontWeight: FontWeight.w400, // Adjust weight based on preference
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),

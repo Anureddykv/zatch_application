@@ -41,6 +41,7 @@ class Session {
   final String? channelName;
   final Host? host;
   final Thumbnail thumbnail;
+  final String? category; // Added category field
 
   Session({
     required this.id,
@@ -53,6 +54,7 @@ class Session {
     this.channelName,
     this.host,
     required this.thumbnail,
+    this.category,
   });
 
   factory Session.fromJson(Map<String, dynamic> json) {
@@ -69,7 +71,7 @@ class Session {
           ? Host.fromJson(json['hostId'])
           : null,
       thumbnail: Thumbnail.fromJson(json['thumbnail'] ?? {}),
-
+      category: json['category'] as String?, // Map category
     );
   }
 
@@ -85,6 +87,7 @@ class Session {
       'channelName': channelName,
       'host': host?.toJson(),
       'thumbnail': thumbnail,
+      'category': category,
     };
   }
 }
@@ -136,5 +139,3 @@ SessionDetails sessionDetailsFromApiResponse(String str) {
     throw Exception("Failed to parse session details from API response or success was false.");
   }
 }
-
-

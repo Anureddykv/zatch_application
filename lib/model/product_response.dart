@@ -1,7 +1,4 @@
-import 'package:zatch_app/model/categories_response.dart';
-
 import 'ExploreApiRes.dart';
-// import 'ExploreApiRes.dart'; // Unused based on provided JSON, remove if not needed
 
 class ProductResponse {
   final bool success;
@@ -17,15 +14,13 @@ class ProductResponse {
   factory ProductResponse.fromJson(Map<String, dynamic> json) {
     List<Product> parsedProducts = [];
 
-    // Case 1: Response contains a list of products (e.g., /list)
     if (json['products'] != null) {
+      // List of products
       parsedProducts = (json['products'] as List<dynamic>)
           .map((e) => Product.fromJson(e))
           .toList();
-    }
-    // Case 2: Response contains a single product (e.g., /details)
-    // We wrap it in a list to maintain consistency for the UI
-    else if (json['product'] != null) {
+    } else if (json['product'] != null) {
+      // Single product
       parsedProducts = [Product.fromJson(json['product'])];
     }
 
@@ -37,34 +32,6 @@ class ProductResponse {
   }
 }
 
-class ProductVariant {
-  final String shade;
-  final String sku;
-  final int stock;
-  final String? size; // Kept as nullable in case other products have size
-  final List<ProductImage> images;
-
-  ProductVariant({
-    required this.shade,
-    required this.sku,
-    required this.stock,
-    this.size,
-    this.images = const [],
-  });
-
-  factory ProductVariant.fromJson(Map<String, dynamic> json) {
-    return ProductVariant(
-      shade: json['shade'] ?? '',
-      sku: json['SKU'] ?? '', // Note: API sends 'SKU' (uppercase)
-      stock: (json['stock'] as num?)?.toInt() ?? 0,
-      size: json['size'],
-      images: (json['images'] as List<dynamic>? ?? [])
-          .map((e) => ProductImage.fromJson(e))
-          .toList(),
-    );
-  }
-}
-
 class Product {
   final String id;
   final String name;
@@ -72,19 +39,23 @@ class Product {
   final double price;
   final double? discountedPrice;
   final List<ProductImage> images;
-  final Category? category;
-  final SubCategory? subCategory; // Added based on JSON
-  final int? totalStock;
+  final String? category;
+  final String? subCategory;
+  final String? productCategory;
   final List<ProductVariant> variants;
-  final bool? isTopPick;
-  final int? saveCount;
-  final int? likeCount;
-  final int? viewCount;
+  final bool isTopPick;
+  final int saveCount;
+  final int likeCount;
+  final int viewCount;
+  final int commentCount;
+  final double averageRating;
+  final int totalStock;
   final Seller? seller;
   final List<Review> reviews;
-  final List<Comment>? comments;
-  final int? commentCount;
-  final double? averageRating;
+  final List<Comment> comments;
+  final bool isSaved;
+  final bool isLiked;
+  final BargainSettings? bargainSettings;
 
   Product({
     required this.id,
@@ -94,100 +65,90 @@ class Product {
     this.discountedPrice,
     required this.images,
     required this.reviews,
-    this.category,
-    this.subCategory,
-    this.totalStock,
+     this.category,
+     this.subCategory,
+     this.productCategory,
     required this.variants,
-    this.isTopPick,
-    this.saveCount,
-    this.likeCount,
-    this.viewCount,
+    required this.isTopPick,
+    required this.saveCount,
+    required this.likeCount,
+    required this.viewCount,
+    required this.commentCount,
+    required this.averageRating,
+    required this.totalStock,
     this.seller,
-    this.commentCount,
-    this.comments,
-    this.averageRating,
+    this.comments = const [],
+    this.isSaved = false,
+    this.isLiked = false,
+    this.bargainSettings,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    // Parse Category (Can be String ID or Object based on API endpoint)
-    Category? parsedCategory;
-    final categoryData = json['category'];
-    if (categoryData != null) {
-      if (categoryData is Map<String, dynamic>) {
-        // If name is missing in map, provide default
-        if (categoryData['name'] == null && categoryData['name'] == "") {
-          categoryData['name'] = "Unknown Category";
-        }
-        parsedCategory = Category.fromJson(categoryData);
-      } else if (categoryData is String) {
-        parsedCategory = Category(id: categoryData, name: categoryData);
-      }
-    }
-
-    // Parse SubCategory
-    SubCategory? parsedSubCategory;
-    if (json['subCategory'] != null && json['subCategory'] is Map<String, dynamic>) {
-      parsedSubCategory = SubCategory.fromJson(json['subCategory']);
-    }
-
-    // Parse Seller
-    Seller? parsedSeller;
-    final sellerData = json['seller'] ?? json['sellerId'];
-    if (sellerData != null) {
-      if (sellerData is Map<String, dynamic>) {
-        parsedSeller = Seller.fromJson(sellerData);
-      } else if (sellerData is String) {
-        parsedSeller = Seller(
-            id: sellerData,
-            username: 'Unknown',
-            profilePic: ProfilePic(publicId: '', url: ''));
-      }
-    }
-
     return Product(
       id: json['_id'] ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0,
       discountedPrice: (json['discountedPrice'] as num?)?.toDouble(),
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
       images: (json['images'] as List<dynamic>? ?? [])
           .map((e) => ProductImage.fromJson(e))
           .toList(),
-      category: parsedCategory,
-      subCategory: parsedSubCategory,
+      category: json['category'] ?? '',
+      subCategory: json['subCategory'] ?? '',
+      productCategory: json['productCategory'] ?? '',
       variants: (json['variants'] as List<dynamic>? ?? [])
           .map((e) => ProductVariant.fromJson(e))
           .toList(),
-      totalStock: json['totalStock'] ?? json['stock'],
       isTopPick: json['isTopPick'] ?? false,
       saveCount: json['saveCount'] ?? 0,
       likeCount: json['likeCount'] ?? 0,
       viewCount: json['viewCount'] ?? 0,
-      averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0.0,
       reviews: (json['reviews'] as List<dynamic>? ?? [])
           .map((e) => Review.fromJson(e))
           .toList(),
       commentCount: json['commentCount'] ?? 0,
+      averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0,
+      totalStock: json['totalStock'] ?? 0,
+      seller: json['seller'] != null ? Seller.fromJson(json['seller']) : null,
       comments: (json['comments'] as List<dynamic>? ?? [])
           .map((e) => Comment.fromJson(e))
           .toList(),
-      seller: parsedSeller,
+      isSaved: json['isSaved'] ?? false,
+      isLiked: json['isLiked'] ?? false,
+      bargainSettings: json['bargainSettings'] != null
+          ? BargainSettings.fromJson(json['bargainSettings'])
+          : null,
     );
   }
 }
 
-class SubCategory {
-  final String id;
-  final String name;
-  final String slug;
+class ProductVariant {
+  final String? color;
+  final String? shade;
+  final String? size;
+  final String sku;
+  final int stock;
+  final List<ProductImage> images;
 
-  SubCategory({required this.id, required this.name, required this.slug});
+  ProductVariant({
+    this.color,
+    this.shade,
+    this.size,
+    required this.sku,
+    required this.stock,
+    required this.images,
+  });
 
-  factory SubCategory.fromJson(Map<String, dynamic> json) {
-    return SubCategory(
-      id: json['_id'] ?? '',
-      name: json['name'] ?? '',
-      slug: json['slug'] ?? '',
+  factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    return ProductVariant(
+      color: json['color'],
+      shade: json['shade'],
+      size: json['size'],
+      sku: json['SKU'] ?? '',
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
+      images: (json['images'] as List<dynamic>? ?? [])
+          .map((e) => ProductImage.fromJson(e))
+          .toList(),
     );
   }
 }
@@ -232,52 +193,6 @@ class Seller {
   }
 }
 
-class Review {
-  final String id;
-  final Reviewer reviewerId;
-  final int rating;
-  final String comment;
-  final DateTime createdAt;
-
-  Review({
-    required this.id,
-    required this.reviewerId,
-    required this.rating,
-    required this.comment,
-    required this.createdAt,
-  });
-
-  factory Review.fromJson(Map<String, dynamic> json) {
-    return Review(
-      id: json['_id'] ?? '',
-      reviewerId: Reviewer.fromJson(json['reviewerId'] ?? {}),
-      rating: (json['rating'] as num?)?.toInt() ?? 0,
-      comment: json['comment'] ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-    );
-  }
-}
-
-class Reviewer {
-  final ProfilePic profilePic;
-  final String id;
-  final String username;
-
-  Reviewer({
-    required this.profilePic,
-    required this.id,
-    required this.username,
-  });
-
-  factory Reviewer.fromJson(Map<String, dynamic> json) {
-    return Reviewer(
-      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
-      id: json['_id'] ?? '',
-      username: json['username'] ?? '',
-    );
-  }
-}
-
 class ProfilePic {
   final String publicId;
   final String url;
@@ -295,33 +210,19 @@ class ProfilePic {
   }
 }
 
-/*class Comment {
-  final String id;
-  final String text;
-  final DateTime createdAt;
-  final Reviewer? user; // Assuming structure
-  final int likes;
-  final List<Comment> replies;
+class BargainSettings {
+  final double autoAcceptDiscount;
+  final double maximumDiscount;
 
-  Comment({
-    required this.id,
-    required this.text,
-    required this.createdAt,
-    this.user,
-    this.likes = 0,
-    this.replies = const [],
+  BargainSettings({
+    required this.autoAcceptDiscount,
+    required this.maximumDiscount,
   });
 
-  factory Comment.fromJson(Map<String, dynamic> json) {
-    return Comment(
-      id: json['_id'] ?? '',
-      text: json['text'] ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      user: json['user'] != null ? Reviewer.fromJson(json['user']) : null,
-      likes: json['likes'] ?? 0,
-      replies: (json['replies'] as List<dynamic>? ?? [])
-          .map((e) => Comment.fromJson(e))
-          .toList(),
+  factory BargainSettings.fromJson(Map<String, dynamic> json) {
+    return BargainSettings(
+      autoAcceptDiscount: (json['autoAcceptDiscount'] as num?)?.toDouble() ?? 0,
+      maximumDiscount: (json['maximumDiscount'] as num?)?.toDouble() ?? 0,
     );
   }
-}*/
+}

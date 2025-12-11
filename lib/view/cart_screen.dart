@@ -7,7 +7,9 @@ import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'zatching_details_screen.dart';
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  final Function(Widget)? onNavigate;
+
+  const CartScreen({super.key, this.onNavigate});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -17,6 +19,18 @@ class _CartScreenState extends State<CartScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ApiService _apiService = ApiService();
+  void _handleNavigation(Widget screen) {
+    if (widget.onNavigate != null) {
+      // If callback exists (we are inside HomePage), switch the view there
+      widget.onNavigate!(screen);
+    } else {
+      // Fallback: If used standalone, push normally
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => screen),
+      );
+    }
+  }
 
   late Future<CartModel?> _cartFuture;
   CartModel? _cart;
@@ -86,24 +100,14 @@ class _CartScreenState extends State<CartScreen>
   Future<void> _updateCartItem(CartItemModel item, int newQuantity) async {
     try {
       final updatedCart = await _apiService.updateCartItem(
-        productId: item.product.id,
+        productId: item.id,
         quantity: newQuantity,
         color: item.variant.color,
       );
 
-      // Refresh the cart UI with the response from the API
       if (updatedCart != null) {
         setState(() {
-          // Find the item and update its quantity
-          final index = _cart!.items.indexWhere((i) => i.id == item.id);
-          if (index != -1) {
-            _cart!.items[index] = CartItemModel(
-              id: item.id,
-              product: item.product,
-              variant: item.variant,
-              qty: newQuantity, // Use the new quantity
-            );
-          }
+          _cart = updatedCart as CartModel?;
         });
       }
     } catch (e) {
@@ -116,26 +120,35 @@ class _CartScreenState extends State<CartScreen>
   }
 
   Future<void> _removeCartItem(CartItemModel item) async {
+    print("Attempting to remove cart item: ${item.id} - ${item.name}");
+
     try {
-      await _apiService.removeCartItem(productId: item.product.id);
+      print("Calling API to remove item from cart...");
+      await _apiService.removeCartItem(productId: item.id);
+      print("API call successful for item: ${item.id}");
+
       if (mounted && _cart != null) {
+        print("Updating local cart state...");
         setState(() {
           _cart!.items.removeWhere((i) => i.id == item.id);
           _selectedItems.remove(item.id);
         });
+        print("Item removed from local cart. Remaining items: ${_cart!.items.length}");
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("${item.product.name} removed"),
+            content: Text("${item.name} removed"),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 1),
           ),
         );
+        print("SnackBar shown for removed item: ${item.name}");
+      } else {
+        print("Mounted is false or cart is null. Skipping local state update.");
       }
     } catch (e) {
       final errorMessage = e.toString().replaceAll("Exception:", "").trim();
-
-      debugPrint("Error removing item: $e");
+      print("Error removing item: $errorMessage");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,6 +157,7 @@ class _CartScreenState extends State<CartScreen>
             backgroundColor: Colors.red,
           ),
         );
+        print("Error SnackBar shown: $errorMessage");
       }
     }
   }
@@ -256,7 +270,7 @@ class _CartScreenState extends State<CartScreen>
         int selectedItemsCount = selectedCartItems.length;
         double itemsTotalPriceValue = selectedCartItems.fold(
           0,
-          (sum, i) => sum + (i.product.price * i.qty),
+          (sum, i) => sum + (i.price * i.quantity),
         );
         double shippingFeeValue = selectedItemsCount > 0 ? 10.0 : 0.0;
         double subTotalPriceValue = itemsTotalPriceValue + shippingFeeValue;
@@ -288,15 +302,7 @@ class _CartScreenState extends State<CartScreen>
                   ),
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => ProductDetailScreen(
-                                productId: item.product.id,
-                              ),
-                        ),
-                      );
+                      _handleNavigation(ProductDetailScreen(productId: item.id));
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(
@@ -334,7 +340,7 @@ class _CartScreenState extends State<CartScreen>
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                item.product.primaryImageUrl,
+                                item.image,
                                 width: 48,
                                 height: 48,
                                 fit: BoxFit.cover,
@@ -352,7 +358,7 @@ class _CartScreenState extends State<CartScreen>
                             Flexible(
                               // Wrap Text in Flexible
                               child: Text(
-                                item.product.name,
+                                item.name,
                                 maxLines: 1, // Limit lines
                                 overflow:
                                     TextOverflow
@@ -365,7 +371,7 @@ class _CartScreenState extends State<CartScreen>
                             ),
                             if (item.variant.color != null)
                               Text(
-                                "Color: ${item.variant.color}",
+                                "Color: ${item.variant.color?? item.variant.shade}",
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -373,7 +379,7 @@ class _CartScreenState extends State<CartScreen>
                               ),
                             const SizedBox(height: 4),
                             Text(
-                              "${item.product.price.toStringAsFixed(2)}₹",
+                              "${item.price.toStringAsFixed(2)}₹",
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                               ),
@@ -389,15 +395,15 @@ class _CartScreenState extends State<CartScreen>
                               color: Colors.grey,
                               iconSize: 20,
                               onPressed: () {
-                                if (item.qty > 1) {
-                                  _updateCartItem(item, item.qty - 1);
+                                if (item.quantity > 1) {
+                                  _updateCartItem(item, item.quantity - 1);
                                 } else {
                                   _showRemoveItemDialog(item);
                                 }
                               },
                             ),
                             Text(
-                              "${item.qty}",
+                              "${item.quantity}",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -407,7 +413,7 @@ class _CartScreenState extends State<CartScreen>
                               color: Colors.grey,
                               iconSize: 20,
                               onPressed:
-                                  () => _updateCartItem(item, item.qty + 1),
+                                  () => _updateCartItem(item, item.quantity + 1),
                             ),
                           ],
                         ),
@@ -543,12 +549,7 @@ class _CartScreenState extends State<CartScreen>
   Widget _zatchItem(Zatch zatch) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ZatchingDetailsScreen(zatch: zatch),
-          ),
-        );
+        _handleNavigation(ZatchingDetailsScreen(zatch: zatch));
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(

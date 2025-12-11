@@ -65,7 +65,7 @@ class SeeAllTopPicksScreen extends StatelessWidget {
             // 1. Image Logic: prioritize product images
             final imgUrl = product.images.isNotEmpty
                 ? product.images.first.url
-                : product.category?.image?.url ??
+                : product.images?.first.url ??
                 "https://placehold.co/159x177?text=No+Image";
 
             // 2. Rating Logic

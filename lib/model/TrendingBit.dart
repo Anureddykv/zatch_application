@@ -16,6 +16,7 @@ class TrendingBit {
   final bool isLiked;
   final String creatorId;
   final String creatorUsername;
+  final String? category; // Added category field
 
   TrendingBit({
     required this.id,
@@ -35,6 +36,7 @@ class TrendingBit {
     required this.isLiked,
     required this.creatorId,
     required this.creatorUsername,
+    this.category,
   });
 
   factory TrendingBit.fromJson(Map<String, dynamic> json) {
@@ -42,6 +44,33 @@ class TrendingBit {
     final bool isLive = type == 'live';
     final stats = json['stats'] as Map<String, dynamic>? ?? {};
     final creator = (json['creator'] ?? json['host']) as Map<String, dynamic>? ?? {};
+
+    // Extract Category
+    String? category;
+    if (json['category'] != null) {
+      if (json['category'] is String) {
+        category = json['category'];
+      } else if (json['category'] is Map) {
+        // Try name, then id, then slug
+        category = json['category']['name'] ?? json['category']['_id'] ?? json['category']['slug'];
+      }
+    }
+
+    // Fallback for bits: check first product's category if top-level category is missing
+    if (category == null && !isLive && json['products'] is List) {
+      final products = json['products'] as List;
+      if (products.isNotEmpty) {
+        final firstProd = products.first;
+        if (firstProd is Map && firstProd['category'] != null) {
+           final prodCat = firstProd['category'];
+           if (prodCat is String) {
+             category = prodCat;
+           } else if (prodCat is Map) {
+             category = prodCat['name'] ?? prodCat['_id'] ?? prodCat['slug'];
+           }
+        }
+      }
+    }
 
     return TrendingBit(
       id: json['_id'] as String? ?? '',
@@ -71,7 +100,7 @@ class TrendingBit {
       isLiked: json['isLiked'] as bool? ?? false, // API needs to send this
       creatorId: creator['_id'] as String? ?? '',
       creatorUsername: creator['username'] as String? ?? 'Unknown',
-
+      category: category,
     );
   }
 }

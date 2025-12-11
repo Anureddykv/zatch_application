@@ -14,13 +14,15 @@ import '../Widget/followers_widget.dart';
 import '../Widget/live_followers_widget.dart';
 import '../Widget/top_picks_this_week_widget.dart';
 import '../Widget/trending.dart';
+import 'cart_screen.dart';
 import 'navigation_page.dart';
 
 class HomePage extends StatefulWidget {
   final LoginResponse? loginResponse;
   final List<Category>? selectedCategories;
+  final int initialIndex;
 
-  const HomePage({super.key, this.loginResponse, this.selectedCategories});
+  const HomePage({super.key, this.loginResponse, this.selectedCategories, this.initialIndex = 0});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -36,7 +38,17 @@ class _HomePageState extends State<HomePage> {
   Category? _selectedCategory;
   bool get _isSingleCategoryInitiallySelected => widget.selectedCategories?.length == 1 && widget.selectedCategories!.first.name.toLowerCase() != 'explore all';
   bool _shouldShowKeyboardOnSearch = false;
-
+  Widget? _currentSubScreen;
+  void _navigateToSubScreen(Widget screen) {
+    setState(() {
+      _currentSubScreen = screen;
+    });
+  }
+  void _closeSubScreen() {
+    setState(() {
+      _currentSubScreen = null;
+    });
+  }
   void _onItemTapped(int index,{bool fromHeader = false}) {
     setState(() {
       _selectedIndex = index;
@@ -59,6 +71,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     if (mounted) {
       _apiService.init().then((_) {
         fetchUserProfile();
@@ -94,77 +107,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildContentForCategory() {
-    final categoryName = _selectedCategory?.name.toLowerCase() ?? 'explore all';
-    if (_isSingleCategoryInitiallySelected && _selectedCategory?.id == widget.selectedCategories!.first.id) {
-      return _buildSubCategoryGrid();
-    }
-    if (categoryName == 'explore all') {
-      return Column(
-        children: [
-          const LiveFollowersWidget(),
-          const BargainPicksWidget(),
-          const FollowersWidget(),
-          const TopPicksThisWeekWidget(),
-          const TrendingSection(),
-          const SizedBox(height: 40),
-        ],
-      );
-    }
-    return _buildSubCategoryGrid();
-  }
-  Widget _buildSubCategoryGrid() {
-    final subCategories = _selectedCategory?.subCategories ?? [];
-
-    if (subCategories.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40.0),
-          child: Text("No sub-categories available.", style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
-        itemCount: subCategories.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // Adjust number of columns as needed
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.8,
-        ),
-        itemBuilder: (context, index) {
-          final sub = subCategories[index];
-          final imageUrl = sub.image?.url ?? '';
-
-          return InkWell(
-              onTap: () {
-                // TODO: Implement navigation to sub-category product list screen
-                print("Tapped on Sub-category: ${sub.name}");
-              },
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
-                  child: imageUrl.isEmpty ? Icon(Icons.image_not_supported, color: Colors.grey[400]) : null,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  sub.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                ),
-              ],
-            ),
-          );
-        },
+    return Column(
+      children: [
+        LiveFollowersWidget(category: _selectedCategory),
+        BargainPicksWidget(category: _selectedCategory),
+        FollowersWidget(category: _selectedCategory),
+        TopPicksThisWeekWidget(category: _selectedCategory),
+        TrendingSection(category: _selectedCategory),
+        const SizedBox(height: 40),
+      ],
     );
   }
-
 
   Widget _buildHomeTab() {
     if (isLoading) {
@@ -185,8 +138,16 @@ class _HomePageState extends State<HomePage> {
     }
     return Column(
       children: [
-        const SizedBox(height: 25),
-        HeaderWidget(userProfile, onSearchTap: () => _onItemTapped(1,fromHeader: true)),
+        SafeArea(
+          child: HeaderWidget(userProfile: userProfile, onSearchTap: () => _onItemTapped(1,fromHeader: true),  onCartTap: () {
+            _navigateToSubScreen(
+                CartScreen(
+                  // Pass the navigation callback so Cart can open details inside Home
+                  onNavigate: (Widget nextScreen) => _navigateToSubScreen(nextScreen),
+                )
+            );
+          },),
+        ),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -226,6 +187,10 @@ class _HomePageState extends State<HomePage> {
 
     return  WillPopScope(
       onWillPop: () async {
+        if (_currentSubScreen != null) {
+          _closeSubScreen();
+          return false;
+        }
         if (_selectedIndex != 0) {
           setState(() {
             _selectedIndex = 0;
@@ -236,13 +201,16 @@ class _HomePageState extends State<HomePage> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        body: IndexedStack(
+        body: _currentSubScreen ?? IndexedStack(
           index: _selectedIndex,
           children: pages,
         ),
         bottomNavigationBar: CustomBottomNavBar(
           selectedIndex: _selectedIndex,
-          onItemTapped: _onItemTapped,
+          onItemTapped: (index) {
+            if (_currentSubScreen != null) _closeSubScreen();
+            _onItemTapped(index);
+          },
           userProfile: userProfile,
         ),
         floatingActionButton: FloatingZButton(
@@ -253,4 +221,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-

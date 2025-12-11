@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
@@ -24,6 +25,32 @@ class _HelpScreenState extends State<HelpScreen> {
     {"question": "Lorimipsum Lori ?asjdbcsdnc?", "answer": "Sample answer text goes here..."},
     {"question": "Lorimipsum Lori example?", "answer": "Sample answer text goes here..."},
   ];
+  Future<void> _sendEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'Zatchshop@gmail.com',
+      query: _encodeQueryParameters(<String, String>{
+        'subject': 'Help Request from App',
+        'body': 'Hello Zatch Team, I need help with...'
+      }),
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        debugPrint("Could not launch email client");
+        await launchUrl(emailLaunchUri);
+      }
+    } catch (e) {
+      debugPrint("Error launching email: $e");
+    }
+  }
+  String? _encodeQueryParameters(Map<String, String> params) {
+    return params.entries
+        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +196,7 @@ class _HelpScreenState extends State<HelpScreen> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _sendEmail,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFA3DD00),
                       shape: RoundedRectangleBorder(

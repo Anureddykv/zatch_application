@@ -3,12 +3,14 @@ import 'package:zatch_app/controller/live_follower_controller.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/view/live_view/see_all_live_screen.dart';
+import 'package:zatch_app/model/categories_response.dart';
 
 import '../view/live_view/live_session_card.dart';
 
 class LiveFollowersWidget extends StatefulWidget {
   final UserProfileResponse? userProfile;
-  const LiveFollowersWidget({super.key, this.userProfile});
+  final Category? category;
+  const LiveFollowersWidget({super.key, this.userProfile, this.category});
 
   @override
   State<LiveFollowersWidget> createState() => _LiveFollowersWidgetState();
@@ -30,6 +32,14 @@ class _LiveFollowersWidgetState extends State<LiveFollowersWidget> {
     _loadLiveUsers();
   }
 
+  @override
+  void didUpdateWidget(LiveFollowersWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.category?.id != widget.category?.name) {
+      _loadLiveUsers();
+    }
+  }
+
   Future<void> _loadLiveUsers() async {
     if (!mounted) return;
     setState(() {
@@ -39,9 +49,14 @@ class _LiveFollowersWidgetState extends State<LiveFollowersWidget> {
 
     try {
       final sessions = await _controller.getLiveSessions();
+      // Filter sessions if category is provided
+      final filteredSessions = widget.category == null || widget.category!.name.toLowerCase() == 'explore all'
+          ? sessions
+          : sessions; // TODO: Implement filtering logic if Session has category info
+
       if (mounted) {
         setState(() {
-          _liveSessions = sessions;
+          _liveSessions = filteredSessions;
         });
       }
     } catch (e) {

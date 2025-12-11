@@ -546,7 +546,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                product.category?.name ?? "Category",
+                                product.name ?? "Category",
                                 style: const TextStyle(
                                   color: Colors.white, // Design uses white for subtitle too
                                   fontSize: 10,
@@ -975,7 +975,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                           Row(
                             children: [
                               Text(
-                                product.category?.name ?? 'Dress modern',
+                                product?.name ?? 'Dress modern',
                                 style: const TextStyle(
                                   color: Color(0xFF787676),
                                   fontSize: 10,
@@ -1363,7 +1363,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                   ),
                                 ),
                                 Text(
-                                  product.category?.name ?? "Live Item",
+                                  product.name ?? "Live Item",
                                   style: const TextStyle(
                                     color: Colors.grey,
                                     fontSize: 12,
@@ -1426,7 +1426,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                       ),
                                     ),
                                     Text(
-                                      product.category?.name ?? "Live Item",
+                                      product.name ?? "Live Item",
                                       style: const TextStyle(
                                         color: Colors.grey,
                                         fontSize: 12,
@@ -1495,7 +1495,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        if (selectedOption == "buy") {
+                       /* if (selectedOption == "buy") {
                           final productForCart = cart_model.ProductModel(
                             id: product.id,
                             name: product.name,
@@ -1540,7 +1540,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                               ),
                             ),
                           );
-                        } else {
+                        } */ {
                           Navigator.pushReplacement(
                             this.context,
                             MaterialPageRoute(
@@ -1551,7 +1551,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                                   "temp_${DateTime.now().millisecondsSinceEpoch}",
                                   name: product.name,
                                   description:
-                                  product.category?.description ?? "",
+                                  product.description ?? "",
                                   seller:
                                   widget
                                       .controller

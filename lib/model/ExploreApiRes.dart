@@ -163,3 +163,48 @@ class Comment {
     );
   }
 }
+class Review {
+  final String id;
+  final Reviewer reviewerId;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+
+  Review({
+    required this.id,
+    required this.reviewerId,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      id: json['_id'] ?? '',
+      reviewerId: Reviewer.fromJson(json['reviewerId'] ?? {}),
+      rating: (json['rating'] as num?)?.toInt() ?? 0,
+      comment: json['comment'] ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+class Reviewer {
+  final ProfilePic profilePic;
+  final String id;
+  final String username;
+
+  Reviewer({
+    required this.profilePic,
+    required this.id,
+    required this.username,
+  });
+
+  factory Reviewer.fromJson(Map<String, dynamic> json) {
+    return Reviewer(
+      profilePic: ProfilePic.fromJson(json['profilePic'] ?? {}),
+      id: json['_id'] ?? '',
+      username: json['username'] ?? '',
+    );
+  }
+}

@@ -1,4 +1,5 @@
 import 'package:another_flushbar/flushbar.dart'; // <-- Import Flushbar
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import 'package:zatch_app/controller/auth_controller/login_controller.dart';
 import 'package:zatch_app/model/login_response.dart';
 import 'package:zatch_app/view/category_screen/category_screen.dart';
 import 'package:zatch_app/view/home_page.dart';
+import 'package:zatch_app/view/policy_screen.dart';
 import '../../utils/auth_utils/base_screen.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'otp_screen.dart';
@@ -391,14 +393,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const TextSpan(
+                TextSpan(
                   text: 'Terms & Conditions',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.black,
                     fontSize: 14, // Made consistent
                     fontWeight: FontWeight.w700,
                     decoration: TextDecoration.underline,
                   ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      Navigator.push(
+                        context,
+                         MaterialPageRoute(
+                          builder: (_) => const PolicyScreen(title: "Terms & Conditions"),
+                        ),
+                      );
+                    },
                 ),
               ],
             ),
