@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/CartApiResponse.dart';
@@ -13,10 +14,13 @@ import 'package:zatch_app/model/UpdateProfileResponse.dart';
 import 'package:zatch_app/model/api_response.dart';
 import 'package:zatch_app/model/bit_details.dart';
 import 'package:zatch_app/model/follow_response.dart';
+import 'package:zatch_app/model/golivesteponeresponse.dart';
+import 'package:zatch_app/model/golivestepthreeresponse.dart';
 import 'package:zatch_app/model/live_comment.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/model/livesummarymodel.dart';
 import 'package:zatch_app/model/product_response.dart';
+import 'package:zatch_app/model/product_response_seller.dart';
 import 'package:zatch_app/model/register_req.dart';
 import 'package:zatch_app/model/register_response_model.dart';
 import 'package:zatch_app/model/login_request.dart';
@@ -71,9 +75,9 @@ class ApiService {
     BaseOptions(
       baseUrl: baseUrl,
       headers: {"Content-Type": "application/json"},
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 40),
-      sendTimeout: const Duration(seconds: 15),
+      // connectTimeout: const Duration(seconds: 15),
+      // receiveTimeout: const Duration(seconds: 40),
+      // sendTimeout: const Duration(seconds: 15),
     ),
   );
 
@@ -346,6 +350,25 @@ class ApiService {
       final response = await _dio.get("/product/products");
       final data = _decodeResponse(response.data);
       final productResponse = ProductResponse.fromJson(data);
+      return productResponse.products;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// PRODUCTS
+  Future<List<ProductItem>> getProductgolive() async {
+    try {
+      final response = await _dio.get("/product/products");
+
+      final data =
+          response.data is String
+              ? _decodeResponse(response.data)
+              : response.data;
+
+      log("DECODED DATA: $data");
+
+      final productResponse = ProductResponseSeller.fromJson(data);
       return productResponse.products;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -1111,7 +1134,7 @@ class ApiService {
     }
   }
 
-  //seller
+  //seller live dashboard data
 
   Future<LiveSummaryModel> getLiveSummary(String timeFilter) async {
     try {
@@ -1127,6 +1150,73 @@ class ApiService {
       return liveSummary;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
+    }
+  }
+
+  // go live first api
+  Future<GoLiveStepOneResponse?> goLiveStepOne({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.post("/live/schedule", data: payload);
+
+      final data = _decodeResponse(response.data);
+
+      final apiResponse = GoLiveStepOneResponse.fromJson(data);
+
+      if (apiResponse.success) {
+        return apiResponse;
+      } else {
+        throw Exception(apiResponse.message);
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in goLiveStepOne: $e");
+      rethrow;
+    }
+  }
+
+  Future<GoLiveSuccessResponseModel?> goLiveStepThree({
+    required FormData payload,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "//live/schedule",
+        data: payload,
+        options: Options(contentType: "multipart/form-data"),
+      );
+
+      log("API STEP 3 RAW RESPONSE: ${response.data}");
+
+      return GoLiveSuccessResponseModel.fromJson(response.data);
+    } catch (e) {
+      log("Step 3 API Error: $e");
+      return null;
+    }
+  }
+
+  //go live step 2
+  Future<GoLiveStepOneResponse?> goLiveStepTwo({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.post("/live/schedule", data: payload);
+
+      final data = _decodeResponse(response.data);
+
+      final apiResponse = GoLiveStepOneResponse.fromJson(data);
+
+      if (apiResponse.success) {
+        return apiResponse;
+      } else {
+        throw Exception(apiResponse.message);
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in goLiveStepOne: $e");
+      rethrow;
     }
   }
 }

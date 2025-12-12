@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
@@ -208,7 +209,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 .value;
 
                                         if (data == null) {
-                                          return const SizedBox(); // or loader
+                                          return _shimmerBox(); // or loader
                                         }
 
                                         final summary = data.performanceSummary;
@@ -223,7 +224,9 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                               children: [
                                                 buildStatItem(
                                                   icon: Icons.visibility,
-                                                  color: const Color(0xFFCCF656),
+                                                  color: const Color(
+                                                    0xFFCCF656,
+                                                  ),
                                                   value:
                                                       summary.views.toString(),
                                                   label: "views",
@@ -232,7 +235,9 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 ),
                                                 buildStatItem(
                                                   icon: Icons.currency_rupee,
-                                                  color: const Color(0xFFCCF656),
+                                                  color: const Color(
+                                                    0xFFCCF656,
+                                                  ),
                                                   value: summary.revenue,
                                                   label: "Revenue",
                                                   percentText:
@@ -240,7 +245,9 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 ),
                                                 buildStatItem(
                                                   icon: Icons.drag_indicator,
-                                                  color: const Color(0xFFCCF656),
+                                                  color: const Color(
+                                                    0xFFCCF656,
+                                                  ),
                                                   value: summary.avgEngagement,
                                                   label: "AvgEngagement",
                                                   percentText:
@@ -270,7 +277,9 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                 // height: 200,
                                 // width: 300,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFCCF656).withOpacity(0.4),
+                                  color: const Color(
+                                    0xFFCCF656,
+                                  ).withOpacity(0.4),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
                                     // color: Colors.white.withOpacity(0.3),
@@ -638,6 +647,44 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shimmer Box for Skeleton Loader
+  Widget _shimmerBox({double height = 50, double width = double.infinity}) {
+    return Shimmer.fromColors(
+      // baseColor: Colors.grey[300]!,
+      baseColor: Colors.white,
+      highlightColor: Colors.grey[100]!,
+      child: Column(
+        children: [
+          Container(
+            height: height,
+            width: width,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonLoader() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(height: 20),
+            CircleAvatar(radius: 70, backgroundColor: Colors.white),
+            SizedBox(height: 20),
+            _shimmerBox(height: 50),
           ],
         ),
       ),

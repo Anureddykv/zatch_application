@@ -57,22 +57,44 @@ class ProductItem {
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
     return ProductItem(
-      id: json['_id'] ?? '',
+      id: json['_id']?.toString() ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: json['price'] ?? 0,
       discountedPrice: json['discountedPrice'] ?? 0,
+
       images:
-          (json['images'] as List<dynamic>?)
-              ?.map((e) => ProductImage.fromJson(e))
-              .toList() ??
-          [],
+          json['images'] is List
+              ? (json['images'] as List)
+                  .map((e) => ProductImage.fromJson(e))
+                  .toList()
+              : [],
+
       isTopPick: json['isTopPick'] ?? false,
       saveCount: json['saveCount'] ?? 0,
       likeCount: json['likeCount'] ?? 0,
       viewCount: json['viewCount'] ?? 0,
-      category: CategoryModel.fromJson(json['category'] ?? {}),
-      subCategory: SubCategory.fromJson(json['subCategory'] ?? {}),
+
+      category:
+          json['category'] is Map<String, dynamic>
+              ? CategoryModel.fromJson(json['category'])
+              : CategoryModel(
+                id: '',
+                name: '',
+                slug: '',
+                image: CategoryImage(publicId: '', url: ''),
+              ),
+
+      subCategory:
+          json['subCategory'] is Map<String, dynamic>
+              ? SubCategory.fromJson(json['subCategory'])
+              : SubCategory(
+                id: '',
+                name: '',
+                slug: '',
+                image: CategoryImage(publicId: '', url: ''),
+              ),
+
       commentCount: json['commentCount'] ?? 0,
       averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0.0,
     );

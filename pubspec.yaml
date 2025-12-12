@@ -42,7 +42,7 @@ dependencies:
   get:
   flutter_staggered_grid_view:
   shared_preferences:
-  share_plus:
+  share_plus: ^12.0.1
   google_maps_flutter:
   build_runner:
   json_serializable:
@@ -60,6 +60,8 @@ dependencies:
   fl_chart: ^1.1.1
   google_fonts: ^6.3.2
   permission_handler: ^12.0.1
+  shimmer_animation: ^2.2.2+1
+  shimmer: ^3.0.0
   # agora_rtc_engine:
   # agora_rtm:
   # agora_uikit:

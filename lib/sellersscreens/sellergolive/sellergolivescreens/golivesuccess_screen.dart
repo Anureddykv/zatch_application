@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/model/golivestepthreeresponse.dart';
+import 'package:zatch_app/sellersscreens/sellerdashbord/SellerDashboardScreen.dart';
 
 class GoliveAddedSuccessScreen extends StatelessWidget {
-  const GoliveAddedSuccessScreen({super.key});
+  final GoLiveSuccessResponseModel data;
+  const GoliveAddedSuccessScreen({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
-    void backToHome() {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
+    void backToHome() {}
 
     return Scaffold(
       backgroundColor: const Color(0xFFCCF656),
@@ -48,8 +53,8 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
               ),
             ),
 
-            const Text(
-              '12/12/2025 - 09:00 PM ',
+            Text(
+              data.session.scheduledStartTime,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.black,
@@ -75,7 +80,9 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(15),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Share.share(data.session.hostId);
+                      },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -96,7 +103,19 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(15),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(text: data.session.hostId),
+                        );
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Text copied: ${data.session.hostId}",
+                            ),
+                          ),
+                        );
+                      },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -113,7 +132,17 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: ElevatedButton(
-                onPressed: backToHome,
+                onPressed: () {
+                  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              const SellerDashboardScreen(), // or HomeScreen
+                    ),
+                    (Route<dynamic> route) =>
+                        false, // removes all previous routes
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   minimumSize: const Size(double.infinity, 60),
