@@ -191,8 +191,8 @@ class BargainSettings {
 class ProductImage {
   final String? publicId;
   final String? url;
-
-  ProductImage({this.publicId, this.url});
+  final String id;
+  ProductImage({this.publicId, this.url, required this.id});
 
   factory ProductImage.fromJson(Map<String, dynamic> json) {
     return ProductImage(
@@ -201,6 +201,7 @@ class ProductImage {
           (json['url'] != null && json['url'].toString().isNotEmpty)
               ? json['url']
               : null,
+      id: json['_id'],
     );
   }
 }

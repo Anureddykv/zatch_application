@@ -274,9 +274,9 @@ class _GolivescreenState extends State<Golivescreen> {
                           // Navigate only if Step 2 is complete
                           if (yourlivesscreenscontroller.currentStep.value ==
                               2) {
-                            if (!yourlivesscreenscontroller.validateStep3())
-                              return;
-                            yourlivesscreenscontroller.clearGoLiveData();
+                            // if (!yourlivesscreenscontroller.validateStep3())
+                            //   return;
+                            // yourlivesscreenscontroller.clearGoLiveData();
                           }
                         } catch (e) {
                           log("Error in goLive button: $e");
@@ -900,31 +900,6 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
       child: productTileContentGolive,
     );
   }
-}
-
-Widget _productDetailRow(String label, String value) {
-  return Row(
-    children: [
-      Text(
-        '$label -',
-        style: const TextStyle(
-          fontSize: 13,
-          fontFamily: 'Inter',
-          color: Color(0xFF666666),
-        ),
-      ),
-      const SizedBox(width: 4),
-      Text(
-        value,
-        style: const TextStyle(
-          fontSize: 13,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF272727),
-        ),
-      ),
-    ],
-  );
 }
 
 class GoLiveStepTwo extends StatefulWidget {
@@ -1981,7 +1956,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                     children: [
                       Text(
                         product.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF101727),
                           fontSize: 15.18,
                           fontFamily: 'Plus Jakarta Sans',
@@ -2007,7 +1982,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                         children: [
                           Row(
                             children: [
-                              Text(
+                              const Text(
                                 'cost',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -2015,12 +1990,12 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                                   color: Color(0xFF697282),
                                 ),
                               ),
-                              SizedBox(width: 4),
-                              Text('-'),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
+                              const Text('-'),
+                              const SizedBox(width: 4),
                               Text(
                                 product.price.toString(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF101727),
@@ -2031,28 +2006,28 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                           AppSizedBox.width10,
                           Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.remove_red_eye,
                                 size: 18,
                                 color: Color(0xFF697282),
                               ),
                               Text(
                                 product.viewCount.toString(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF697282),
                                 ),
                               ),
                               AppSizedBox.width10,
-                              Icon(
+                              const Icon(
                                 Icons.star,
                                 size: 18,
                                 color: Color(0xFF697282),
                               ),
                               Text(
                                 product.averageRating.toString(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF697282),
@@ -2082,7 +2057,6 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
     required List<String> items,
     required String selectedValue,
     required Function(String?) onChanged,
-    double? width,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),

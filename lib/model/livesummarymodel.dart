@@ -20,12 +20,14 @@ class LiveSummaryModel {
       performanceSummary: PerformanceSummary.fromJson(
         json['performanceSummary'] ?? {},
       ),
-      upcomingLives: (json['upcomingLives'] as List? ?? [])
-          .map((e) => LiveItem.fromJson(e))
-          .toList(),
-      pastLives: (json['pastLives'] as List? ?? [])
-          .map((e) => LiveItem.fromJson(e))
-          .toList(),
+      upcomingLives:
+          (json['upcomingLives'] as List? ?? [])
+              .map((e) => LiveItem.fromJson(e))
+              .toList(),
+      pastLives:
+          (json['pastLives'] as List? ?? [])
+              .map((e) => LiveItem.fromJson(e))
+              .toList(),
     );
   }
 }
@@ -68,25 +70,51 @@ class PerformanceSummary {
 class LiveItem {
   final String id;
   final String title;
-  final String dateTime;
-  final String thumbnail;
-  final int expectedViews;
+  final String description;
+  final DateTime scheduledStartTime;
+  final Thumbnail thumbnail;
+  final int queuePosition;
+  final String status;
+  final int productsCount;
+  final String shareLink;
+  final List<String> actions;
 
   LiveItem({
     required this.id,
     required this.title,
-    required this.dateTime,
+    required this.description,
+    required this.scheduledStartTime,
     required this.thumbnail,
-    required this.expectedViews,
+    required this.queuePosition,
+    required this.status,
+    required this.productsCount,
+    required this.shareLink,
+    required this.actions,
   });
 
   factory LiveItem.fromJson(Map<String, dynamic> json) {
     return LiveItem(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? '',
       title: json['title'] ?? '',
-      dateTime: json['dateTime'] ?? '',
-      thumbnail: json['thumbnail'] ?? '',
-      expectedViews: json['expectedViews'] ?? 0,
+      description: json['description'] ?? '',
+      scheduledStartTime:
+          DateTime.tryParse(json['scheduledStartTime'] ?? '') ?? DateTime.now(),
+      thumbnail: Thumbnail.fromJson(json['thumbnail'] ?? {}),
+      queuePosition: json['queuePosition'] ?? 0,
+      status: json['status'] ?? '',
+      productsCount: json['productsCount'] ?? 0,
+      shareLink: json['shareLink'] ?? '',
+      actions: List<String>.from(json['actions'] ?? []),
     );
+  }
+}
+class Thumbnail {
+  final String publicId;
+  final String url;
+
+  Thumbnail({required this.publicId, required this.url});
+
+  factory Thumbnail.fromJson(Map<String, dynamic> json) {
+    return Thumbnail(publicId: json['public_id'] ?? '', url: json['url'] ?? '');
   }
 }

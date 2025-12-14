@@ -14,6 +14,7 @@ import 'package:zatch_app/model/UpdateProfileResponse.dart';
 import 'package:zatch_app/model/api_response.dart';
 import 'package:zatch_app/model/bit_details.dart';
 import 'package:zatch_app/model/follow_response.dart';
+import 'package:zatch_app/model/golivenowresponsemodel.dart';
 import 'package:zatch_app/model/golivesteponeresponse.dart';
 import 'package:zatch_app/model/golivestepthreeresponse.dart';
 import 'package:zatch_app/model/live_comment.dart';
@@ -26,6 +27,7 @@ import 'package:zatch_app/model/register_response_model.dart';
 import 'package:zatch_app/model/login_request.dart';
 import 'package:zatch_app/model/login_response.dart';
 import 'package:zatch_app/model/share_profile_response.dart';
+import 'package:zatch_app/model/shareliveresponsemodel.dart';
 import 'package:zatch_app/model/toggle_save_bit.dart';
 import 'package:zatch_app/model/top_pick_res.dart' hide Product;
 import 'package:zatch_app/model/user_profile_model.dart';
@@ -1177,12 +1179,13 @@ class ApiService {
     }
   }
 
+  //go live step 3
   Future<GoLiveSuccessResponseModel?> goLiveStepThree({
     required FormData payload,
   }) async {
     try {
       final response = await _dio.post(
-        "//live/schedule",
+        "/live/schedule",
         data: payload,
         options: Options(contentType: "multipart/form-data"),
       );
@@ -1217,6 +1220,44 @@ class ApiService {
     } catch (e) {
       debugPrint("Unexpected error in goLiveStepOne: $e");
       rethrow;
+    }
+  }
+
+  Future<GoLiveNowResponseModel> goLiveNow({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _dio.post("/live/token", data: payload);
+
+      final data = _decodeResponse(response.data);
+
+      final apiResponse = GoLiveNowResponseModel.fromJson(data);
+
+      if (apiResponse.success) {
+        return apiResponse;
+      } else {
+        throw Exception(apiResponse);
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error in goLiveStepOne: $e");
+      rethrow;
+    }
+  }
+
+  //share live api
+  Future<ShareResponseModel> shareLiveApi(String sessionId) async {
+    try {
+      final response = await _dio.get("/live/session/$sessionId/share");
+
+      final data = _decodeResponse(response.data);
+
+      final shareliveSummary = ShareResponseModel.fromJson(data);
+
+      return shareliveSummary;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
     }
   }
 }

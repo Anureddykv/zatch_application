@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/model/golivestepthreeresponse.dart';
 import 'package:zatch_app/sellersscreens/sellerdashbord/SellerDashboardScreen.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
 
-class GoliveAddedSuccessScreen extends StatelessWidget {
+class GoliveAddedSuccessScreenForSheduleLive extends StatelessWidget {
   final GoLiveSuccessResponseModel data;
-  const GoliveAddedSuccessScreen({super.key, required this.data});
+  const GoliveAddedSuccessScreenForSheduleLive({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
-    void backToHome() {}
-
     return Scaffold(
       backgroundColor: const Color(0xFFCCF656),
       body: SafeArea(
@@ -42,7 +37,7 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
 
             // 2. Main Title
             const Text(
-              'Live Sheduled at',
+              'Live Scheduled at',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.black,
@@ -56,7 +51,7 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
             Text(
               data.session.scheduledStartTime,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.black,
                 fontSize: 15,
                 fontFamily: 'Inter',
@@ -81,7 +76,9 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Share.share(data.session.hostId);
+                        // ignore: deprecated_member_use
+                        // Share.share(data.session.hostId);
+                        yourlivesscreenscontroller.shareLiveFunction();
                       },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -104,19 +101,9 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Clipboard.setData(
-                          ClipboardData(text: data.session.hostId),
-                        );
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Text copied: ${data.session.hostId}",
-                            ),
-                          ),
-                        );
+                        yourlivesscreenscontroller.copyFunction(context);
                       },
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.copy, color: Colors.black),
@@ -135,12 +122,9 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                     MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const SellerDashboardScreen(), // or HomeScreen
+                      builder: (context) => const SellerDashboardScreen(),
                     ),
-                    (Route<dynamic> route) =>
-                        false, // removes all previous routes
+                    (Route<dynamic> route) => false,
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -151,7 +135,7 @@ class GoliveAddedSuccessScreen extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Back To Home Screen',
+                  'Go Live',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,

@@ -3,9 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/model/livesummarymodel.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
 
 class SellerLiveDashboard extends StatefulWidget {
@@ -209,7 +210,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                                 .value;
 
                                         if (data == null) {
-                                          return _shimmerBox(); // or loader
+                                          return SizedBox.shrink();
                                         }
 
                                         final summary = data.performanceSummary;
@@ -329,124 +330,36 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.only(left: 16.0, right: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: const Color(0xffd5ff4d),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 4,
-                              offset: const Offset(0, 3),
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(25),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Image.asset('assets/images/thumnailimg.png'),
-                                  Positioned(
-                                    top: 50,
-                                    left: 150,
-                                    child: Image.asset(
-                                      'assets/images/playicon.png',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            AppSizedBox.height10,
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  children: [
-                                    Text(
-                                      'Upcoming Live',
-                                      style: TextStyle(
-                                        color: Color(0xFF101727),
-                                        fontSize: 15.18,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    AppSizedBox.height5,
-                                    // Text(
-                                    //   'Summer Dress, Casual Shirts & Sandals Green Color for women in blue pantdbdcsd',
-                                    //   // maxLines: 2,
-                                    //   overflow: TextOverflow.ellipsis,
-                                    //   style: TextStyle(
-                                    //     color: Colors.black,
-                                    //     fontSize: 12,
-                                    //     fontFamily: 'Inter',
+                      Obx(() {
+                        if (yourlivesscreenscontroller.isLoading.value) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                                    //     fontWeight: FontWeight.normal,
-                                    //   ),
-                                    // ),
-                                    AppSizedBox.height5,
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Icon(Icons.timer),
-                                    Text('in'),
-                                    AppSizedBox.width2,
-                                    Text('14H 30M'),
-                                    Icon(Icons.more_vert_outlined),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            AppSizedBox.height8,
+                        final data =
+                            yourlivesscreenscontroller.liveSummaryModel.value;
 
-                            const Row(
-                              children: [
-                                Icon(Icons.calendar_month_rounded, size: 15),
-                                AppSizedBox.width10,
-                                Text(
-                                  '12 Oct 2025 - 12.00 AM',
-                                  style: TextStyle(
-                                    color: AppColors.contentColorBlack,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            AppSizedBox.height20,
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(15),
-                              decoration: const BoxDecoration(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(25),
-                                ),
-                                color: Colors.white,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'Share Link',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                        if (data == null || data.upcomingLives.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: data.upcomingLives.length,
+                          separatorBuilder:
+                              (context, index) => const SizedBox(height: 25),
+                          itemBuilder: (context, index) {
+                            final live = data.upcomingLives[index];
+                            return Upcominglivecard(live: live);
+                          },
+                        );
+                      }),
                       AppSizedBox.height20,
                       const Text(
                         'Your Lives',
@@ -475,10 +388,10 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
+                                const Text(
                                   'Fashion Friday Sale',
                                   style: TextStyle(
                                     color: Color(0xFF101727),
@@ -487,7 +400,11 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Icon(Icons.more_vert),
+
+                                IconButton(
+                                  onPressed: () {},
+                                  icon: Icon(Icons.more_vert),
+                                ),
                               ],
                             ),
                             AppSizedBox.height8,
@@ -653,44 +570,6 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
     );
   }
 
-  /// Shimmer Box for Skeleton Loader
-  Widget _shimmerBox({double height = 50, double width = double.infinity}) {
-    return Shimmer.fromColors(
-      // baseColor: Colors.grey[300]!,
-      baseColor: Colors.white,
-      highlightColor: Colors.grey[100]!,
-      child: Column(
-        children: [
-          Container(
-            height: height,
-            width: width,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkeletonLoader() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(height: 20),
-            CircleAvatar(radius: 70, backgroundColor: Colors.white),
-            SizedBox(height: 20),
-            _shimmerBox(height: 50),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget buildStatItem({
     required IconData? icon,
     required Color color,
@@ -731,5 +610,258 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
         ],
       ),
     );
+  }
+}
+
+class Upcominglivecard extends StatelessWidget {
+  final LiveItem live;
+
+  const Upcominglivecard({super.key, required this.live});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xffd5ff4d),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 3),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                live.thumbnail.url.isNotEmpty
+                    ? Image.network(live.thumbnail.url, fit: BoxFit.cover)
+                    : Image.asset('assets/images/thumnailimg.png'),
+                Image.asset('assets/images/playicon.png'),
+              ],
+            ),
+          ),
+
+          AppSizedBox.height10,
+          // const Row(
+          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //   children: [
+          //     Column(
+          //       children: [
+          //         Text(
+          //           'Upcoming Live',
+          //           style: TextStyle(
+          //             color: Color(0xFF101727),
+          //             fontSize: 15.18,
+          //             fontFamily: 'Plus Jakarta Sans',
+          //             fontWeight: FontWeight.bold,
+          //           ),
+          //         ),
+          //         AppSizedBox.height5,
+          //         // Text(
+          //         //   'Summer Dress, Casual Shirts & Sandals Green Color for women in blue pantdbdcsd',
+          //         //   // maxLines: 2,
+          //         //   overflow: TextOverflow.ellipsis,
+          //         //   style: TextStyle(
+          //         //     color: Colors.black,
+          //         //     fontSize: 12,
+          //         //     fontFamily: 'Inter',
+
+          //         //     fontWeight: FontWeight.normal,
+          //         //   ),
+          //         // ),
+          //         AppSizedBox.height5,
+          //       ],
+          //     ),
+          //     Row(
+          //       children: [
+          //         Icon(Icons.timer),
+          //         Text('in'),
+          //         AppSizedBox.width2,
+          //         Text('14H 30M'),
+          //         Icon(Icons.more_vert_outlined),
+          //       ],
+          //     ),
+          //   ],
+          // ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      live.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    AppSizedBox.height5,
+                    Text(
+                      live.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.timer, size: 16),
+                  const SizedBox(width: 4),
+                  Text(_getRemainingTime(live.scheduledStartTime)),
+
+                  IconButton(
+                    onPressed: () {
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: yourlivesscreenscontroller.selectedValue.value,
+                          dropdownColor: Colors.white,
+                          icon: const Icon(
+                            Icons.arrow_drop_down_outlined,
+                            color: Colors.white,
+                          ),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          selectedItemBuilder: (BuildContext context) {
+                            return [
+                              const Padding(
+                                padding: EdgeInsets.all(18.0),
+                                child: Text(
+                                  "This Week",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.all(18.0),
+                                child: Text(
+                                  "Last 15 Days",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.all(18.0),
+                                child: Text(
+                                  "Last Month",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ];
+                          },
+                          items: const [
+                            DropdownMenuItem(
+                              value: "this_week",
+                              child: Text("This Week"),
+                            ),
+                            DropdownMenuItem(
+                              value: "last_15_days",
+                              child: Text("Last 15 Days"),
+                            ),
+                            DropdownMenuItem(
+                              value: "last_month",
+                              child: Text("Last Month"),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            yourlivesscreenscontroller.selectedValue.value =
+                                value!;
+                            yourlivesscreenscontroller.getLiveSummaryData(
+                              value,
+                            );
+                            log(value);
+                          },
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.more_vert),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          AppSizedBox.height8,
+
+          // const Row(
+          //   children: [
+          //     Icon(Icons.calendar_month_rounded, size: 15),
+          //     AppSizedBox.width10,
+          //     Text(
+          //       '12 Oct 2025 - 12.00 AM',
+          //       style: TextStyle(
+          //         color: AppColors.contentColorBlack,
+          //         fontWeight: FontWeight.bold,
+          //         fontSize: 12,
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_rounded, size: 15),
+              AppSizedBox.width10,
+              Text(
+                _formatDate(live.scheduledStartTime),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          AppSizedBox.height20,
+          if (live.actions.contains('Share'))
+            GestureDetector(
+              onTap: () {
+                Share.share(live.shareLink);
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  color: Colors.white,
+                ),
+                child: const Center(
+                  child: Text(
+                    'Share Link',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getRemainingTime(DateTime time) {
+    final diff = time.difference(DateTime.now());
+
+    if (diff.isNegative) return 'Live';
+
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes % 60;
+
+    return '${hours}H ${minutes}M';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}-${date.month}-${date.year} '
+        '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

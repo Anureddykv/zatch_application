@@ -1,14 +1,18 @@
 import 'dart:developer';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile;
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:zatch_app/model/livesummarymodel.dart';
 import 'package:zatch_app/model/product_response_seller.dart';
-import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/seller_go_live_step_two_controller.dart';
+import 'package:zatch_app/model/shareliveresponsemodel.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/seller_go_live_class.dart';
 import 'package:dio/dio.dart';
-import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screen.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screenforlivenow.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screenforshedulelive.dart';
 
 import 'package:zatch_app/services/api_service.dart';
 
@@ -21,13 +25,19 @@ class Sellergolivecontroller extends GetxController
   final ApiService _apiService = ApiService();
   //get live details api
   Future<void> getLiveSummaryData(String value) async {
-    isLoading.value = true;
+    try {
+      isLoading.value = true;
 
-    final result = await _apiService.getLiveSummary(value);
-    log(result.message);
-    liveSummaryModel.value = result;
+      final result = await _apiService.getLiveSummary(value);
+      log(result.message);
+      liveSummaryModel.value = result;
 
-    isLoading.value = false;
+      isLoading.value = false;
+    } catch (e) {
+      debugPrint('Error: $e');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   late TabController tabController;
@@ -37,6 +47,7 @@ class Sellergolivecontroller extends GetxController
     tabController = TabController(length: 2, vsync: this);
     tabController.addListener(() {
       selectedTab.value = tabController.index;
+      log(selectedTab.value.toString());
     });
     fetchProducts();
     getLiveSummaryData("This Week");
@@ -232,7 +243,7 @@ class Sellergolivecontroller extends GetxController
     };
   }
 
-  Future<FormData> buildStepThreePayload(String sessionId) async {
+  Future<FormData> buildStepThreePayloadForSheduleLive(String sessionId) async {
     return FormData.fromMap({
       "step": "3",
       "sessionId": sessionId,
@@ -240,8 +251,23 @@ class Sellergolivecontroller extends GetxController
       "description": descriptioncontroller.text,
       "sheduledStartTime": buildScheduledTime(),
       // "thumbnail": await MultipartFile.fromFile(
-      //   selectedImage.value! as String,
-      //   // filename: selectedImage.value!.split('/').last,
+      //   selectedImage.value!.path,
+      //   filename: selectedImage.value!.path.split('/').last,
+      // ),
+    });
+  }
+
+  Future<FormData> buildStepThreePayloadForLiveNow(String sessionId) async {
+    return FormData.fromMap({
+      "step": "3",
+      "sessionId": sessionId,
+      "title": titlecontroller.text,
+      "description": descriptioncontroller.text,
+      // "sheduledStartTime": buildScheduledTime(),
+      "GoLiveNow": true,
+      // "thumbnail": await MultipartFile.fromFile(
+      //   selectedImage.value!.path,
+      //   filename: selectedImage.value!.path.split('/').last,
       // ),
     });
   }
@@ -289,31 +315,70 @@ class Sellergolivecontroller extends GetxController
       // STEP 3 (FORM DATA)
       // ------------------------------
       if (currentStep.value == 2) {
-        try {
-          // Build Payload
-          final step3Payload = await buildStepThreePayload(sessionId.value);
-          log("STEP 3 Payload => ${step3Payload.toString()}");
-
-          // API Call
-          final response3 = await ApiService().goLiveStepThree(
-            payload: step3Payload,
-          );
-
-          // Validate Response
-          if (response3 != null && response3.success == true) {
-            log("STEP 3 Success: ${response3.message}");
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => GoliveAddedSuccessScreen(data: response3),
-              ),
-              (Route<dynamic> route) => false,
+        if (tabController.index == 0) {
+          try {
+            // Build Payload
+            final step3Payload = await buildStepThreePayloadForLiveNow(
+              sessionId.value,
             );
-          } else {
-            log("STEP 3 Failed: Response empty or success=false");
+            log("STEP 3 Payload => ${step3Payload.toString()}");
+
+            // API Call
+            final response3 = await ApiService().goLiveStepThree(
+              payload: step3Payload,
+            );
+
+            // Validate Response
+            if (response3 != null && response3.success == true) {
+              log("STEP 3 Success: ${response3.message}");
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder:
+                      (context) =>
+                          GoliveAddedSuccessScreenForGoLive(data: response3),
+                ),
+                (Route<dynamic> route) => false,
+              );
+            } else {
+              log("STEP 3 Failed: Response empty or success=false");
+            }
+          } catch (e, s) {
+            log("STEP 3 Error: $e");
+            log("$s");
           }
-        } catch (e, s) {
-          log("STEP 3 Error: $e");
-          log("$s");
+        }
+        if (tabController.index == 1) {
+          try {
+            // Build Payload
+            final step3Payload = await buildStepThreePayloadForSheduleLive(
+              sessionId.value,
+            );
+            log("STEP 3 Payload => ${step3Payload.toString()}");
+
+            // API Call
+            final response3 = await ApiService().goLiveStepThree(
+              payload: step3Payload,
+            );
+
+            // Validate Response
+            if (response3 != null && response3.success == true) {
+              log("STEP 3 Success: ${response3.message}");
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder:
+                      (context) => GoliveAddedSuccessScreenForSheduleLive(
+                        data: response3,
+                      ),
+                ),
+                (Route<dynamic> route) => false,
+              );
+            } else {
+              log("STEP 3 Failed: Response empty or success=false");
+            }
+          } catch (e, s) {
+            log("STEP 3 Error: $e");
+            log("$s");
+          }
         }
 
         return; // Important → stops further execution
@@ -479,10 +544,78 @@ class Sellergolivecontroller extends GetxController
     return true;
   }
 
+  var selectedAction = ''.obs;
+
+  List<String> getActions() {
+    final data = liveSummaryModel.value;
+    if (data == null || data.upcomingLives.isEmpty) return [];
+    return data.upcomingLives.first.actions; // or based on index
+  }
+
   @override
   void onClose() {
     tabController.dispose();
     super.onClose();
+  }
+
+  Map<String, dynamic> golivenowpayload(String sessionId) {
+    return {"role": "publisher", "sessionId": sessionId};
+  }
+
+  //go live api now api
+  Future<void> goLiveNowFunction() async {
+    try {
+      final golivepayload = golivenowpayload(sessionId.value);
+      log("Go Live Payload: $golivepayload");
+
+      final response = await ApiService().goLiveNow(payload: golivepayload);
+
+      log("STEP 1 Success: ${response.success}");
+      log("Go Live API Success: ${response.success}");
+      log("Token: ${response.token}");
+      log("Channel Name: ${response.channelName}");
+      log("Session ID: ${response.sessionId}");
+      log("UID: ${response.uid}");
+      log("App ID: ${response.appId}");
+      log("Expires At: ${response.expiresAt}");
+      log("Expires In: ${response.expiresIn}");
+      return;
+    } catch (e) {
+      log("Error fetching products: $e");
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> shareLiveFunction() async {
+    try {
+      final response = await ApiService().shareLiveApi(sessionId.value);
+
+      log("Share Success: ${response.message}");
+      log("Primary Text: ${response.shareText.primary}");
+      log("Secondary Text: ${response.shareText.secondary}");
+      log("Link: ${response.shareText.link}");
+      log("Title: ${response.shareText.title}");
+      log("Is Live: ${response.shareText.isLive}");
+      log("Scheduled Time: ${response.shareText.scheduledTime}");
+      log("Channel Name: ${response.shareText.channelName}");
+      Share.share(response.shareText.link);
+    } catch (e, s) {
+      log("Share Error: $e");
+      log("$s");
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> copyFunction(BuildContext context) async {
+    final response = await ApiService().shareLiveApi(sessionId.value);
+
+    Clipboard.setData(ClipboardData(text: response.shareText.link));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Text copied: ${response.shareText.link}")),
+    );
   }
 
   void clearGoLiveData() {

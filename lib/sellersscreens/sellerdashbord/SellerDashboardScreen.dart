@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zatch_app/sellersscreens/add_reel/screens/add_reels_screen.dart';
 import 'package:zatch_app/sellersscreens/addproduct/add_product_screen.dart';
 import 'package:zatch_app/sellersscreens/inventory/inventory_screen.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_live_dashboard.dart';
@@ -307,7 +308,12 @@ class DashboardPage extends StatelessWidget {
             QuickLinkItem(
               icon: Icons.movie_creation_outlined,
               label: 'Add Reel',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const Addreelspage()),
+                );
+              },
             ),
             QuickLinkItem(
               icon: Icons.add_box_outlined,
