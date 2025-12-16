@@ -228,33 +228,93 @@ class FollowedUser {
 }
 
 class SavedBit {
-  final BitVideo video;
   final String id;
+  final BitMedia video;
+  final BitMedia? thumbnail;
+  final String title;
+  final String description;
+  final List<String> hashtags;
+  final int likeCount;
+  final int viewCount;
+  final String? thumbnailUrl; // Helper for UI
+  final List<BitComment> comments;
 
-  SavedBit({required this.video, required this.id});
+  SavedBit({
+    required this.id,
+    required this.video,
+    this.thumbnail,
+    required this.title,
+    required this.description,
+    required this.hashtags,
+    required this.likeCount,
+    required this.viewCount,
+    required this.comments,
+  }) : thumbnailUrl = thumbnail?.url;
 
-  factory SavedBit.fromJson(Map<String, dynamic> json) => SavedBit(
-    video: BitVideo.fromJson(json["video"] ?? {}),
-    id: json["_id"] ?? '',
-  );
+  factory SavedBit.fromJson(Map<String, dynamic> json) {
+    return SavedBit(
+      id: json["_id"] ?? '',
+      video: BitMedia.fromJson(json["video"] ?? {}),
+      thumbnail: json["thumbnail"] != null ? BitMedia.fromJson(json["thumbnail"]) : null,
+      title: json["title"] ?? '',
+      description: json["description"] ?? '',
+      hashtags: List<String>.from(json["hashtags"] ?? []),
+      likeCount: json["likeCount"] ?? 0,
+      viewCount: json["viewCount"] ?? 0,
+      comments: List<BitComment>.from((json["comments"] ?? []).map((x) => BitComment.fromJson(x))),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-    "video": video.toJson(),
     "_id": id,
+    "video": video.toJson(),
+    "thumbnail": thumbnail?.toJson(),
+    "title": title,
+    "description": description,
+    "hashtags": hashtags,
+    "likeCount": likeCount,
+    "viewCount": viewCount,
+    "comments": comments.map((x) => x?.toJson()).toList(),
   };
 }
 
-class BitVideo {
+class BitMedia {
+  final String publicId;
   final String url;
 
-  BitVideo({required this.url});
+  BitMedia({required this.publicId, required this.url});
 
-  factory BitVideo.fromJson(Map<String, dynamic> json) => BitVideo(
+  factory BitMedia.fromJson(Map<String, dynamic> json) => BitMedia(
+    publicId: json["public_id"] ?? '',
     url: json["url"] ?? '',
   );
 
   Map<String, dynamic> toJson() => {
+    "public_id": publicId,
     "url": url,
+  };
+}
+
+class BitComment {
+  final String id;
+  final String userId;
+  final String text;
+  final DateTime createdAt;
+
+  BitComment({required this.id, required this.userId, required this.text, required this.createdAt});
+
+  factory BitComment.fromJson(Map<String, dynamic> json) => BitComment(
+    id: json["_id"] ?? '',
+    userId: json["userId"] ?? '',
+    text: json["text"] ?? '',
+    createdAt: DateTime.tryParse(json["createdAt"] ?? '') ?? DateTime.now(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    "_id": id,
+    "userId": userId,
+    "text": text,
+    "createdAt": createdAt.toIso8601String(),
   };
 }
 
@@ -262,12 +322,14 @@ class SavedProduct {
   final String id;
   final String name;
   final double price;
+  final bool? isLiked;
   final List<ProductImage> images;
 
   SavedProduct({
     required this.id,
     required this.name,
     required this.price,
+     this.isLiked,
     required this.images,
   });
 
@@ -275,6 +337,7 @@ class SavedProduct {
     id: json["_id"] ?? '',
     name: json["name"] ?? 'Unnamed Product',
     price: (json["price"] as num?)?.toDouble() ?? 0.0,
+    isLiked: (json["isLiked"] as bool?) ?? false,
     images: List<ProductImage>.from((json["images"] ?? []).map((x) => ProductImage.fromJson(x))),
   );
 
@@ -282,6 +345,7 @@ class SavedProduct {
     "_id": id,
     "name": name,
     "price": price,
+    "isLiked": isLiked,
     "images": List<dynamic>.from(images.map((x) => x.toJson())),
   };
 }

@@ -161,7 +161,7 @@ class _HomePageState extends State<HomePage> {
                       setState(() {
                         _selectedCategory = category;
                       });
-                      debugPrint("Selected Category: ${category.name}");
+                      debugPrint("Selected Category Changed to: ${category.name}");
                     }
                   },
                 ),
@@ -180,7 +180,11 @@ class _HomePageState extends State<HomePage> {
       _buildHomeTab(),
       isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SearchScreen(key: UniqueKey(), userProfile: userProfile,autoFocus:_shouldShowKeyboardOnSearch ,),
+          : SearchScreen(key: UniqueKey(), userProfile: userProfile,autoFocus:_shouldShowKeyboardOnSearch ,onTabChange: (index) {
+        setState(() {
+          _selectedIndex = index; // This switches the BottomNavBar tab
+        });
+      },),
       SellHomeScreen(),
       AccountSettingsScreen(),
     ];

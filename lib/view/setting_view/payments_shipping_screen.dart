@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
+import 'package:zatch_app/model/address_model.dart';
 import 'package:zatch_app/model/coupon_model.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
-import 'package:zatch_app/view/cart_screen.dart';
+import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/coupon_apply_screen.dart';
 import 'package:zatch_app/view/order_view/order_place_screen.dart';
-import 'package:zatch_app/view/setting_view/account_details_screen.dart';
 import 'package:zatch_app/view/setting_view/add_new_address_screen.dart';
 import 'package:zatch_app/view/setting_view/payment_method_screen.dart';
 
@@ -32,49 +32,100 @@ class CheckoutOrPaymentsScreen extends StatefulWidget {
 }
 
 class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
+  final ApiService _apiService = ApiService();
   int selectedAddressIndex = 0;
-  int selectedPayment = 0;
-  UserProfileResponse? userProfile;
 
-  // Using stateful list for dynamic removal
-  final List<Address> _addresses = [
-    Address(
-      id: '1',
-      title: "Home",
-      fullAddress: "A-403 Mantri Celestia, Financial District, Hyderabad",
-      phone: "+91 98765 43210",
-      icon: Icons.home_outlined,
-    ),
-    Address(
-      id: '2',
-      title: "Office",
-      fullAddress: "Waverock Building, Nanakramguda, Hyderabad",
-      phone: "+91 99887 76655",
-      icon: Icons.apartment_outlined,
-    ),
-    Address(
-      id: '3',
-      title: "Other",
-      fullAddress: "Lorem ipsum street, Madhapur, Hyderabad",
-      phone: "+91 88776 65544",
-      icon: Icons.location_on_outlined,
-    ),
-  ];
+  UserProfileResponse? userProfile;
+  bool isLoading = true;
+
+  // Track totals locally to allow updates
+  double currentItemsTotal = 0.0;
+  late double finalSubTotal;
+
+  // Addresses list fetched from API
+  List<Address> _addresses = [];
 
   Coupon? appliedCoupon;
   double discountAmount = 0.0;
-  late double finalSubTotal;
   Object? _selectedPaymentMethod;
 
   @override
   void initState() {
     super.initState();
-    finalSubTotal = widget.subTotalPrice ?? 0.0;
-    // Pre-select office to match figma
-    int officeIndex = _addresses.indexWhere((a) => a.title == "Office");
-    if (officeIndex != -1) {
-      selectedAddressIndex = officeIndex;
+
+    // 1. Calculate items total safely if not provided
+    double calculatedItemsTotal = 0.0;
+    if (widget.selectedItems != null) {
+      for (var item in widget.selectedItems!) {
+        calculatedItemsTotal += (item.price * item.quantity);
+      }
     }
+    currentItemsTotal = widget.itemsTotalPrice ?? calculatedItemsTotal;
+    finalSubTotal = widget.subTotalPrice ?? (currentItemsTotal + (widget.shippingFee ?? 0.0));
+
+    // Fetch real data from API
+    _fetchInitialData();
+  }
+
+  Future<void> _fetchInitialData() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
+
+    try {
+      try {
+        userProfile = await _apiService.getUserProfile();
+      } catch (e) {
+        debugPrint("Warning: Failed to fetch profile: $e");
+      }
+
+      try {
+        final fetchedAddresses = await _apiService.getAllAddresses();
+        if (mounted) {
+          setState(() {
+            _addresses = fetchedAddresses;
+            if (_addresses.isNotEmpty) {
+              int defaultIndex = _addresses.indexWhere((a) => a.type.toLowerCase() == "home");
+              if (defaultIndex == -1) {
+                defaultIndex = _addresses.indexWhere((a) => a.type.toLowerCase() == "office");
+              }
+              selectedAddressIndex = (defaultIndex != -1) ? defaultIndex : 0;
+            }
+          });
+        }
+      } catch (e) {
+        debugPrint("Warning: Failed to fetch addresses: $e");
+        if (mounted) setState(() => _addresses = []);
+      }
+
+      // Default payment method is null to show the "Choose" button initially.
+      _selectedPaymentMethod = null;
+
+    } catch (e) {
+      debugPrint("Global Error in Checkout: $e");
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    return (await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Checkout?'),
+        content: const Text('Are you sure you want to leave? Your progress may be lost.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    )) ??
+        false;
   }
 
   void _selectPaymentMethod() async {
@@ -90,44 +141,85 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     }
   }
 
-  /// Applies the selected coupon and updates the totals.
-  void _applyCoupon(Coupon coupon) {
-    setState(() {
-      appliedCoupon = coupon;
-      // Calculate discount based on the items' total price before shipping
-      double calculatedDiscount =
-          (widget.itemsTotalPrice ?? 0.0) * (coupon.discountPercentage / 100);
-      discountAmount = calculatedDiscount;
-      // Recalculate the final subtotal
-      finalSubTotal = (widget.subTotalPrice ?? 0.0) - discountAmount;
-    });
-  }
-
-  /// Removes the applied coupon and resets the discount.
   void _removeCoupon() {
     setState(() {
       appliedCoupon = null;
       discountAmount = 0.0;
-      // Restore the original subtotal
-      finalSubTotal = widget.subTotalPrice ?? 0.0;
+      finalSubTotal = currentItemsTotal + (widget.shippingFee ?? 0.0);
     });
   }
 
-  /// Navigates to the Coupon screen and handles the result.
   void _navigateToCouponScreen() async {
-    // The result can be a Coupon object or null
+    final List<String> productIds = widget.selectedItems
+        ?.map((item) => item.productId)
+        .toList() ?? [];
+
     final result = await Navigator.push<Coupon>(
       context,
-      MaterialPageRoute(builder: (_) => const CouponApplyScreen()),
+      MaterialPageRoute(
+        builder: (_) => CouponApplyScreen(
+          cartTotal: currentItemsTotal,
+          productIds: productIds,
+        ),
+      ),
     );
 
-    // If the user selected a coupon and tapped "Apply"
     if (result != null) {
       _applyCoupon(result);
     }
   }
 
-  // --- Dialog for removing item ---
+  void _applyCoupon(Coupon coupon) {
+    setState(() {
+      appliedCoupon = coupon;
+      double calculatedDiscount = 0.0;
+
+      if (coupon.discountType == 'fixed') {
+        calculatedDiscount = coupon.discountValue;
+      } else {
+        calculatedDiscount = currentItemsTotal * (coupon.discountValue / 100);
+        if (coupon.maxDiscount != null && calculatedDiscount > coupon.maxDiscount!) {
+          calculatedDiscount = coupon.maxDiscount!;
+        }
+      }
+
+      if (calculatedDiscount > currentItemsTotal) {
+        calculatedDiscount = currentItemsTotal;
+      }
+
+      discountAmount = calculatedDiscount;
+      finalSubTotal = currentItemsTotal + (widget.shippingFee ?? 0.0) - discountAmount;
+    });
+  }
+
+  void _recalculateTotals() {
+    double tempTotal = 0.0;
+    if (widget.selectedItems != null) {
+      for (var item in widget.selectedItems!) {
+        tempTotal += item.price * item.quantity;
+      }
+    }
+
+    double newDiscount = 0.0;
+    if (appliedCoupon != null) {
+      if (appliedCoupon!.discountType == 'fixed') {
+        newDiscount = appliedCoupon!.discountValue;
+      } else {
+        newDiscount = tempTotal * (appliedCoupon!.discountValue / 100);
+        if (appliedCoupon!.maxDiscount != null && newDiscount > appliedCoupon!.maxDiscount!) {
+          newDiscount = appliedCoupon!.maxDiscount!;
+        }
+      }
+      if (newDiscount > tempTotal) newDiscount = tempTotal;
+    }
+
+    setState(() {
+      currentItemsTotal = tempTotal;
+      discountAmount = newDiscount;
+      finalSubTotal = tempTotal + (widget.shippingFee ?? 0.0) - newDiscount;
+    });
+  }
+
   Future<void> _showRemoveItemDialog(cart_model.CartItemModel item) async {
     return showDialog<void>(
       context: context,
@@ -135,9 +227,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Remove Item?'),
-          content: const Text(
-            'Are you sure you want to remove this item from your cart?',
-          ),
+          content: const Text('Are you sure you want to remove this item?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -149,7 +239,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               onPressed: () {
                 setState(() {
                   widget.selectedItems?.remove(item);
-                  // Optionally, recalculate totals here if needed
+                  _recalculateTotals();
                 });
                 Navigator.of(context).pop();
               },
@@ -159,165 +249,154 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
       },
     );
   }
+  Future<void> _deleteAddress(String addressId) async {
+    try {
+      await _apiService.deleteAddress(addressId);
+      _fetchInitialData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete address: $e")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final bool shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Checkout',
-          style: TextStyle(
-            color: Color(0xFF121111),
-            fontSize: 16,
-            fontFamily: 'Encode Sans',
-            fontWeight: FontWeight.w600,
+        appBar: AppBar(
+          systemOverlayStyle: SystemUiOverlayStyle.dark,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'Checkout',
+            style: TextStyle(
+              color: Color(0xFF121111),
+              fontSize: 16,
+              fontFamily: 'Encode Sans',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          leading: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: InkWell(
+              onTap: () async {
+                final bool shouldPop = await _onWillPop();
+                if (shouldPop && context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              borderRadius: BorderRadius.circular(32),
+              child: const Icon(Icons.arrow_back, color: Colors.black),
+            ),
           ),
         ),
-        leading: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: InkWell(
-            onTap: () => Navigator.of(context).pop(),
-            borderRadius: BorderRadius.circular(32),
-            child: const Icon(Icons.arrow_back, color: Colors.black),
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.isCheckout) ...[
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // --- List of Cart Items ---
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: widget.selectedItems?.length ?? 0,
-                          itemBuilder: (context, index) {
-                            final item = widget.selectedItems![index];
-                            return _cartItem(item);
-                          },
-                          separatorBuilder:
-                              (context, index) => const SizedBox(height: 22),
-                        ),
-                        const SizedBox(height: 22),
-
-                        // --- Shipping Information ---
-                        _shippingInfo(
-                          itemCount: widget.selectedItems?.length ?? 0,
-                          itemsTotal: widget.itemsTotalPrice ?? 0.0,
-                          shipping: widget.shippingFee ?? 0.0,
-                          discount: discountAmount,
-                          subTotal: finalSubTotal,
-                        ),
-                      ],
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFCCF656)))
+            : Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.isCheckout) ...[
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: widget.selectedItems?.length ?? 0,
+                            itemBuilder: (context, index) {
+                              final item = widget.selectedItems![index];
+                              return _cartItem(item);
+                            },
+                            separatorBuilder: (context, index) => const SizedBox(height: 22),
+                          ),
+                          const SizedBox(height: 22),
+                          _shippingInfo(
+                            itemCount: widget.selectedItems?.length ?? 0,
+                            itemsTotal: currentItemsTotal,
+                            shipping: widget.shippingFee ?? 0.0,
+                            discount: discountAmount,
+                            subTotal: finalSubTotal,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _contactDetailsSection(),
+                      const SizedBox(height: 36),
+                    ],
+                    const Text(
+                      'Select Location',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontFamily: 'Encode Sans',
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    _contactDetailsSection(),
-                    const SizedBox(height: 36),
-                  ],
-                  const Text(
-                    'Select Location',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'Encode Sans',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _addresses.length,
-                    itemBuilder: (context, index) {
-                      final address = _addresses[index];
-                      return _addressTile(
-                        address: address,
-                        isSelected: selectedAddressIndex == index,
-                        onTap:
-                            () => setState(() => selectedAddressIndex = index),
-                        onEdit: () async {
-                          final updatedAddress = await Navigator.push<Address>(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => AddNewAddressScreen(
-                                    addressToEdit: address,
-                                  ),
-                            ),
-                          );
-                          if (updatedAddress != null) {
-                            setState(() {
-                              final index = _addresses.indexWhere(
-                                (a) => a.id == updatedAddress.id,
+                    if (_addresses.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text("No addresses found. Please add one.")),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _addresses.length,
+                        itemBuilder: (context, index) {
+                          final address = _addresses[index];
+                          return _addressTile(
+                            address: address,
+                            isSelected: selectedAddressIndex == index,
+                            onTap: () => setState(() => selectedAddressIndex = index),
+                            onEdit: () async {
+                              final result = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddNewAddressScreen(addressToEdit: address),
+                                ),
                               );
-                              if (index != -1) {
-                                _addresses[index] = updatedAddress;
+                              if (result == true) {
+                                _fetchInitialData();
                               }
-                            });
-                          }
+                            },
+                            onRemove: () {
+                              _deleteAddress(address.id);
+                            },
+                          );
                         },
-
-                        onRemove: () {
-                          setState(() {
-                            _addresses.removeAt(index);
-                            if (selectedAddressIndex >= _addresses.length &&
-                                _addresses.isNotEmpty) {
-                              selectedAddressIndex = _addresses.length - 1;
-                            }
-                          });
-                        },
-                      );
-                    },
-                    separatorBuilder: (c, i) => const SizedBox(height: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  _addNewButton("Add New Address", () async {
-                    final newAddress = await Navigator.push<Address>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AddNewAddressScreen(),
+                        separatorBuilder: (c, i) => const SizedBox(height: 12),
                       ),
-                    );
-                    if (newAddress != null) {
-                      setState(() {
-                        _addresses.add(newAddress);
-                      });
-                    }
-                  }),
-
-                  const SizedBox(height: 36),
-
-                  const Text(
-                    'Choose Payment Method',
-                    style: TextStyle(
-                      color: Color(0xFF121111),
-                      fontSize: 14,
-                      fontFamily: 'Encode Sans',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _paymentTile(0, "VISA", "2143"),
-                  const SizedBox(height: 16),
-                  _buildPaymentSection(),
-                  if (widget.isCheckout) ...[
+                    const SizedBox(height: 12),
+                    _addNewButton("Add New Address", () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddNewAddressScreen()),
+                      );
+                      if (result == true) {
+                        _fetchInitialData();
+                      }
+                    }),
                     const SizedBox(height: 36),
                     const Text(
-                      'Coupon Code',
+                      'Choose Payment Method',
                       style: TextStyle(
                         color: Color(0xFF121111),
                         fontSize: 14,
@@ -326,54 +405,118 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildCouponSection(),
+                    _buildPaymentSection(), // This now handles both showing the selected method and the "add" button
+                    if (widget.isCheckout) ...[
+                      const SizedBox(height: 36),
+                      const Text(
+                        'Coupon Code',
+                        style: TextStyle(
+                          color: Color(0xFF121111),
+                          fontSize: 14,
+                          fontFamily: 'Encode Sans',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildCouponSection(),
+                    ],
+                    const SizedBox(height: 20),
                   ],
-                  const SizedBox(height: 20), // Bottom padding
-                ],
-              ),
-            ),
-          ),
-          // --- PAY BUTTON ---
-          if (widget.isCheckout)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => OrderPlacedScreen()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFFCCF656),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                child: const Text(
-                  'Pay',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontFamily: 'Encode Sans',
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
               ),
             ),
-        ],
+            if (widget.isCheckout)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (_addresses.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please add and select a shipping address.")),
+                      );
+                      return;
+                    }
+                    if (_selectedPaymentMethod == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please select a payment method.")),
+                      );
+                      return;
+                    }
+                    final selectedAddress = _addresses[selectedAddressIndex];
+                    String paymentMethodType = "CARD";
+                    if (_selectedPaymentMethod is UpiModel) paymentMethodType = "UPI";
+                    if (_selectedPaymentMethod is WalletModel) paymentMethodType = "WALLET";
+
+                    setState(() => isLoading = true);
+                    try {
+                      final List<Map<String, dynamic>> orderItems = widget.selectedItems?.map((item) {
+                        return {
+                          'productId': item.productId,
+                          'quantity': item.quantity,
+                          // Include other details if your API requires them, like variantId
+                        };
+                      }).toList() ?? [];
+
+                      final response = await _apiService.createOrder(
+                        addressId: selectedAddress.id,
+                        paymentMethod: /*paymentMethodType*/"cod",
+                        buyerNote: "Please deliver before 5 PM", items:orderItems,
+                      );
+                      String? orderId;
+                      if (response['order'] != null && response['order']['_id'] != null) {
+                        orderId = response['order']['_id'];
+                      }
+                      if (mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => OrderPlacedScreen(orderId: orderId),
+                          ),
+                              (route) => false,
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Failed to place order: $e"),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (mounted) setState(() => isLoading = false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: const Color(0xFFCCF656),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Pay',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontFamily: 'Encode Sans',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCouponSection() {
     bool isApplied = appliedCoupon != null;
-
     if (isApplied) {
-      // --- UI WHEN A COUPON IS APPLIED ---
       return Container(
         height: 67,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -426,7 +569,6 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         ),
       );
     } else {
-      // --- UI TO APPLY A NEW COUPON ---
       return InkWell(
         onTap: _navigateToCouponScreen,
         borderRadius: BorderRadius.circular(20),
@@ -471,6 +613,14 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
             width: 57,
             height: 57,
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: 57,
+                height: 57,
+                color: Colors.grey[200],
+                child: const Icon(Icons.image_not_supported, color: Colors.grey),
+              );
+            },
           ),
         ),
         const SizedBox(width: 15),
@@ -513,7 +663,20 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Icon(Icons.more_horiz, size: 24, color: Color(0xFF292526)),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_horiz, size: 24, color: Color(0xFF292526)),
+              onSelected: (value) {
+                if (value == 'remove') {
+                  _showRemoveItemDialog(item);
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'remove',
+                  child: Text('Remove Item'),
+                ),
+              ],
+            ),
             const SizedBox(height: 9),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -523,32 +686,19 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   onPressed: () {
                     if (item.quantity > 1) {
                       setState(() {
-                        final index = widget.selectedItems!.indexWhere(
-                          (i) => i.id == item.id,
-                        );
-
+                        final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
                         if (index != -1) {
-                          widget
-                              .selectedItems![index] = cart_model.CartItemModel(
-                            id: item.id,
-                            productId: item.productId,
-                            sellerId: item.sellerId,
-                            name: item.name,
-                            description: item.description, // ✔ FIXED
-                            price: item.price,
-                            discountedPrice: item.discountedPrice,
-                            image: item.image,
-                            images: item.images, // ✔ FIXED
-                            variant: item.variant,
-                            selectedVariant: item.selectedVariant,
-                            quantity: item.quantity - 1, // ✔ FIXED
-                            category: item.category,
-                            subCategory: item.subCategory,
-                            productCategory: item.productCategory,
-                            lineTotal:
-                                (item.discountedPrice * (item.quantity + 1))
-                                    .round(),
+                          final old = widget.selectedItems![index];
+                          widget.selectedItems![index] = cart_model.CartItemModel(
+                            id: old.id, productId: old.productId, sellerId: old.sellerId,
+                            name: old.name, description: old.description, price: old.price,
+                            discountedPrice: old.discountedPrice, image: old.image, images: old.images,
+                            variant: old.variant, selectedVariant: old.selectedVariant,
+                            quantity: old.quantity - 1, category: old.category,
+                            subCategory: old.subCategory, productCategory: old.productCategory,
+                            lineTotal: (old.discountedPrice * (old.quantity - 1)).round(),
                           );
+                          _recalculateTotals();
                         }
                       });
                     } else {
@@ -557,10 +707,8 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   },
                 ),
                 const SizedBox(width: 12),
-
-                // ✔ FIXED quantity text
-                SizedBox(
-                  width: 20,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 20),
                   child: Text(
                     '${item.quantity}',
                     textAlign: TextAlign.center,
@@ -572,38 +720,24 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 _quantityButton(
                   icon: Icons.add,
                   onPressed: () {
                     setState(() {
-                      final index = widget.selectedItems!.indexWhere(
-                        (i) => i.id == item.id,
-                      );
-
+                      final index = widget.selectedItems!.indexWhere((i) => i.id == item.id);
                       if (index != -1) {
+                        final old = widget.selectedItems![index];
                         widget.selectedItems![index] = cart_model.CartItemModel(
-                          id: item.id,
-                          productId: item.productId,
-                          sellerId: item.sellerId,
-                          name: item.name,
-                          description: item.description, // ✔ FIXED
-                          price: item.price,
-                          discountedPrice: item.discountedPrice,
-                          image: item.image,
-                          images: item.images, // ✔ FIXED
-                          variant: item.variant,
-                          selectedVariant: item.selectedVariant,
-                          quantity: item.quantity + 1, // ✔ FIXED
-                          category: item.category,
-                          subCategory: item.subCategory,
-                          productCategory: item.productCategory,
-                          lineTotal:
-                              (item.discountedPrice * (item.quantity + 1))
-                                  .round(),
+                          id: old.id, productId: old.productId, sellerId: old.sellerId,
+                          name: old.name, description: old.description, price: old.price,
+                          discountedPrice: old.discountedPrice, image: old.image, images: old.images,
+                          variant: old.variant, selectedVariant: old.selectedVariant,
+                          quantity: old.quantity + 1, category: old.category,
+                          subCategory: old.subCategory, productCategory: old.productCategory,
+                          lineTotal: (old.discountedPrice * (old.quantity + 1)).round(),
                         );
+                        _recalculateTotals();
                       }
                     });
                   },
@@ -657,10 +791,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _buildPriceRow(
-          'Total ($itemCount items)',
-          '${itemsTotal.toStringAsFixed(2)} ₹',
-        ),
+        _buildPriceRow('Total ($itemCount items)', '${itemsTotal.toStringAsFixed(2)} ₹'),
         const SizedBox(height: 12),
         _buildPriceRow('Shipping Fee', '${shipping.toStringAsFixed(2)} ₹'),
         const SizedBox(height: 12),
@@ -682,12 +813,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
     );
   }
 
-  Widget _buildPriceRow(
-    String label,
-    String value, {
-    Color? valueColor,
-    bool isBold = false,
-  }) {
+  Widget _buildPriceRow(String label, String value, {Color? valueColor, bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -715,8 +841,8 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }
 
   Widget _contactDetailsSection() {
-    final email = userProfile?.user.email ?? 'd.v.a.v.raju@gmail.com';
-    final phone = userProfile?.user.phone ?? '+91 9966127833';
+    final email = userProfile?.user.email ?? 'Loading...';
+    final phone = userProfile?.user.phone ?? 'Loading...';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,8 +885,8 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                email ?? 'd.v.a.v.raju@gmail.com',
-                style: TextStyle(
+                email,
+                style: const TextStyle(
                   color: Color(0xFF121111),
                   fontSize: 14,
                   fontFamily: 'Encode Sans',
@@ -780,8 +906,8 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                phone ?? '+91 9966127833',
-                style: TextStyle(
+                phone,
+                style: const TextStyle(
                   color: Color(0xFF121111),
                   fontSize: 14,
                   fontFamily: 'Encode Sans',
@@ -804,19 +930,16 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }) {
     return Dismissible(
       key: Key(address.id),
-      direction:
-          DismissDirection.horizontal, // Allow swiping in both directions
-
+      direction: DismissDirection.horizontal,
       background: Container(
         decoration: BoxDecoration(
-          color: Color(0xFFCCF656),
+          color: const Color(0xFFCCF656),
           borderRadius: BorderRadius.circular(20),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: const Icon(Icons.edit, color: Colors.white),
       ),
-
       secondaryBackground: Container(
         decoration: BoxDecoration(
           color: Colors.red,
@@ -826,21 +949,17 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          // Swiped Right to Edit
           onEdit();
-          return false; // Prevent the item from being dismissed
+          return false;
         } else {
           return await showDialog(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
                 title: const Text("Confirm Delete"),
-                content: const Text(
-                  "Are you sure you want to remove this address?",
-                ),
+                content: const Text("Are you sure you want to remove this address?"),
                 actions: <Widget>[
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
@@ -849,12 +968,9 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).pop(true);
-                      onRemove(); // Call remove callback if confirmed
+                      onRemove();
                     },
-                    child: const Text(
-                      "DELETE",
-                      style: TextStyle(color: Colors.red),
-                    ),
+                    child: const Text("DELETE", style: TextStyle(color: Colors.red)),
                   ),
                 ],
               );
@@ -862,21 +978,16 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
           );
         }
       },
-
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 85,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: ShapeDecoration(
             shape: RoundedRectangleBorder(
               side: BorderSide(
                 width: isSelected ? 2 : 1,
-                color:
-                    isSelected
-                        ? const Color(0xFF2C2C2C)
-                        : const Color(0xFFD3D3D3),
+                color: isSelected ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3),
               ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -902,7 +1013,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      address.title,
+                      address.label,
                       style: const TextStyle(
                         color: Color(0xFF2C2C2C),
                         fontSize: 12,
@@ -912,7 +1023,7 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${address.fullAddress},${address.phone}',
+                      '${address.fullAddress}, ${address.phone}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -925,25 +1036,11 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               _customRadioButton(isSelected),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _paymentTile(int index, String type, String digits) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 1,
-      child: RadioListTile(
-        value: index,
-        groupValue: selectedPayment,
-        onChanged: (val) => setState(() => selectedPayment = val!),
-        activeColor: Colors.black,
-        title: Text("$type **** **** $digits"),
-        secondary: const Icon(Icons.credit_card, color: Colors.blue),
       ),
     );
   }
@@ -956,24 +1053,22 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         shape: OvalBorder(
           side: BorderSide(
             width: isSelected ? 2 : 1,
-            color:
-                isSelected ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3),
+            color: isSelected ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3),
           ),
         ),
       ),
-      child:
-          isSelected
-              ? Center(
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const ShapeDecoration(
-                    color: Color(0xFF2C2C2C),
-                    shape: OvalBorder(),
-                  ),
-                ),
-              )
-              : null,
+      child: isSelected
+          ? Center(
+        child: Container(
+          width: 10,
+          height: 10,
+          decoration: const ShapeDecoration(
+            color: Color(0xFF2C2C2C),
+            shape: OvalBorder(),
+          ),
+        ),
+      )
+          : null,
     );
   }
 
@@ -992,13 +1087,11 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
   }
 
   Widget _buildPaymentSection() {
-    // Case 1: A payment method has been selected.
     if (_selectedPaymentMethod != null) {
       String title = 'Unknown Payment Method';
       IconData icon = Icons.credit_card;
       Color iconColor = Colors.grey;
 
-      // Determine the type of the selected method and set the details.
       if (_selectedPaymentMethod is CardModel) {
         final card = _selectedPaymentMethod as CardModel;
         title = '${card.brand} **** ${card.last4}';
@@ -1016,29 +1109,21 @@ class _CheckoutOrPaymentsScreenState extends State<CheckoutOrPaymentsScreen> {
         iconColor = Colors.orange;
       }
 
-      // Return a styled tile showing the selected method.
       return Card(
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 1,
         child: ListTile(
           leading: Icon(icon, color: iconColor),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
           trailing: TextButton(
-            onPressed: _selectPaymentMethod, // Allow user to change selection
-            child: const Text(
-              "Change",
-              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-            ),
+            onPressed: _selectPaymentMethod,
+            child: const Text("Change", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
           ),
         ),
       );
-    }
-    // Case 2: No payment method is selected yet.
-    else {
+    } else {
+      // FIX: Show the button to add a new payment method when none is selected
       return _addNewButton("Choose Payment Method", _selectPaymentMethod);
     }
   }

@@ -23,16 +23,11 @@ class _FollowersWidgetState extends State<FollowersWidget> {
     _fetchData();
   }
 
-  @override
-  void didUpdateWidget(FollowersWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.category?.id != widget.category?.id) {
-      setState(() {}); // Trigger rebuild to apply filter
-    }
-  }
+  // Removed didUpdateWidget since we no longer filter by category
 
   Future<void> _fetchData() async {
-    if (mounted) {
+    // Only show full loading spinner if list is empty to prevent UI flickering on refresh
+    if (mounted && _controller.followers.isEmpty) {
       setState(() {
         _controller.isLoading = true;
       });
@@ -44,7 +39,9 @@ class _FollowersWidgetState extends State<FollowersWidget> {
       debugPrint("Error fetching followers: $e");
     } finally {
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _controller.isLoading = false; // Ensure loading stops
+        });
       }
     }
   }
@@ -70,24 +67,12 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter followers based on category
+    // MODIFIED: No longer filtering by category. Always show all followers.
     List<UserModel> displayedFollowers = _controller.followers;
-    if (widget.category != null && widget.category!.name.toLowerCase() != 'explore all') {
-      displayedFollowers = displayedFollowers.where((user) {
-        final userCat = user.categoryType?.toLowerCase();
-        if (userCat == null) return false;
-        
-        final catName = widget.category!.name.toLowerCase();
-        final catSlug = widget.category!.slug?.toLowerCase();
-        
-        // Match against name or slug
-        return userCat == catName || (catSlug != null && userCat == catSlug) || userCat.contains(catName);
-      }).toList();
-    }
 
-    // Hide widget if no sellers match the category (optional, but cleaner)
+    // Hide widget if no sellers found at all
     if (!_controller.isLoading && displayedFollowers.isEmpty && _controller.followers.isNotEmpty) {
-       return const SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -105,8 +90,9 @@ class _FollowersWidgetState extends State<FollowersWidget> {
               ),
               if (displayedFollowers.length > 4)
                 InkWell(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    // Wait for the user to return from See All screen
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => SeeAllFollowersScreen(
@@ -114,6 +100,8 @@ class _FollowersWidgetState extends State<FollowersWidget> {
                         ),
                       ),
                     );
+                    // REFRESH DATA when coming back to sync changes
+                    if (mounted) _fetchData();
                   },
                   child: const Text(
                     'See All',
@@ -183,15 +171,15 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
           return GestureDetector(
             onTap: () async {
+              // Wait for user to return from Profile Screen
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(userId: user.id),
                 ),
               );
-              if (mounted) {
-                _fetchData();
-              }
+              // REFRESH DATA when coming back to sync changes
+              if (mounted) _fetchData();
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -21,7 +21,11 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final ApiService _apiService = ApiService();
-  List<Category> categories = [];
+
+  // Changed List type to dynamic or a specific PreferenceCategory model if you created one
+  // Based on your JSON, the API returns objects with name, slug, image, description
+  List<dynamic> categories = [];
+
   bool isLoading = true;
   String? errorMessage;
   Set<int> selectedIndexes = {};
@@ -39,10 +43,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
         isLoading = true;
         errorMessage = null;
       });
-      final fetchedCategories = await _apiService.getCategories();
+
+      // --- CHANGED: Use the new preference endpoint ---
+      final fetchedCategories = await _apiService.getPreferenceCategories();
+
+      // Filter out 'Explore All' if present, similar to logic before
       final displayCategories = fetchedCategories
-          .where((cat) => cat.name.toLowerCase() != 'explore all')
+          .where((cat) => cat['name'].toString().toLowerCase() != 'explore all')
           .toList();
+
       if (!mounted) return;
       setState(() {
         categories = displayCategories;
@@ -71,26 +80,53 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   Future<void> _saveCategoriesAndContinue() async {
-    final selectedItems = selectedIndexes.map((i) => categories[i]).toList();
+    // 1. Get selected slugs
+    final selectedSlugs = selectedIndexes.map((i) => categories[i]['slug'].toString()).toList();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      "userCategories",
-      selectedItems.map((c) => c.name).toList(),
-    );
+    // 2. Also prepare Category objects for the HomePage (legacy support)
+    // We construct temporary Category objects so HomePage doesn't crash immediately
+    // although HomePage should ideally refetch from the new API.
+    final selectedCategoryObjects = selectedIndexes.map((i) {
+      final item = categories[i];
+      return Category(
+          id: item['_id'] ?? item['slug'], // Fallback ID
+          name: item['name'],
+          easyname: item['slug'],
+          image: item['image'] is String
+              ? CategoryImage(url: item['image'], publicId: '')
+              : null,          subCategories: []
+      );
+    }).toList();
 
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HomePage(
-          loginResponse: widget.loginResponse,
-          selectedCategories: selectedItems,
+    try {
+      // --- CHANGED: Save to Backend ---
+      await _apiService.saveUserPreferences(selectedSlugs);
+
+      // Keep local storage for backup/legacy logic
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        "userCategories",
+        selectedCategoryObjects.map((c) => c.name).toList(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HomePage(
+            loginResponse: widget.loginResponse,
+            selectedCategories: selectedCategoryObjects,
+          ),
         ),
-      ),
-          (Route<dynamic> route) => false, // This predicate removes all previous routes
-    );
+            (Route<dynamic> route) => false,
+      );
 
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save preferences: $e")),
+      );
+    }
   }
 
   @override
@@ -123,6 +159,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
     );
   }
+
+  // ... _buildCustomAppBar and _buildResponsiveBackground remain exactly the same ...
   Widget _buildCustomAppBar(BuildContext context, Size screenSize) {
     return Container(
       height: screenSize.height * 0.13,
@@ -170,7 +208,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     );
   }
 
-
   Widget _buildContent() {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFA2DC00)));
@@ -195,7 +232,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       );
     }
     return GridView.builder(
-      padding: EdgeInsets.zero, // Padding is handled by the parent
+      padding: EdgeInsets.zero,
       itemCount: categories.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -204,11 +241,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
         childAspectRatio: 1,
       ),
       itemBuilder: (context, index) {
-        final item = categories[index];
+        final item = categories[index]; // item is Map<String, dynamic>
         final isSelected = selectedIndexes.contains(index);
-        final imageUrl = item.iconUrl?.isNotEmpty == true
-            ? item.iconUrl!
-            : (item.image?.url ?? '');
+
+        // --- CHANGED: Parsing Image from new structure ---
+        // New API sends "image" as string URL directly or empty string
+        String imageUrl = "";
+        if (item['image'] != null && item['image'].toString().isNotEmpty) {
+          imageUrl = item['image'];
+        }
 
         return InkWell(
           onTap: () => toggleSelection(index),
@@ -226,7 +267,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Text(
-                  item.name,
+                  item['name'] ?? '',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Color(0xFF494949),
@@ -244,10 +285,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA2DC00))));
                         },
                       ),
                     ),
@@ -315,7 +352,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Bottom-left rotated decoration
         Positioned(
           left: screenSize.width * -0.5,
           top: screenSize.height * 0.65,
@@ -332,7 +368,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
         ),
-        // Bottom-left decoration
         Positioned(
           left: screenSize.width * -0.8,
           top: screenSize.height * 0.72,
@@ -346,7 +381,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
         ),
-        // Top-left large oval
         Positioned(
           left: screenSize.width * -0.6,
           top: screenSize.height * -0.3,
@@ -360,7 +394,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
         ),
-        // Top-left smaller oval
         Positioned(
           left: screenSize.width * -0.4,
           top: screenSize.height * -0.2,

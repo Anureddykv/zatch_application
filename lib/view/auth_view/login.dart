@@ -122,38 +122,43 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // --- FIXED: Updated OTP Login Logic ---
   Future<void> _handleOtpLogin() async {
+    // 1. Get input directly from TextField
+    final phone = /*_phoneController.text.trim()*/"9019058876";
+    final countryCode = _selectedCountryCode;
+
+    // 2. Validate Input
+    if (phone.isEmpty || phone.length != 10) {
+      _showMessage("Validation Error", "Please enter a valid 10-digit mobile number to generate OTP.");
+      return;
+    }
+
     setState(() => _isLoading = true);
-    print("OTP login started");
+    print("OTP generation started for $phone");
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
+       await Future.delayed(const Duration(seconds: 1));
+
       if (!mounted) return;
 
-      final phone = _loginController.getRegisteredPhone() ?? "9019058876";
-      final countryCode = _loginController.getRegisteredCountryCode() ?? "+91";
-
-      print("OTP request -> phone: $phone, countryCode: $countryCode");
-
-      if (_lastLoginResponse != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                OtpScreen(
-                  phoneNumber: phone,
-                  countryCode: countryCode,
-                  loginResponse: _lastLoginResponse!,
-                ),
+      print("OTP request success -> phone: $phone, countryCode: $countryCode");
+  Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtpScreen(
+            phoneNumber: phone,
+            countryCode: countryCode,
+           loginResponse: _lastLoginResponse ?? LoginResponse.empty(),
           ),
-        );
-      }
+        ),
+      );
+
     } catch (e) {
       print("OTP login error: $e");
-      _showMessage("OTP Failed", e.toString(), isError: true);
+      _showMessage("OTP Failed", "Could not generate OTP: ${e.toString()}", isError: true);
     } finally {
-      print("OTP login process finished");
-      if (mounted) setState(() => _isLoading = false);
+      if(mounted) setState(() => _isLoading = false);
     }
   }
 

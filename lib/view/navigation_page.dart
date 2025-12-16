@@ -9,7 +9,8 @@ class CustomBottomNavBar extends StatelessWidget {
   const CustomBottomNavBar({
     super.key,
     required this.selectedIndex,
-    required this.onItemTapped, this.userProfile,
+    required this.onItemTapped,
+    this.userProfile,
   });
 
   @override
@@ -55,7 +56,6 @@ class CustomBottomNavBar extends StatelessWidget {
           ),
         ],
       ),
-
     );
   }
 
@@ -69,28 +69,44 @@ class CustomBottomNavBar extends StatelessWidget {
       onTap: () => onItemTapped(index),
       child: icon != null
           ? Icon(
-        icon,
-        color: isSelected ? const Color(0xFFA3DD00) : Colors.grey,
-        size: 33,
-      )
+              icon,
+              color: isSelected ? const Color(0xFFA3DD00) : Colors.grey,
+              size: 33,
+            )
           : Image.asset(
-        imagePath!,
-        height: 28,
-        color: isSelected ? const Color(0xFFA3DD00) : Colors.grey,
-      ),
+              imagePath!,
+              height: 28,
+              color: isSelected ? const Color(0xFFA3DD00) : Colors.grey,
+            ),
     );
   }
 
-
   Widget _buildProfileItem(int index, bool isSelected) {
+    final String? imageUrl = userProfile?.user.profilePic.url;
+    final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
+
     return GestureDetector(
       onTap: () => onItemTapped(index),
       child: CircleAvatar(
         radius: 16,
-        backgroundColor: isSelected ? Colors.green.withOpacity(0.2) : Colors.transparent,
-        child:  CircleAvatar(
-          radius: 14,
-          backgroundImage: NetworkImage(userProfile?.user.profilePic.url ?? ""),
+        backgroundColor:
+            isSelected ? Colors.green.withOpacity(0.2) : Colors.transparent,
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: const BoxDecoration(shape: BoxShape.circle,),
+          clipBehavior: Clip.antiAlias,
+          child: hasImage
+              ? Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    // Falls back to icon on error (e.g. 403 Forbidden)
+                    return const Icon(Icons.person,
+                        size: 20, color: Colors.grey);
+                  },
+                )
+              : const Icon(Icons.person, size: 20, color: Colors.grey),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:zatch_app/model/categories_response.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import HomePage
 
 class PreferencesScreen extends StatefulWidget {
   const PreferencesScreen({Key? key}) : super(key: key);
@@ -14,17 +15,22 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  bool _isSaving = false;
   String? _errorMessage;
   List<Category> _categories = [];
+
+  // Track current selection
   final Set<String> _selectedCategoryIds = {};
+  // Track initial selection for comparison
+  final Set<String> _initialSelectedCategoryIds = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
+    _fetchData();
   }
 
-  Future<void> _fetchCategories() async {
+  Future<void> _fetchData() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -32,14 +38,38 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
 
     try {
-      final fetchedCategories = await _apiService.getCategories();
-      final displayCategories = fetchedCategories
+      // 1. Run both API calls in parallel
+      final results = await Future.wait([
+        _apiService.getCategories(),
+        _apiService.getUserPreferences(),
+      ]);
+
+      final allCategories = results[0] as List<Category>;
+      final userPrefs = results[1] as Map<String, dynamic>;
+
+      // 2. Filter categories for display
+      final displayCategories = allCategories
           .where((cat) => cat.name.toLowerCase() != 'explore all')
           .toList();
+
+      // 3. Extract saved slugs from preferences response
+      final List<dynamic> savedSlugs = userPrefs['categories'] ?? [];
+      final Set<String> savedSlugSet = savedSlugs.map((e) => e.toString()).toSet();
+
+      // 4. Map saved slugs back to Category IDs for UI selection
+      final Set<String> preSelectedIds = {};
+      for (var cat in displayCategories) {
+        if (cat.slug != null && savedSlugSet.contains(cat.slug)) {
+          preSelectedIds.add(cat.id);
+        }
+      }
 
       if (mounted) {
         setState(() {
           _categories = displayCategories;
+          // Store in both current and initial sets
+          _selectedCategoryIds.addAll(preSelectedIds);
+          _initialSelectedCategoryIds.addAll(preSelectedIds);
         });
       }
     } catch (e) {
@@ -67,18 +97,70 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
   }
 
-  void _onUpdatePressed() {
-    if (_selectedCategoryIds.isNotEmpty) {
-      print("Selected Category IDs to be saved: $_selectedCategoryIds");
-      Navigator.of(context).pop(_selectedCategoryIds.toList());
-    } else {
-      Navigator.of(context).pop();
+  // Check if the current selection is different from the initial selection
+  bool _hasChanges() {
+    if (_selectedCategoryIds.length != _initialSelectedCategoryIds.length) {
+      return true;
+    }
+    // Check if current selection contains everything from initial (and lengths are same)
+    return !_selectedCategoryIds.containsAll(_initialSelectedCategoryIds);
+  }
+
+  Future<void> _onUpdatePressed() async {
+    if (_selectedCategoryIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select at least one category")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // 1. Convert selected IDs back to Slugs for the API
+      final selectedSlugs = _categories
+          .where((c) => _selectedCategoryIds.contains(c.id))
+          .map((c) => c.slug ?? c.name)
+          .toList();
+
+      print("Saving preferences: $selectedSlugs");
+
+      // 2. Call API
+      await _apiService.saveUserPreferences(selectedSlugs);
+
+      if (!mounted) return;
+
+      // 3. Navigate to HomePage with the NEW selection list so Home knows to update
+      final selectedCategoryObjects = _categories
+          .where((c) => _selectedCategoryIds.contains(c.id))
+          .toList();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomePage(selectedCategories: selectedCategoryObjects),
+        ),
+            (route) => false,
+      );
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to update: $e")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Using MediaQuery to get screen size for responsive calculations
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -87,10 +169,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Responsive background decorations
           _buildBackgroundDecorations(screenWidth, screenHeight),
-
-          // 2. Main content area (Header, Grid)
           SafeArea(
             bottom: false,
             child: Column(
@@ -100,23 +179,15 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
               ],
             ),
           ),
-
-          // 3. Responsive custom back button
           _buildCustomBackButton(context),
-
-          // 4. Responsive update button positioned at the bottom
           _buildUpdateButton(),
         ],
       ),
     );
   }
 
-  // Uses screen dimensions to position and size decorations proportionally
   Widget _buildBackgroundDecorations(double screenWidth, double screenHeight) {
-    // Base dimensions from Figma to calculate ratios
     const figmaWidth = 390.0;
-
-    // Calculate size and position based on screen width
     final circleDiameter = 372 / figmaWidth * screenWidth;
     final leftOffset1 = -195 / figmaWidth * screenWidth;
     final topOffset1 = 535 / 860 * screenHeight;
@@ -157,12 +228,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 
-  // Uses safe area padding for robust positioning
   Widget _buildCustomBackButton(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     return Positioned(
       left: 27,
-      top: topPadding + 10, // 10px below the status bar
+      top: topPadding + 10,
       child: GestureDetector(
         onTap: () => Navigator.of(context).pop(),
         child: Container(
@@ -190,7 +260,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 
-  // Header uses responsive padding
   Widget _buildCustomHeader() {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
@@ -222,7 +291,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             children: [
               Text(_errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
               const SizedBox(height: 20),
-              ElevatedButton(onPressed: _fetchCategories, child: const Text('Retry')),
+              ElevatedButton(onPressed: _fetchData, child: const Text('Retry')),
             ],
           ),
         ),
@@ -233,14 +302,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       return const Center(child: Text('No preferences available.'));
     }
 
-    // GridView is already responsive, but padding is adjusted
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120), // Increased bottom padding for the button
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1, // Keep items square
+        childAspectRatio: 1,
       ),
       itemCount: _categories.length,
       itemBuilder: (context, index) {
@@ -255,15 +323,16 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 
-  // Button uses Align and horizontal padding for responsiveness
   Widget _buildUpdateButton() {
-    bool isEnabled = _selectedCategoryIds.isNotEmpty;
+    // Enable button ONLY if not empty AND has changes
+    bool isEnabled = _selectedCategoryIds.isNotEmpty && _hasChanges();
+
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
         padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 16),
         child: ElevatedButton(
-          onPressed: _onUpdatePressed,
+          onPressed: (_isSaving || !isEnabled) ? null : _onUpdatePressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: isEnabled ? const Color(0xFFCCF656) : const Color(0xFFBDBDBD),
             disabledBackgroundColor: const Color(0xFFBDBDBD),
@@ -273,7 +342,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             minimumSize: const Size(double.infinity, 50),
             elevation: 2,
           ),
-          child: const Text(
+          child: _isSaving
+              ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)
+          )
+              : const Text(
             'Update',
             style: TextStyle(
               fontSize: 16,

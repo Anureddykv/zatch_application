@@ -1,22 +1,10 @@
-import 'package:flutter/material.dart';import 'package:flutter/services.dart';
-import 'package:geocoding/geocoding.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-
-class Address {
-  String id;
-  String title;
-  String fullAddress;
-  String phone;
-  IconData icon;
-
-  Address({
-    required this.id,
-    required this.title,
-    required this.fullAddress,
-    required this.phone,
-    required this.icon,
-  });
-}
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:zatch_app/model/address_model.dart';
+import 'package:zatch_app/services/api_service.dart';
 
 class AddNewAddressScreen extends StatefulWidget {
   final Address? addressToEdit;
@@ -29,7 +17,17 @@ class AddNewAddressScreen extends StatefulWidget {
 
 class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
 
+  // --- Map Controller & State ---
+  final Completer<GoogleMapController> _mapController = Completer();
+  static const CameraPosition _initialCameraPosition = CameraPosition(
+    target: LatLng(17.3850, 78.4867), // Default to Hyderabad
+    zoom: 11.0,
+  );
+  Set<Marker> _markers = {};
+
+  // --- Form Controllers ---
   final TextEditingController labelController = TextEditingController();
   final TextEditingController address1Controller = TextEditingController();
   final TextEditingController address2Controller = TextEditingController();
@@ -37,18 +35,19 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   final TextEditingController pinCodeController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
 
+  // --- UI State ---
   String? selectedAddressType;
   String? selectedState;
   bool _isLocating = false;
+  bool _isSaving = false;
+  Position? _currentPosition;
 
   final List<String> addressTypes = ["Home", "Office", "Others"];
   final List<String> indianStates = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-    "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
-    "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
-    "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+    "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
+    "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
     "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
   ];
 
@@ -56,36 +55,27 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   void initState() {
     super.initState();
     if (widget.addressToEdit != null) {
-      final address = widget.addressToEdit!;
+      // If editing, populate the form with existing data
+      _populateFormForEdit();
+    }
 
-      // Set the address type dropdown and label controller
-      if (addressTypes.contains(address.title)) {
-        selectedAddressType = address.title;
-        labelController.text = address.title; // Pre-fill for validation
-      } else {
-        selectedAddressType = "Others";
-        labelController.text = address.title; // This is the custom label
-      }
+  }
 
-      phoneController.text = address.phone.replaceAll('+91 ', '').trim();
-
-      final addressParts = address.fullAddress.split(',').map((s) => s.trim()).toList();
-      if (addressParts.length >= 3) {
-        address1Controller.text = addressParts.isNotEmpty ? addressParts[0] : '';
-        address2Controller.text = addressParts.length > 1 ? addressParts[1] : '';
-        cityController.text = addressParts.length > 2 ? addressParts[2] : '';
-        if (addressParts.length > 3) {
-          pinCodeController.text = addressParts[3].replaceAll(RegExp(r'[^0-9]'), '');
-        }
-        if (addressParts.length > 4) {
-          final statePart = addressParts[4];
-          if (indianStates.contains(statePart)) {
-            selectedState = statePart;
-          }
-        }
-      } else {
-        address1Controller.text = address.fullAddress;
-      }
+  void _populateFormForEdit() {
+    final address = widget.addressToEdit!;
+    labelController.text = address.label;
+    address1Controller.text = address.line1;
+    address2Controller.text = address.line2 ?? '';
+    cityController.text = address.city;
+    pinCodeController.text = address.pincode;
+    phoneController.text = address.phone.replaceAll('+91', '').trim();
+    if (addressTypes.contains(address.type)) {
+      selectedAddressType = address.type;
+    } else {
+      selectedAddressType = "Others";
+    }
+    if (indianStates.contains(address.state)) {
+      selectedState = address.state;
     }
   }
 
@@ -99,52 +89,158 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     phoneController.dispose();
     super.dispose();
   }
-
   Future<void> _handleLocateMe() async {
     setState(() => _isLocating = true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _showErrorSnackBar('Location services are disabled.');
-        setState(() => _isLocating = false);
-        return;
+        throw Exception('Location services are disabled. Please turn on GPS.');
       }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _showErrorSnackBar('Location permissions are denied.');
-          setState(() => _isLocating = false);
-          return;
+          throw Exception('Location permissions are denied.');
         }
       }
-
       if (permission == LocationPermission.deniedForever) {
-        _showErrorSnackBar('Location permissions are permanently denied.');
-        setState(() => _isLocating = false);
-        return;
+        throw Exception('Location permissions are permanently denied. Settings > App > Permissions.');
       }
 
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      print("📍 Geolocator: Fetching current position (Timeout: 20s)...");
+   final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 20),
+      );
 
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks[0];
-        setState(() {
-          address1Controller.text = '${placemark.street}, ${placemark.thoroughfare}';
-          address2Controller.text = placemark.subLocality ?? '';
-          cityController.text = placemark.locality ?? '';
-          pinCodeController.text = placemark.postalCode ?? '';
-          if (placemark.administrativeArea != null && indianStates.contains(placemark.administrativeArea)) {
-            selectedState = placemark.administrativeArea;
-          }
-        });
+      _currentPosition = position;
+
+      print("🚀 GENERATING REQUEST:");
+      print("   LAT: ${position.latitude}");
+      print("   LNG: ${position.longitude}");
+
+      // 4. Update Map
+      if (mounted) {
+        await _animateCameraAndAddMarker(LatLng(position.latitude, position.longitude));
       }
+
+      print("📞 API Call: Sending request to /address/geocode...");
+
+      try {
+        final addressData = await _apiService.geocodeAddress(position.latitude, position.longitude);
+        print("✅ API Response Received: $addressData");
+
+        if (mounted) {
+          setState(() {
+            address1Controller.text = addressData['line1'] ?? '';
+            address2Controller.text = addressData['line2'] ?? '';
+            cityController.text = addressData['city'] ?? '';
+            pinCodeController.text = addressData['pincode'] ?? '';
+
+            String? incomingState = addressData['state'];
+            if (incomingState != null) {
+              if (indianStates.contains(incomingState)) {
+                selectedState = incomingState;
+              }
+              else {
+                try {
+                  selectedState = indianStates.firstWhere(
+                          (s) => s.toLowerCase() == incomingState.toLowerCase()
+                  );
+                } catch (e) {
+                  print("State mismatch: $incomingState not found in list");
+                }
+              }
+            }
+          });
+        }
+      } catch (apiError) {
+        print("⚠️ API Error during geocoding: $apiError");
+        _showErrorSnackBar('Found location, but could not fetch address text.');
+      }
+
+    } on TimeoutException catch (_) {
+      print("❌ Geolocator Timeout");
+      _showErrorSnackBar("GPS timed out. Please try again or move to an open area.");
     } catch (e) {
-      _showErrorSnackBar('Failed to get location: ${e.toString()}');
+      print("❌ Error in _handleLocateMe: $e");
+      _showErrorSnackBar(e.toString().replaceAll("Exception:", "").trim());
     } finally {
-      setState(() => _isLocating = false);
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
+      Future<void> _animateCameraAndAddMarker(LatLng position) async {
+      final GoogleMapController controller = await _mapController.future;
+
+      if (!mounted) return; // Check if screen is valid
+
+      try {
+      await controller.animateCamera(CameraUpdate.newCameraPosition(
+      CameraPosition(target: position, zoom: 16.0),
+      ));
+      } catch (e) {
+      debugPrint("Error animating camera: $e");
+      }
+
+      if (!mounted) return; // Check again before updating UI
+
+      setState(() {
+      _markers = {
+      Marker(
+      markerId: const MarkerId('currentLocation'),
+      position: position,
+      infoWindow: const InfoWindow(title: 'Your Location'),
+        )
+      };
+    });
+  }
+
+  void _saveOrUpdateAddress() async {
+    if (!_formKey.currentState!.validate()) {
+      _showErrorSnackBar('Please fix the errors in the form.');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final payload = {
+        "addressId": widget.addressToEdit?.id,
+        "label": labelController.text.trim(),
+        "type": selectedAddressType!,
+        "line1": address1Controller.text.trim(),
+        "line2": address2Controller.text.trim(),
+        "city": cityController.text.trim(),
+        "state": selectedState!,
+        "pincode": pinCodeController.text.trim(),
+        "phone": phoneController.text.trim(),
+        "lat": _currentPosition?.latitude,
+        "lng": _currentPosition?.longitude,
+      };
+      print("📞 API Call (Save Address): $payload");
+
+      final savedAddress = await _apiService.saveAddress(
+        addressId: payload['addressId'] as String?,
+        label: payload['label'] as String,
+        type: payload['type'] as String,
+        line1: payload['line1'] as String,
+        line2: payload['line2'] as String?,
+        city: payload['city'] as String,
+        state: payload['state'] as String,
+        pincode: payload['pincode'] as String,
+        phone: payload['phone'] as String,
+        lat: payload['lat'] as double?,
+        lng: payload['lng'] as double?,
+      );
+      print("✅ API Response (Save Address): ${savedAddress.toJson()}");
+
+      if (mounted) Navigator.pop(context, true);
+
+    } catch (e) {
+      _showErrorSnackBar('Failed to save address: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -152,39 +248,6 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
     }
-  }
-
-  void _saveOrUpdateAddress() {
-    if (_formKey.currentState!.validate()) {
-      // The labelController is now the single source of truth for the title.
-      // It's either set by the dropdown or the custom text field.
-      final fullAddress = [
-        address1Controller.text.trim(),
-        address2Controller.text.trim(),
-        cityController.text.trim(),
-        pinCodeController.text.trim(),
-        selectedState ?? ''
-      ].where((s) => s.isNotEmpty).join(', ');
-
-      final newAddress = Address(
-        id: widget.addressToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        title: labelController.text.trim(),
-        fullAddress: fullAddress,
-        phone: '+91 ${phoneController.text.trim()}',
-        icon: _getIconForLabel(labelController.text.trim()),
-      );
-
-      Navigator.pop(context, newAddress);
-    } else {
-      _showErrorSnackBar('Please fix the errors in the form.');
-    }
-  }
-
-  IconData _getIconForLabel(String label) {
-    String lowerLabel = label.toLowerCase();
-    if (lowerLabel.contains('home')) return Icons.home_outlined;
-    if (lowerLabel.contains('office') || lowerLabel.contains('work')) return Icons.apartment_outlined;
-    return Icons.location_on_outlined;
   }
 
   @override
@@ -207,38 +270,51 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.network(
-                  "https://i.stack.imgur.com/g2242.png", // Generic map image
-                  width: double.infinity,
-                  height: 250,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: double.infinity,
-                    height: 250,
-                    color: Colors.grey[300],
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.map, color: Colors.grey, size: 50),
+            // --- MAP WIDGET ---
+            SizedBox(
+              height: 250,
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  GoogleMap(
+                    mapType: MapType.normal,
+                    initialCameraPosition: _initialCameraPosition,
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController.complete(controller);
+                    },
+                    markers: _markers,
+                    myLocationEnabled: true,
+                    // ✅ CHANGE 2: Enable the 'current location' button behavior internally (optional)
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    // ✅ CHANGE 3: Add gestures for better UX
+                    scrollGesturesEnabled: true,
+                    zoomGesturesEnabled: true,
                   ),
-                ),
-                Positioned(
-                  bottom: 20,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLocating ? null : _handleLocateMe,
-                    icon: _isLocating ? Container(width: 20, height: 20, margin: const EdgeInsets.only(right: 8), child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.black,)) : const Icon(Icons.my_location),
-                    label: Text(_isLocating ? 'Locating...' : 'Locate Me'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFCCF656),
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(60)),
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  Positioned(
+                    bottom: 20,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLocating ? null : _handleLocateMe,
+                      icon: _isLocating
+                          ? Container(
+                          width: 20, height: 20,
+                          margin: const EdgeInsets.only(right: 8),
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          : const Icon(Icons.my_location),
+                      label: Text(_isLocating ? 'Locating...' : 'Locate Me'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFCCF656),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(60)),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            // --- FORM FIELDS ---
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -257,11 +333,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       onChanged: (value) {
                         setState(() {
                           selectedAddressType = value;
-                          if (value != "Others") {
-                            labelController.text = value ?? '';
-                          } else {
-                            labelController.clear();
-                          }
+                          labelController.text = (value != "Others") ? (value ?? '') : '';
                         });
                       },
                       validator: (value) => value == null ? 'Please select a type' : null,
@@ -362,14 +434,16 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                     const SizedBox(height: 32),
 
                     ElevatedButton(
-                      onPressed: _saveOrUpdateAddress,
+                      onPressed: _isSaving ? null : _saveOrUpdateAddress,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: const Color(0xFFCCF656),
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
-                      child: Text(isEditing ? "Update Address" : "Save Address", style: const TextStyle(fontSize: 16, fontFamily: 'Encode Sans', fontWeight: FontWeight.w700)),
+                      child: _isSaving
+                          ? const CircularProgressIndicator(color: Colors.black)
+                          : Text(isEditing ? "Update Address" : "Save Address", style: const TextStyle(fontSize: 16, fontFamily: 'Encode Sans', fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
@@ -382,6 +456,7 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   }
 }
 
+// Keep your _CustomTextField and _CustomDropdown widgets unchanged.
 class _CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:zatch_app/model/product_response.dart';
 
+import 'ExploreSeller.dart' hide ProfilePic;
+
 // --- Top-Level API Response ---
 class ExploreApiResponse {
   final bool success;
@@ -44,6 +46,7 @@ class Bits {
   final int likeCount;
   final int viewCount;
   final int shareCount;
+  final int revenue;
   final String shareLink;
   final DateTime createdAt;
   final List<Comment> comments;
@@ -62,6 +65,7 @@ class Bits {
     required this.likeCount,
     required this.viewCount,
     required this.shareCount,
+    required this.revenue,
     required this.shareLink,
     required this.createdAt,
     required this.comments,
@@ -89,6 +93,7 @@ class Bits {
       likeCount: json['likeCount'] as int? ?? 0,
       viewCount: json['viewCount'] as int? ?? 0,
       shareCount: json['shareCount'] as int? ?? 0,
+      revenue: json['revenue'] as int? ?? 0,
       shareLink: json['shareLink'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       comments: commentsList
@@ -130,7 +135,7 @@ class Thumbnail {
 }
 
 class Comment {
-  final String userId;
+  final String? userId;
   final String text;
   final String id;
   final DateTime createdAt;
@@ -139,7 +144,7 @@ class Comment {
   final List<Comment> replies;
 
   Comment({
-    required this.userId,
+    this.userId,
     required this.text,
     required this.id,
     required this.createdAt,

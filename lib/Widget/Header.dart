@@ -94,7 +94,10 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                   IconButton(
                     icon: const Icon(Icons.bookmark_border, color: Colors.black),
                     onPressed: () {
-
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ProfileScreen(widget.userProfile))
+                      );
                     },
                   ),
                   IconButton(
@@ -115,9 +118,6 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                       IconButton(
                         icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
                         onPressed: widget.onCartTap,
-                        /*onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => CartScreen()));
-                        },*/
                       ),
                       if (cartItemCount > 0)
                         Positioned(

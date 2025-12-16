@@ -1,5 +1,3 @@
-// lib/view/setting_view/profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
@@ -12,6 +10,7 @@ import '../ReelDetailsScreen.dart';
 import '../product_view/product_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
+  // You can still pass an initial profile if you have one, or make it optional/nullable
   final UserProfileResponse? userProfile;
 
   const ProfileScreen(this.userProfile, {super.key});
@@ -23,11 +22,59 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ApiService _apiService = ApiService(); // API Service Instance
+
+  // State variables for data fetching
+  UserProfileResponse? _currentUserProfile;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // Initialize with passed data if available to show something immediately
+    if (widget.userProfile != null) {
+      _currentUserProfile = widget.userProfile;
+      _isLoading = false;
+      // Optional: still fetch fresh data in background
+      _fetchUserProfile();
+    } else {
+      _fetchUserProfile();
+    }
+  }
+
+  Future<void> _fetchUserProfile() async {
+    try {
+      // If we didn't start with data, make sure loading is true
+      if (_currentUserProfile == null) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+      }
+
+      final profileModel = await _apiService.getUserProfile();
+
+      if (mounted) {
+        setState(() {
+          _currentUserProfile = profileModel;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching profile: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // Only show error message if we don't have cached data
+          if (_currentUserProfile == null) {
+            _errorMessage = "Failed to load profile. Please try again.";
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -35,41 +82,61 @@ class _ProfileScreenState extends State<ProfileScreen>
     _tabController.dispose();
     super.dispose();
   }
-  void _showFullScreenImage(BuildContext context, String imageUrl) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87, // Darken the background
-      builder: (BuildContext context) {
-        return GestureDetector(
-          onTap: () => Navigator.of(context).pop(), // Tap anywhere on the background to close
-          child: InteractiveViewer( // This widget enables pinch-to-zoom and panning
-            panEnabled: true,
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: Center(
-              child: Hero( // This widget provides the smooth animation
-                tag: imageUrl, // The tag must match the one on the CircleAvatar
-                child: Image.network(imageUrl),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.userProfile?.user;
+    // 1. Handle Loading State (if no data yet)
+    if (_isLoading && _currentUserProfile == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF9CDD1F),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF9CDD1F),
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
 
+    // 2. Handle Error State
+    if (_errorMessage != null && _currentUserProfile == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF9CDD1F),
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                  onPressed: _fetchUserProfile,
+                  child: const Text("Retry")
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 3. Render Profile
+    final user = _currentUserProfile?.user;
     final name = user?.username ?? "Unknown User";
     final followers = user?.followerCount ?? 0;
+    final followingCount = user?.following.length ?? 0;
     final bool hasImage = user?.profilePic?.url != null && user?.profilePic?.url.isNotEmpty == true;
     final String profilePicUrl = hasImage
         ? user!.profilePic!.url
-        : "https://via.placeholder.com/150/FFFFFF/000000?Text=No+Image"; // A default placeholder
-
+        : "https://via.placeholder.com/150/FFFFFF/000000?Text=No+Image";
 
     return Scaffold(
       appBar: AppBar(
@@ -95,79 +162,83 @@ class _ProfileScreenState extends State<ProfileScreen>
                       topRight: Radius.circular(40),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 60),
-                      Text(
-                        name,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      GestureDetector(onTap: (){
-                        if (user == null || !mounted) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FollowingScreen(
-                              followedUsers: user.following,
-                            ),
-                          ),
-                        );
-                      },
-                        child: Text(
-                          "$followers Sellers Following",
-                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  child: RefreshIndicator( // Added RefreshIndicator for pull-to-refresh
+                    onRefresh: _fetchUserProfile,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 60),
+                        Text(
+                          name,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ✅ Tabs
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: TabBar(
-                          controller: _tabController,
-                          dividerColor: Colors.transparent,
-                          indicatorSize: TabBarIndicatorSize.tab,
-                          indicatorPadding: const EdgeInsets.all(4),
-                          indicator: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
-                                blurRadius: 2,
-                                spreadRadius: 0.5,
-                                offset: const Offset(0, 1),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () {
+                            if (user == null || !mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FollowingScreen(
+                                  followedUsers: user.following,
+                                ),
                               ),
+                            );
+                          },
+                          child: Text(
+                            "$followingCount Sellers Following",
+                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ✅ Tabs
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: TabBar(
+                            controller: _tabController,
+                            dividerColor: Colors.transparent,
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            indicatorPadding: const EdgeInsets.all(4),
+                            indicator: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  blurRadius: 2,
+                                  spreadRadius: 0.5,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            labelColor: Colors.black,
+                            unselectedLabelColor: Colors.black54,
+                            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                            tabs: const [
+                              Tab(text: "Saved Bits"),
+                              Tab(text: "Saved Products"),
                             ],
                           ),
-                          labelColor: Colors.black,
-                          unselectedLabelColor: Colors.black54,
-                          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-                          tabs: const [
-                            Tab(text: "Saved Bits"),
-                            Tab(text: "Saved Products"),
-                          ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
-                      // ✅ Tab Content
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildBitsGallery(user?.savedBits ?? []),
-                            _buildSavedProductsGrid(user?.savedProducts ?? []),
-                          ],
+                        // ✅ Tab Content
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildBitsGallery(user?.savedBits ?? []),
+                              _buildSavedProductsGrid(user?.savedProducts ?? []),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -178,22 +249,22 @@ class _ProfileScreenState extends State<ProfileScreen>
             top: 5,
             left: MediaQuery.of(context).size.width / 2 - 50,
             child: GestureDetector(
-              onTap: (){
+              onTap: () {
                 Navigator.of(context).push(
                   PageRouteBuilder(
-                    opaque: false, // Makes the new page background transparent
+                    opaque: false,
                     barrierDismissible: true,
                     pageBuilder: (BuildContext context, _, __) {
                       return ProfileImageViewer(
-                        imageUrl: profilePicUrl, // Pass the determined URL
-                        heroTag: profilePicUrl,   // Use the URL as the unique Hero tag
+                        imageUrl: profilePicUrl,
+                        heroTag: profilePicUrl,
                       );
                     },
                   ),
                 );
               },
               child: Hero(
-                tag: profilePicUrl, // Use a unique tag for the animation
+                tag: profilePicUrl,
                 child: CircleAvatar(
                   radius: 50,
                   backgroundImage: NetworkImage(profilePicUrl),
@@ -210,38 +281,45 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (bits.isEmpty) {
       return const Center(child: Text("No saved bits to display."));
     }
-    return GestureDetector(
-      onTap: (){
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ReelDetailsScreen(
-              bitId: /*pick.id*/ "68a2772c675bafdd4204ef0b", // Use the real ID from the data
-              controller: LiveStreamController(),
-            ),
-          ),
-        );      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: MasonryGridView.count(
-          crossAxisCount: 2,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          itemCount: bits.length,
-          itemBuilder: (context, index) {
-            return ClipRRect(
+
+    // Remove the GestureDetector that was wrapping the entire grid
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: MasonryGridView.count(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        itemCount: bits.length,
+        itemBuilder: (context, index) {
+          final bit = bits[index]; // Get the specific bit for this index
+
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReelDetailsScreen(
+                    bitId: bit.id, // Pass the ID of this specific bit
+                    controller: LiveStreamController(),
+                  ),
+                ),
+              );
+            },
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: AspectRatio(
-                aspectRatio: 9 / 16, // Common aspect ratio for video shorts
+                aspectRatio: 9 / 16,
                 child: Container(
                   color: Colors.black,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
+                      // Optional: Add thumbnail image here if available
+                      if (bit.thumbnail?.url != null)
+                        Image.network(bit.thumbnail?.url ??"", fit: BoxFit.cover),
                       const Center(
                         child: Icon(Icons.play_circle_fill, color: Colors.white54, size: 40),
                       ),
-                      // Gradient overlay to make text readable
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -252,18 +330,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                       ),
-
                     ],
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
-
 
   Widget _buildSavedProductsGrid(List<SavedProduct> products) {
     if (products.isEmpty) {
@@ -271,18 +347,17 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(), // Ensures pull-to-refresh works even if list is short
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
         children: products.map((product) {
-          // Pass the entire SavedProduct object to the new stateful widget
           return _ProductCard(product: product);
         }).toList(),
       ),
     );
   }
-
 }
 
 /// A stateful widget for a single product card that handles its own state.
@@ -296,15 +371,16 @@ class _ProductCard extends StatefulWidget {
 }
 
 class _ProductCardState extends State<_ProductCard> {
-  // State variables for the card
   late bool isLiked;
   bool isApiCallInProgress = false;
   final ApiService _api = ApiService();
+
   @override
   void initState() {
     super.initState();
-    isLiked = true;
+    isLiked = widget.product.isLiked ?? true;
   }
+
   Future<void> _toggleLike() async {
     if (isApiCallInProgress) return;
 
@@ -329,7 +405,6 @@ class _ProductCardState extends State<_ProductCard> {
         );
       }
     } finally {
-      // Ensure the loading indicator is turned off
       if (mounted) {
         setState(() {
           isApiCallInProgress = false;
@@ -379,12 +454,11 @@ class _ProductCardState extends State<_ProductCard> {
                       ),
                     ),
                   ),
-                  // --- Like Button ---
                   Positioned(
                     top: 5,
                     right: 5,
                     child: GestureDetector(
-                      onTap: _toggleLike, // Call the API function
+                      onTap: _toggleLike,
                       child: Container(
                         width: 28,
                         height: 28,
@@ -443,5 +517,3 @@ class _ProductCardState extends State<_ProductCard> {
     });
   }
 }
-
-

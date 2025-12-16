@@ -13,9 +13,11 @@ import 'package:zatch_app/model/UpdateCartApiResponse.dart';
 import 'package:zatch_app/model/UpdateProfileResponse.dart';
 import 'package:zatch_app/model/api_response.dart';
 import 'package:zatch_app/model/bit_details.dart';
+import 'package:zatch_app/model/coupon_model.dart';
 import 'package:zatch_app/model/follow_response.dart';
 import 'package:zatch_app/model/live_comment.dart';
 import 'package:zatch_app/model/live_session_res.dart';
+import 'package:zatch_app/model/order_model.dart';
 import 'package:zatch_app/model/product_response.dart';
 import 'package:zatch_app/model/register_req.dart';
 import 'package:zatch_app/model/register_response_model.dart';
@@ -31,6 +33,8 @@ import 'package:zatch_app/model/otp_req.dart';
 import 'package:zatch_app/model/otp_response_model.dart';
 import 'package:zatch_app/model/categories_response.dart';
 import 'package:zatch_app/utils/local_storage.dart';
+
+import '../model/address_model.dart';
 
 
 class ApiService {
@@ -1185,40 +1189,6 @@ class ApiService {
       rethrow;
     }
   }
-
-  Future<Map<String, dynamic>> applyCoupon(String couponId, String code, double cartTotal, List<String> productIds) async {
-    final String endpoint = "/coupons/apply/$couponId";
-    try {
-      final response = await _dio.post(endpoint, data: {
-        "code": code,
-        "cartTotal": cartTotal,
-        "productIds": productIds,
-      });
-      final data = _decodeResponse(response.data);
-      if (data['success'] == true) {
-        return data;
-      } else {
-        throw Exception(data['message'] ?? "Failed to apply coupon");
-      }
-    } on DioException catch (e) {
-      throw Exception(_handleError(e));
-    }
-  }
-  Future<List<dynamic>> getCoupons() async {
-    const String endpoint = "/coupons/list";
-    try {
-      final response = await _dio.get(endpoint);
-      final data = _decodeResponse(response.data);
-      if (data['success'] == true) {
-        return data['coupons'] as List<dynamic>;
-      } else {
-        throw Exception(data['message'] ?? "Failed to fetch coupons");
-      }
-    } on DioException catch (e) {
-      throw Exception(_handleError(e));
-    }
-  }
-
   Future<Map<String, dynamic>> joinLiveSessionWithToken(String sessionId) async {
     final String endpoint = "/live/session/$sessionId/join";
     try {
@@ -1273,6 +1243,283 @@ class ApiService {
       return "https://zatch.live/live/$sessionId";
     }
   }
+  // Fetch My Orders with status filter
+  Future<List<OrderModel>> getMyOrders({String status = 'pending'}) async {
+    try {
+      final response = await _dio.get(
+        "/orders/my-orders",
+        queryParameters: {'status': status},
+      );
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true) {
+        final List ordersList = data['orders'];
+        return ordersList.map((e) => OrderModel.fromJson(e)).toList();
+      } else {
+        return [];
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      throw Exception("Unexpected error fetching orders: $e");
+    }
+  }
+  // Create Order (Checkout)
+  // In lib/services/api_service.dart
+
+  Future<Map<String, dynamic>> createOrder({
+  required String addressId,
+  required String paymentMethod,
+  String? buyerNote,
+  // --- ADD THIS ---
+  required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      final body = {
+        "addressId": addressId,
+        "paymentMethod": paymentMethod,
+        "buyerNote": buyerNote,
+        // --- ADD THIS ---
+        "items": items,
+      };
+
+      print("📞 API Request: /orders/create");
+      print("   Body: $body");
+
+      final response = await _dio.post(
+        "/orders/create",
+        data: body,
+      );
+
+      print("✅ API Response Received: /orders/create");
+      print("   Status Code: ${response.statusCode}");
+      print("   Data: ${response.data}");
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to place order');
+      }
+    } on DioException catch (e) {
+      print("❌ Dio Error on /orders/create: ${e.response?.data}");
+    throw Exception(_handleError(e));
+    } catch (e) {
+      print("❌ Unexpected Error on /orders/create: $e");
+      throw Exception("Unexpected error placing order: $e");
+    }
+  }
+
+  Future<List<Address>> getAllAddresses() async {
+    try {
+      final response = await _dio.get("/address");
+      final data = _decodeResponse(response.data);
+      if (data is List) {
+        return data.map((json) => Address.fromJson(json)).toList();
+      }
+
+      else if (data is Map<String, dynamic>) {
+        if (data['addresses'] is List) {
+          final List addressList = data['addresses'];
+          return addressList.map((json) => Address.fromJson(json)).toList();
+        }
+      }
+
+      // Default: Return empty if format is unrecognized
+      return [];
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("❌ Error parsing addresses: $e");
+      return [];
+    }
+  }
+
+
+  Future<Address> saveAddress({
+    String? addressId, // Provide ID if updating, null if creating
+    required String label,
+    required String type,
+    required String line1,
+    String? line2,
+    required String city,
+    required String state,
+    required String pincode,
+    required String phone,
+    double? lat,
+    double? lng,
+  }) async {
+    try {
+      final Map<String, dynamic> payload = {
+        'label': label, 'type': type, 'line1': line1, 'city': city,
+        'state': state, 'pincode': pincode, 'phone': phone,
+        if (line2 != null && line2.isNotEmpty) 'line2': line2,
+        if (lat != null) 'lat': lat, if (lng != null) 'lng': lng,
+      };
+
+      // Use PUT for update, POST for create
+      final response = addressId != null
+          ? await _dio.put("/address/$addressId", data: payload)
+          : await _dio.post("/address/save", data: payload);
+
+      final data = _decodeResponse(response.data);
+      if (data['success'] == true && data['address'] != null) {
+        return Address.fromJson(data['address']);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to save address');
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> geocodeAddress(double lat, double lng) async {
+    try {
+      print("🔹 ApiService: POST /address/geocode with body: {'lat': $lat, 'lng': $lng}");
+
+      final response = await _dio.post(
+        "/address/geocode",
+        data: {'lat': lat, 'lng': lng},
+      );
+      print("🔹 Raw Server Response: ${response.data}");
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['address'] != null) {
+        return data['address'];
+      } else {
+        throw Exception(data['message'] ?? 'Server returned success:false');
+      }
+    } on DioException catch (e) {
+      print("❌ Dio Error: ${e.response?.data}");
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<bool> deleteAddress(String addressId) async {
+    try {
+      final response = await _dio.delete("/address/$addressId");
+      final data = _decodeResponse(response.data);
+
+      // Check for a success flag in the response
+      return data['success'] == true;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<List<Coupon>> getCoupons() async {
+    try {
+      final response = await _dio.get("/coupons/list");
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['coupons'] is List) {
+        return (data['coupons'] as List)
+            .map((e) => Coupon.fromJson(e))
+            .toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  // 2. Apply Coupon
+  Future<Map<String, dynamic>> applyCoupon({
+    required String couponId,
+    required String code,
+    required double cartTotal,
+    required List<String> productIds,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/coupons/apply/$couponId",
+        data: {
+          "code": code,
+          "cartTotal": cartTotal,
+          "productIds": productIds,
+        },
+      );
+      final data = _decodeResponse(response.data);
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? "Failed to apply coupon");
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+  /// Get available categories for preferences (Onboarding/Settings)
+  /// Endpoint: /preference/categories
+  Future<List<dynamic>> getPreferenceCategories() async {
+    try {
+      final response = await _dio.get("/preference/categories");
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['categories'] is List) {
+        return data['categories'];
+      }
+      return [];
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      debugPrint("Unexpected error fetching preference categories: $e");
+      return [];
+    }
+  }
+
+  /// Get User's Saved Preferences
+  /// Endpoint: /preference
+  Future<Map<String, dynamic>> getUserPreferences() async {
+    try {
+      final response = await _dio.get("/preference");
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true && data['preferences'] != null) {
+        return data['preferences'];
+      }
+      return {};
+    } on DioException catch (e) {
+      // If user has no preferences yet, API might return 404 or empty.
+      // We handle it gracefully.
+      if (e.response?.statusCode == 404) {
+        return {};
+      }
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// Save or Update User Preferences
+  /// Endpoint: /preference/save (Can also use /preference/update)
+  Future<Map<String, dynamic>> saveUserPreferences(List<String> categories) async {
+    try {
+      // API expects: { "categories": ["slug1", "slug2"] }
+      final Map<String, dynamic> payload = {
+        "categories": categories
+      };
+
+      debugPrint("🔹 Saving Preferences: $payload");
+
+      final response = await _dio.post(
+        "/preference/save",
+        data: payload,
+      );
+
+      final data = _decodeResponse(response.data);
+
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? "Failed to save preferences");
+      }
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
 
 
 

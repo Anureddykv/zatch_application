@@ -35,7 +35,7 @@ class _LiveFollowersWidgetState extends State<LiveFollowersWidget> {
   @override
   void didUpdateWidget(LiveFollowersWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.category?.id != widget.category?.name) {
+    if (oldWidget.category?.easyname != widget.category?.easyname) {
       _loadLiveUsers();
     }
   }
@@ -50,9 +50,10 @@ class _LiveFollowersWidgetState extends State<LiveFollowersWidget> {
     try {
       final sessions = await _controller.getLiveSessions();
       // Filter sessions if category is provided
-      final filteredSessions = widget.category == null || widget.category!.name.toLowerCase() == 'explore all'
+      final filteredSessions = widget.category == null || widget.category!.easyname == 'explore all'
           ? sessions
           : sessions; // TODO: Implement filtering logic if Session has category info
+
 
       if (mounted) {
         setState(() {

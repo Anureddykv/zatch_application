@@ -33,17 +33,16 @@ class Category {
   final String? description;
   final String? iconUrl;
   final String? bannerImageUrl;
-  // FIX: Made these fields nullable as they are not always present
   final int? sortOrder;
   final bool? isActive;
   final bool? showOnHomeChip;
   final int? priority;
   final String? createdAt;
   final String? updatedAt;
-  final CategoryImage? image;
+  final CategoryImage? image; // Helper class for image
   final String? slug;
   final List<SubCategory>? subCategories;
-  final int? v; // FIX: Added the missing '__v' field as nullable
+  final int? v;
 
   Category({
     required this.id,
@@ -60,11 +59,19 @@ class Category {
     this.updatedAt,
     this.image,
     this.slug,
-    this.subCategories, // FIX: Made subCategories nullable
+    this.subCategories,
     this.v,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
+    // Helper logic to handle 'image' which might be a String or a Map
+    CategoryImage? parsedImage;
+    if (json['image'] is String && (json['image'] as String).isNotEmpty) {
+      parsedImage = CategoryImage(publicId: '', url: json['image']);
+    } else if (json['image'] is Map<String, dynamic>) {
+      parsedImage = CategoryImage.fromJson(json['image']);
+    }
+
     return Category(
       id: json['_id'] ?? '',
       name: json['name'] ?? '',
@@ -72,20 +79,18 @@ class Category {
       description: json['description'],
       iconUrl: json['iconUrl'],
       bannerImageUrl: json['bannerImageUrl'],
-      // FIX: Safely parse sortOrder and other optional fields
       sortOrder: json['sortOrder'],
       isActive: json['isActive'],
       showOnHomeChip: json['showOnHomeChip'],
       priority: json['priority'],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
-      image:
-      json['image'] != null ? CategoryImage.fromJson(json['image']) : null,
+      image: parsedImage,
       slug: json['slug'],
       subCategories: (json['subCategories'] as List<dynamic>? ?? [])
           .map((e) => SubCategory.fromJson(e as Map<String, dynamic>))
           .toList(),
-      v: json['__v'], // FIX: Parse the '__v' field
+      v: json['__v'],
     );
   }
 
@@ -115,7 +120,7 @@ class SubCategory {
   final String slug;
   final String createdAt;
   final CategoryImage? image;
-  final int? v; // FIX: Added the missing '__v' field as nullable
+  final int? v;
 
   SubCategory({
     required this.id,
@@ -127,13 +132,20 @@ class SubCategory {
   });
 
   factory SubCategory.fromJson(Map<String, dynamic> json) {
+    // Helper logic for SubCategory images as well
+    CategoryImage? parsedImage;
+    if (json['image'] is String && (json['image'] as String).isNotEmpty) {
+      parsedImage = CategoryImage(publicId: '', url: json['image']);
+    } else if (json['image'] is Map<String, dynamic>) {
+      parsedImage = CategoryImage.fromJson(json['image']);
+    }
+
     return SubCategory(
       id: json['_id'] ?? '',
       name: json['name'] ?? '',
       slug: json['slug'] ?? '',
       createdAt: json['createdAt'] ?? '',
-      image:
-      json['image'] != null ? CategoryImage.fromJson(json['image']) : null,
+      image: parsedImage,
       v: json['__v'],
     );
   }

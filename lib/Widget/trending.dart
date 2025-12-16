@@ -5,8 +5,8 @@ import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/TrendingBit.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/services/api_service.dart';
-import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
+import 'package:zatch_app/view/live_view/live_session_screen.dart';
 import 'package:zatch_app/view/reel/AllTrendingScreen.dart';
 import 'package:zatch_app/model/ExploreApiRes.dart';
 import 'package:zatch_app/model/categories_response.dart';
@@ -208,14 +208,12 @@ class _TrendingCardState extends State<TrendingCard> {
             channelName: '',
             thumbnail: thumbnailObj,
           );
-          // Assuming you have a LiveStreamScreen to navigate to
-          // If not, this might be LiveDetailsScreen
-          final liveController = LiveStreamController(session: liveSession);
-          Navigator.push(
+           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  LiveStreamScreen(controller: liveController, username: liveSession.host?.username),
+              builder: (_) =>LiveSessionScreen(
+                sessionId: liveSession.id ?? "",
+              )
             ),
           );
         } else {

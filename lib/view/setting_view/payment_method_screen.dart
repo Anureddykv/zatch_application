@@ -291,9 +291,21 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
             onPressed: () {
-              // Logic to confirm selection and pop
-              Navigator.of(context).pop();
-            },
+
+              Object? selectedPayment;
+
+              if (_selectedCardIndex != null)
+              {
+                selectedPayment = _paymentData.cards[_selectedCardIndex!];
+              } else if (_selectedUpiIndex != null) {
+                selectedPayment = _paymentData.upis[_selectedUpiIndex!];
+              } else if (_selectedWalletIndex != null) {
+                selectedPayment = _paymentData.wallets[_selectedWalletIndex!];
+              }
+Navigator.of(context).pop(selectedPayment);
+
+
+              },
             child: const Text('Confirm Payment Method',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),

@@ -321,6 +321,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Wishlist updated!")),
                     );
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ProfileScreen(userProfile))
+                    );
                   }
                 } catch (e) {
                   if (mounted) {
@@ -1097,7 +1101,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: Color(0xFF249B3E)),
+                side: const BorderSide(color: Color(0xFFCCF656)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1173,7 +1177,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: const Color(0xFF249B3E),
+                backgroundColor: const Color(0xFFCCF656),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1181,7 +1185,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ),
               child: const Text(
                 'Buy Now',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: Colors.black, fontSize: 16),
               ),
             ),
           ),

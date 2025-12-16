@@ -70,7 +70,7 @@ class SeeAllBargainPicksScreen extends StatelessWidget {
                 child: BargainPickCard(
                   imageUrl: pick.thumbnail.url ?? '',
                   title: pick.title,
-                  priceInfo: "Zatch now!",
+                  priceInfo: "Less than ${pick.revenue}",
                   // Pass null here to let the GridView control the size
                   cardImageWidth: null,
                   cardImageHeight: null,

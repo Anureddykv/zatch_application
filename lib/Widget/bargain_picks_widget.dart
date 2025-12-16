@@ -26,13 +26,15 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
   @override
   void didUpdateWidget(BargainPicksWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.category?.name != widget.category?.name) {
-      _fetchPicks();
+    // If category changes, we just need to rebuild the UI to re-filter.
+    // We don't necessarily need to re-fetch from API if the API returns all bits anyway.
+    if (oldWidget.category?.id != widget.category?.id) {
+      setState(() {});
     }
   }
 
   void _fetchPicks() {
-    _picksFuture = _apiService.getExploreBits(); 
+    _picksFuture = _apiService.getExploreBits();
   }
 
   @override
@@ -52,21 +54,33 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
         if (picks == null || picks.isEmpty) {
           return const SizedBox.shrink();
         }
-        
-        // Filter picks by widget.category
+
+        // --- FILTERING LOGIC ---
         List<Bits> filteredPicks = picks;
+
         if (widget.category != null && widget.category!.name.toLowerCase() != 'explore all') {
+          final selectedCatName = widget.category!.name.toLowerCase();
+          final selectedCatSlug = widget.category!.slug?.toLowerCase() ?? '';
+
           filteredPicks = picks.where((bit) {
-             // Check if any product in the bit belongs to the category
-             // Note: Product category might be null or ID matching might be needed
-             return bit.products.any((p) => p.category == widget.category!.name);
+            // Check if ANY product in this Bit belongs to the selected category
+            return bit.products.any((product) {
+              final prodCat = product.category?.toLowerCase() ?? '';
+
+              // Match against Name or Slug
+              return prodCat == selectedCatName ||
+                  (selectedCatSlug.isNotEmpty && prodCat == selectedCatSlug) ||
+                  prodCat.contains(selectedCatName);
+            });
           }).toList();
         }
 
+        // If no bits match the category, hide the widget
         if (filteredPicks.isEmpty) {
           return const SizedBox.shrink();
         }
 
+        // Limit to 5 for the horizontal preview
         final displayedPicks = filteredPicks.length > 5 ? filteredPicks.sublist(0, 5) : filteredPicks;
 
         return LayoutBuilder(
@@ -99,25 +113,25 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
                           ),
                         ),
                         if (filteredPicks.length > 5)
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SeeAllBargainPicksScreen(
-                                  picks: filteredPicks,
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SeeAllBargainPicksScreen(
+                                    picks: filteredPicks,
+                                  ),
                                 ),
+                              );
+                            },
+                            child: const Text(
+                              'See All',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'See All',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -132,7 +146,8 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
                       itemCount: displayedPicks.length,
                       itemBuilder: (context, index) {
                         final pick = displayedPicks[index];
-                        final List<String> allReelIds =
+                        // Pass the filtered list IDs so the player scrolls through relevant bits
+                        final List<String> relevantReelIds =
                         filteredPicks.map((p) => p.id).toList();
 
                         return Padding(
@@ -141,23 +156,22 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
                           ),
                           child: InkWell(
                             onTap: () {
-                              final tappedIndex =
-                              allReelIds.indexOf(pick.id);
+                              final tappedIndex = relevantReelIds.indexOf(pick.id);
 
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => ReelPlayerScreen(
-                                    bitIds: allReelIds,
+                                    bitIds: relevantReelIds,
                                     initialIndex: tappedIndex,
                                   ),
                                 ),
                               );
                             },
                             child: BargainPickCard(
-                              imageUrl: "${pick.thumbnail.url}",
+                              imageUrl: pick.thumbnail.url,
                               title: pick.title,
-                              priceInfo: "Zatch now!",
+                              priceInfo: "Less than ${pick.revenue}",
                               cardImageWidth: cardWidth,
                               cardImageHeight: cardHeight,
                             ),
@@ -176,111 +190,106 @@ class _BargainPicksWidgetState extends State<BargainPicksWidget> {
   }
 }
 
-class BargainPickCard extends StatelessWidget {final String imageUrl;
-final String title;
-final String priceInfo;
-// Make these nullable so we can ignore them in GridView if we want flexible sizing
-final double? cardImageWidth;
-final double? cardImageHeight;
+class BargainPickCard extends StatelessWidget {
+  final String imageUrl;
+  final String title;
+  final String priceInfo;
+  final double? cardImageWidth;
+  final double? cardImageHeight;
 
-const BargainPickCard({
-  super.key,
-  required this.imageUrl,
-  required this.title,
-  required this.priceInfo,
-  this.cardImageWidth,
-  this.cardImageHeight,
-});
+  const BargainPickCard({
+    super.key,
+    required this.imageUrl,
+    required this.title,
+    required this.priceInfo,
+    this.cardImageWidth,
+    this.cardImageHeight,
+  });
 
-@override
-Widget build(BuildContext context) {
-  final isNetworkImage =
-      imageUrl.startsWith('http') || imageUrl.startsWith('https');
+  @override
+  Widget build(BuildContext context) {
+    final isNetworkImage =
+        imageUrl.startsWith('http') || imageUrl.startsWith('https');
 
-  // We wrap the content in a Container that handles the decoration (shadow/border)
-  // instead of putting it on the image only. This looks better for cards.
-  return Container(
-    width: cardImageWidth,
-    // If cardImageHeight is provided, enforce it. Otherwise, let it be flexible.
-    height: cardImageHeight,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(9),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1A000000),
-          blurRadius: 10,
-          offset: Offset(0, 5),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        /// Image Section
-        /// Using Expanded ensures the image takes all available space
-        /// minus the text height.
-        Expanded(
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-            child: imageUrl.isNotEmpty
-                ? (isNetworkImage
-                ? Image.network(
-              imageUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  Container(color: Colors.grey[200]),
-            )
-                : Image.asset(
-              imageUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ))
-                : Container(color: Colors.grey[200]),
+    return Container(
+      width: cardImageWidth,
+      height: cardImageHeight,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 10,
+            offset: Offset(0, 5),
           ),
-        ),
-
-        /// Text Section
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min, // Keep text section compact
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13, // Fixed readable size
-                  color: Color(0xFF787676),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              const Text(
-                "Zatch from",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                priceInfo,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94C800),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// Image Section
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+              child: imageUrl.isNotEmpty
+                  ? (isNetworkImage
+                  ? Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    Container(color: Colors.grey[200]),
+              )
+                  : Image.asset(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ))
+                  : Container(color: Colors.grey[200]),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+
+          /// Text Section
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF787676),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  "Zatch from",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  priceInfo,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF94C800),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

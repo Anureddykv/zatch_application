@@ -183,21 +183,6 @@ class CommentUser {
     );
   }
 }
-
-class ProfilePic {
-  final String publicId;
-  final String url;
-
-  ProfilePic({required this.publicId, required this.url});
-
-  factory ProfilePic.fromJson(Map<String, dynamic> json) {
-    return ProfilePic(
-      publicId: json['public_id'] ?? '',
-      url: json['url'] ?? '',
-    );
-  }
-}
-
 class JoinLiveSessionResponse {
   final bool success;
   final JoinSession session;

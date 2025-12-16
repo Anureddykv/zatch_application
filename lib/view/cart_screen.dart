@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/CartApiResponse.dart';
-import 'package:zatch_app/model/carts_model.dart'; // Keep for Zatch model if it's there
+import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
@@ -19,22 +19,22 @@ class _CartScreenState extends State<CartScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ApiService _apiService = ApiService();
+
   void _handleNavigation(Widget screen) {
     if (widget.onNavigate != null) {
       // If callback exists (we are inside HomePage), switch the view there
       widget.onNavigate!(screen);
     } else {
       // Fallback: If used standalone, push normally
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => screen),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
     }
   }
 
   late Future<CartModel?> _cartFuture;
   CartModel? _cart;
   final Map<String, bool> _selectedItems = {};
+
+  // Dummy data for Zatches tab
   List<Zatch> zatches = [
     Zatch(
       id: "1",
@@ -86,79 +86,60 @@ class _CartScreenState extends State<CartScreen>
       }
       return cart;
     } catch (e) {
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error fetching cart: ${e.toString()}")),
-        );
-      }
+      _showTopSnackBar("Error fetching cart: ${e.toString()}", isError: true);
       return null;
     }
   }
 
-  /// Update item quantity via API
   Future<void> _updateCartItem(CartItemModel item, int newQuantity) async {
+    // 1. Save the old quantity in case the API fails
+    final int oldQuantity = item.quantity;
+
+    // 2. OPTIMISTIC UPDATE: Update the UI immediately so the user sees the change
+    setState(() {
+      item.quantity = newQuantity;
+    });
+
     try {
+      // 3. Send the NEW quantity to the API
       final updatedCart = await _apiService.updateCartItem(
         productId: item.id,
         quantity: newQuantity,
         color: item.variant.color,
       );
 
+      // 4. If API returns a fresh cart, sync it to be safe
       if (updatedCart != null) {
         setState(() {
           _cart = updatedCart as CartModel?;
         });
       }
     } catch (e) {
+      // 5. If API fails, revert the number back on screen
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update item: ${e.toString()}")),
-        );
+        setState(() {
+          item.quantity = oldQuantity;
+        });
+        _showTopSnackBar("Failed to update quantity: ${e.toString()}", isError: true);
       }
     }
   }
 
   Future<void> _removeCartItem(CartItemModel item) async {
-    print("Attempting to remove cart item: ${item.id} - ${item.name}");
-
     try {
-      print("Calling API to remove item from cart...");
       await _apiService.removeCartItem(productId: item.id);
-      print("API call successful for item: ${item.id}");
 
       if (mounted && _cart != null) {
-        print("Updating local cart state...");
         setState(() {
           _cart!.items.removeWhere((i) => i.id == item.id);
           _selectedItems.remove(item.id);
         });
-        print("Item removed from local cart. Remaining items: ${_cart!.items.length}");
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("${item.name} removed"),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-        print("SnackBar shown for removed item: ${item.name}");
-      } else {
-        print("Mounted is false or cart is null. Skipping local state update.");
+        _showTopSnackBar("${item.name} removed", isError: false);
       }
     } catch (e) {
       final errorMessage = e.toString().replaceAll("Exception:", "").trim();
-      print("Error removing item: $errorMessage");
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
-        );
-        print("Error SnackBar shown: $errorMessage");
-      }
+      _showTopSnackBar(errorMessage, isError: true);
     }
   }
 
@@ -194,6 +175,33 @@ class _CartScreenState extends State<CartScreen>
           ],
         );
       },
+    );
+  }
+
+  // Helper method for consistent Top SnackBar
+  void _showTopSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    // Clear existing SnackBars to prevent stacking
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height - 150, // Position at top
+          left: 16,
+          right: 16,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -239,7 +247,7 @@ class _CartScreenState extends State<CartScreen>
     );
   }
 
-  /// 🛒 CART TAB DESIGN - NOW POWERED BY API
+  /// 🛒 CART TAB DESIGN
   Widget _buildCartTab() {
     return FutureBuilder<CartModel?>(
       future: _cartFuture,
@@ -264,13 +272,13 @@ class _CartScreenState extends State<CartScreen>
         final cartItems = _cart?.items ?? [];
 
         final selectedCartItems =
-            cartItems
-                .where((item) => _selectedItems[item.id] ?? false)
-                .toList();
+        cartItems
+            .where((item) => _selectedItems[item.id] ?? false)
+            .toList();
         int selectedItemsCount = selectedCartItems.length;
         double itemsTotalPriceValue = selectedCartItems.fold(
           0,
-          (sum, i) => sum + (i.price * i.quantity),
+              (sum, i) => sum + (i.price * i.quantity),
         );
         double shippingFeeValue = selectedItemsCount > 0 ? 10.0 : 0.0;
         double subTotalPriceValue = itemsTotalPriceValue + shippingFeeValue;
@@ -288,8 +296,8 @@ class _CartScreenState extends State<CartScreen>
                   onDismissed: (direction) => _removeCartItem(item),
                   confirmDismiss:
                       (direction) => _showRemoveItemDialog(
-                        item,
-                      ).then((_) => false), // Let dialog handle removal
+                    item,
+                  ).then((_) => false),
                   background: Container(
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
@@ -302,7 +310,9 @@ class _CartScreenState extends State<CartScreen>
                   ),
                   child: GestureDetector(
                     onTap: () {
-                      _handleNavigation(ProductDetailScreen(productId: item.id));
+                      _handleNavigation(
+                        ProductDetailScreen(productId: item.id),
+                      );
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(
@@ -334,8 +344,8 @@ class _CartScreenState extends State<CartScreen>
                               onChanged:
                                   (val) => setState(
                                     () =>
-                                        _selectedItems[item.id] = val ?? false,
-                                  ),
+                                _selectedItems[item.id] = val ?? false,
+                              ),
                             ),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
@@ -346,23 +356,20 @@ class _CartScreenState extends State<CartScreen>
                                 fit: BoxFit.cover,
                                 errorBuilder:
                                     (context, error, stackTrace) =>
-                                        const Icon(Icons.error),
+                                const Icon(Icons.error),
                               ),
                             ),
                           ],
                         ),
                         title: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min, // Add this
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Flexible(
-                              // Wrap Text in Flexible
                               child: Text(
                                 item.name,
-                                maxLines: 1, // Limit lines
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis, // Add dots if too long
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -371,7 +378,7 @@ class _CartScreenState extends State<CartScreen>
                             ),
                             if (item.variant.color != null)
                               Text(
-                                "Color: ${item.variant.color?? item.variant.shade}",
+                                "Color: ${item.variant.color ?? item.variant.shade}",
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -412,8 +419,11 @@ class _CartScreenState extends State<CartScreen>
                               icon: const Icon(Icons.add_circle_outline),
                               color: Colors.grey,
                               iconSize: 20,
-                              onPressed:
-                                  () => _updateCartItem(item, item.quantity + 1),
+                              onPressed: () {
+                                setState(() {
+                                  item.quantity = item.quantity + 1;
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -488,23 +498,23 @@ class _CartScreenState extends State<CartScreen>
                         ),
                       ),
                       onPressed:
-                          selectedItemsCount > 0
-                              ? () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => CheckoutOrPaymentsScreen(
-                                          isCheckout: true,
-                                          selectedItems: selectedCartItems,
-                                          itemsTotalPrice: itemsTotalPriceValue,
-                                          shippingFee: shippingFeeValue,
-                                          subTotalPrice: subTotalPriceValue,
-                                        ),
-                                  ),
-                                );
-                              }
-                              : null,
+                      selectedItemsCount > 0
+                          ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => CheckoutOrPaymentsScreen(
+                              isCheckout: true,
+                              selectedItems: selectedCartItems,
+                              itemsTotalPrice: itemsTotalPriceValue,
+                              shippingFee: shippingFeeValue,
+                              subTotalPrice: subTotalPriceValue,
+                            ),
+                          ),
+                        );
+                      }
+                          : null,
                       child: const Text(
                         "Pay",
                         style: TextStyle(
@@ -525,7 +535,6 @@ class _CartScreenState extends State<CartScreen>
 
   /// 🕒 ZATCHES TAB DESIGN
   Widget _buildZatchesTab() {
-    // This can be converted to use FutureBuilder when Zatches API is ready
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -557,7 +566,7 @@ class _CartScreenState extends State<CartScreen>
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color:
-              zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
+          zatch.active ? Colors.green.withOpacity(0.05) : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: zatch.active ? Colors.green.shade200 : Colors.grey.shade300,
@@ -580,7 +589,6 @@ class _CartScreenState extends State<CartScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ... (rest of the Zatch item UI remains the same)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -626,7 +634,7 @@ class _CartScreenState extends State<CartScreen>
                             style: TextStyle(
                               fontSize: 12,
                               color:
-                                  zatch.active ? Colors.red : Colors.grey[700],
+                              zatch.active ? Colors.red : Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
                             overflow: TextOverflow.ellipsis,

@@ -19,6 +19,14 @@ class LoginResponse {
       user: User.fromJson(json['user']),
     );
   }
+  factory LoginResponse.empty() {
+    return LoginResponse(
+      success: false,
+      message: '',
+      token: '',
+      user: User.empty(), // Requires User.empty()
+    );
+  }
 }
 
 class User {
@@ -78,6 +86,27 @@ class User {
       v: json['__v'],
     );
   }
+  factory User.empty() {
+    return User(
+      profilePic: ProfilePic.empty(),
+      id: '',
+      username: '',
+      password: '',
+      countryCode: '',
+      phone: '',
+      followers: [],
+      following: [],
+      followerCount: 0,
+      reviewsCount: 0,
+      productsSoldCount: 0,
+      customerRating: 0.0,
+      savedBits: [],
+      savedProducts: [],
+      createdAt: DateTime.now(),
+      v: 0,
+    );
+  }
+
 }
 
 class ProfilePic {
@@ -93,6 +122,12 @@ class ProfilePic {
     return ProfilePic(
       publicId: json['public_id'],
       url: json['url'],
+    );
+  }
+  factory ProfilePic.empty() {
+    return ProfilePic(
+      publicId: '',
+      url: '',
     );
   }
 }

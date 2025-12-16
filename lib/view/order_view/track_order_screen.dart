@@ -8,8 +8,14 @@ import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/model/product_response.dart';
 
 // Enum to represent the different states of an order
-enum OrderStatus { accepted, inTransit, outForDelivery, delivered, canceled }
-
+enum OrderStatus {
+  accepted,
+  processing,
+  inTransit,
+  outForDelivery,
+  delivered,
+  canceled
+}
 class TrackOrderScreen extends StatefulWidget {
   final OrderStatus status;
   final String orderId = "2272345673287";
@@ -452,6 +458,8 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
     switch (widget.status) {
       case OrderStatus.accepted:
         return 0;
+      case OrderStatus.processing: // <--- ADD THIS CASE
+        return 0; // Or 1, depending on how your visual stepper is designed
       case OrderStatus.inTransit:
         return 1;
       case OrderStatus.outForDelivery:
@@ -459,9 +467,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
       case OrderStatus.delivered:
         return 3;
       case OrderStatus.canceled:
-        return 2;
+        return 0; // Or handle cancellation specifically
     }
   }
+
 
   // _buildCustomStepper() and _buildActionButtons() remain unchanged from your previous code
 

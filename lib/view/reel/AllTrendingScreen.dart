@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:zatch_app/controller/live_stream_controller.dart';
 import 'package:zatch_app/model/TrendingBit.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
+import 'package:zatch_app/view/live_view/live_session_screen.dart';
 import 'package:zatch_app/view/live_view/see_all_live_screen.dart';
 
 class AllTrendingScreen extends StatefulWidget {
@@ -80,9 +82,7 @@ class TrendingCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const SeeAllLiveScreen(
-                  liveSessions: [],
-                )),
+                builder: (_) =>  LiveSessionScreen(sessionId: bit.id))
           );
         } else {
           Navigator.push(

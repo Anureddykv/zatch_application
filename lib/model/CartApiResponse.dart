@@ -52,7 +52,7 @@ class CartItemModel {
   final List<ImageModel> images;
   final VariantModel variant;
   final Map<String, dynamic>? selectedVariant;
-  final int quantity;
+  int quantity;
   final String? category;
   final String? subCategory;
   final String? productCategory;

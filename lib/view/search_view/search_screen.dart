@@ -18,8 +18,10 @@ import 'package:zatch_app/view/profile/profile_screen.dart';
 class SearchScreen extends StatefulWidget {
   final UserProfileResponse? userProfile;
   final bool autoFocus;
+  final Function(int)? onTabChange;
 
-  const SearchScreen({super.key, this.userProfile,this.autoFocus = false,});
+  const SearchScreen({super.key, this.userProfile,this.autoFocus = false, this.onTabChange, // 2. Add to constructor
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -190,12 +192,21 @@ class _SearchScreenState extends State<SearchScreen>
         body: SafeArea(
           child: Column(
             children: [
+
                HeaderWidget(
                 userProfile: widget.userProfile,
-                onCartTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CartScreen()),
-                ),
+                 onCartTap: () {
+                   if (widget.onTabChange != null) {
+                     // Assuming Cart is at index 2 (0=Home, 1=Search, 2=Cart, 3=Profile)
+                     widget.onTabChange!(2);
+                   } else {
+                     // Fallback: If used standalone, push normally
+                     Navigator.push(
+                       context,
+                       MaterialPageRoute(builder: (context) => const CartScreen()),
+                     );
+                   }
+                 },
                 isSearchable: true,
                 searchController: _searchController,
                 searchFocusNode: _searchFocusNode,

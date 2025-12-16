@@ -1,76 +1,153 @@
-import 'package:flutter/material.dart';
-import 'package:zatch_app/view/home_page.dart';
+import 'package:flutter/material.dart';class OrderPlacedScreen extends StatelessWidget {
+  final String? orderId;
 
-class OrderPlacedScreen extends StatefulWidget {
-  const OrderPlacedScreen({super.key});
-
-  @override
-  State<OrderPlacedScreen> createState() => _OrderPlacedScreenState();
-}
-
-class _OrderPlacedScreenState extends State<OrderPlacedScreen> {
-  bool _isNavigating = false;
-  void _navigateToHome() {
-    if (_isNavigating || !mounted) return;
-    setState(() {
-      _isNavigating = true;
-    });
- Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomePage()),
-          (Route<dynamic> route) => false,
-    );
-  }
+  const OrderPlacedScreen({super.key, this.orderId});
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) {
-        if (didPop) return;
-        _navigateToHome();
-      },
+      canPop: false, // Prevent back button from going back to checkout
       child: Scaffold(
-        backgroundColor: const Color(0xFFCCFF55),
-        body: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
-              const CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.black,
-                child: Icon(Icons.check, color: Colors.white, size: 40),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Order Placed",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "Order ID - 1231231231234\nis successful placed",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black87),
-              ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: _navigateToHome,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Spacer(),
+
+                // --- Success Icon / Illustration ---
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCCF656).withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF94C800),
+                      size: 64,
+                    ),
                   ),
                 ),
-                child: const Text("Back To Home Screen"),
-              ),
-            ],
+
+                const SizedBox(height: 32),
+
+                // --- Title ---
+                const Text(
+                  'Order Placed Successfully!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Encode Sans',
+                    color: Color(0xFF121111),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // --- Subtitle ---
+                const Text(
+                  'Thank you for your purchase. Your order has been received and is being processed.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF787676),
+                    fontFamily: 'Encode Sans',
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // --- Order ID Badge ---
+                if (orderId != null && orderId!.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F4F5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Order ID: #$orderId',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                        fontFamily: 'Encode Sans',
+                      ),
+                    ),
+                  ),
+
+                const Spacer(),
+
+                // --- Buttons ---
+
+                // View Orders Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      // Navigate to Order History (Replace route as needed)
+                      // You might want to navigate to home and then switch to the profile/orders tab
+                      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Color(0xFF121111)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      'View My Orders',
+                      style: TextStyle(
+                        color: Color(0xFF121111),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Encode Sans',
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Continue Shopping Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: const Color(0xFFCCF656),
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      'Continue Shopping',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Encode Sans',
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
