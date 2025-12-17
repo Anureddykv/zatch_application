@@ -121,7 +121,7 @@ class GoliveAddedSuccessScreenForGoLive extends StatelessWidget {
                   // );
                   //have to call a api : https://zatch-e9ye.onrender.com/api/v1/live/token
 
-                  await yourlivesscreenscontroller.goLiveNowFunction();
+                  await yourlivesscreenscontroller.goLiveNowFunction(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,

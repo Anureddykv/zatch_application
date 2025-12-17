@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/sel
 import 'package:dio/dio.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screenforlivenow.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/golivesuccess_screenforshedulelive.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_live_screen.dart';
 
 import 'package:zatch_app/services/api_service.dart';
 
@@ -562,14 +564,62 @@ class Sellergolivecontroller extends GetxController
     return {"role": "publisher", "sessionId": sessionId};
   }
 
+  //go live agora setup
+  late String agoraAppId;
+  late String agoraToken;
+  late String agoraChannel;
+  late int agoraUid;
+  RtcEngine? engine;
+  bool hasJoinedChannel = false;
+
+  Future<void> startAgoraLive() async {
+    if (hasJoinedChannel) {
+      log("Already joined channel → skipping join");
+      return;
+    }
+    await Permission.microphone.request();
+    await Permission.camera.request();
+    if (!await Permission.microphone.isGranted ||
+        !await Permission.camera.isGranted) {
+      log("Permissions not granted → cannot start live");
+      return;
+    }
+    engine = createAgoraRtcEngine();
+
+    await engine!.initialize(
+      RtcEngineContext(
+        appId: agoraAppId,
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      ),
+    );
+
+    await engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+
+    await engine!.enableVideo();
+    await engine!.startPreview();
+
+    await engine!.joinChannel(
+      token: agoraToken,
+      channelId: agoraChannel,
+      uid: agoraUid, // IMPORTANT
+      options: const ChannelMediaOptions(),
+    );
+
+    hasJoinedChannel = true;
+    log("Joined Agora Channel Successfully");
+  }
+
   //go live api now api
-  Future<void> goLiveNowFunction() async {
+  Future<void> goLiveNowFunction(BuildContext context) async {
     try {
       final golivepayload = golivenowpayload(sessionId.value);
       log("Go Live Payload: $golivepayload");
 
       final response = await ApiService().goLiveNow(payload: golivepayload);
 
+      if (!response.success) {
+        throw Exception("Go Live failed");
+      }
       log("STEP 1 Success: ${response.success}");
       log("Go Live API Success: ${response.success}");
       log("Token: ${response.token}");
@@ -579,6 +629,21 @@ class Sellergolivecontroller extends GetxController
       log("App ID: ${response.appId}");
       log("Expires At: ${response.expiresAt}");
       log("Expires In: ${response.expiresIn}");
+
+      // ✅ SAVE AGORA DATA
+      agoraAppId = response.appId;
+      agoraToken = response.token;
+      agoraChannel = response.channelName;
+      agoraUid = response.uid;
+
+      log("Agora Ready → Starting Live");
+
+      // ✅ START AGORA
+      await startAgoraLive();
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => SellerLiveScreen()),
+      );
       return;
     } catch (e) {
       log("Error fetching products: $e");
@@ -618,6 +683,8 @@ class Sellergolivecontroller extends GetxController
     );
   }
 
+  var isMuted = false.obs;
+  var viewerCount = 0.obs;
   void clearGoLiveData() {
     currentStep.value = 0;
     sessionId.value = '';

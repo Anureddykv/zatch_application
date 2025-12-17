@@ -815,7 +815,7 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                               ),
                             ),
                             AppSizedBox.height5,
-                            const Row(
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Row(
@@ -827,8 +827,8 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                                     ),
                                     SizedBox(width: 3),
                                     Text(
-                                      '1200',
-                                      style: TextStyle(
+                                      '${p.viewCount}',
+                                      style: const TextStyle(
                                         color: Color(0xFF697282),
                                         fontSize: 10,
                                         fontFamily: 'Plus Jakarta Sans',
@@ -846,7 +846,7 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                                     ),
                                     SizedBox(width: 3),
                                     Text(
-                                      '5',
+                                      '${p.averageRating}',
                                       style: TextStyle(
                                         color: Color(0xFF697282),
                                         fontSize: 10,
@@ -1945,7 +1945,20 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
 
               ClipRRect(
                 borderRadius: BorderRadius.all(Radius.circular(15)),
-                child: Image.asset("assets/images/image_95.png", width: 70),
+                child: Image.network(
+                  product.images.isNotEmpty ? product.images.first.url : '',
+                  width: 70,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Image.asset(
+                      "assets/images/image_95.png",
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                    );
+                  },
+                ),
               ),
               Expanded(
                 child: Padding(

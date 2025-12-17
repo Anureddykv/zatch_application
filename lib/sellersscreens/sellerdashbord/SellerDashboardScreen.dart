@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zatch_app/sellersscreens/add_reel/screens/add_reels_screen.dart';
 import 'package:zatch_app/sellersscreens/addproduct/add_product_screen.dart';
 import 'package:zatch_app/sellersscreens/inventory/inventory_screen.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergoliveoverview/sellergoliveoverview.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_live_dashboard.dart';
 
 // Main screen is now a StatefulWidget to manage the selected tab
@@ -333,10 +334,10 @@ class DashboardPage extends StatelessWidget {
 
   // Builds the "Other Links" section
   Widget _buildOtherLinks(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Other Links',
           style: TextStyle(
             color: Color(0xFF101727),
@@ -345,17 +346,14 @@ class DashboardPage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 14),
-        const ManageStoreCard(
-          title: 'Edit Profile',
-          icon: Icons.person_outline,
-        ),
-        const ManageStoreCard(
+        SizedBox(height: 14),
+        ManageStoreCard(title: 'Edit Profile', icon: Icons.person_outline),
+        ManageStoreCard(
           title: 'Manage Products',
           icon: Icons.inventory_2_outlined,
           productCount: 13,
         ),
-        const ManageStoreCard(title: 'Payments', icon: Icons.currency_rupee),
+        ManageStoreCard(title: 'Payments', icon: Icons.currency_rupee),
       ],
     );
   }

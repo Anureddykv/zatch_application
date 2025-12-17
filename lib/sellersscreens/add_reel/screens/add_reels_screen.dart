@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/sellersscreens/add_reel/controllers/add_reels_controller.dart';
+import 'package:zatch_app/sellersscreens/add_reel/screens/upload_buy_bits_screen.dart';
 import 'package:zatch_app/sellersscreens/sellerdashbord/SellerDashboardScreen.dart';
 
 class Addreelspage extends StatefulWidget {
@@ -17,6 +20,9 @@ class Addreelspage extends StatefulWidget {
 class _AddreelspageState extends State<Addreelspage> {
   // final tabCtrl = Get.put(DashboardTabController());
 
+  final AddReelsController addReelsController = Get.put<AddReelsController>(
+    AddReelsController(),
+  );
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,13 +185,15 @@ class _AddreelspageState extends State<Addreelspage> {
                             AppSizedBox.height10,
                             GestureDetector(
                               onTap: () {
-                                print("tappe");
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(
-                                //     builder: (context) => const UploadBuybits(),
-                                //   ),
-                                // );
+                                log("upload buy bits screen");
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            const UploadBuyBitsScreen(),
+                                  ),
+                                );
                               },
                               child: Container(
                                 // height: 200,
@@ -270,7 +278,7 @@ class _AddreelspageState extends State<Addreelspage> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: TabBar(
-                          // controller: tabCtrl.tabController,
+                          controller: addReelsController.tabController,
                           dividerColor: Colors.transparent,
                           indicatorSize: TabBarIndicatorSize.tab,
                           indicatorPadding: const EdgeInsets.all(4),
