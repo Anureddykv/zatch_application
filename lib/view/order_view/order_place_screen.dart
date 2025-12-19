@@ -1,153 +1,117 @@
-import 'package:flutter/material.dart';class OrderPlacedScreen extends StatelessWidget {
+import 'package:flutter/material.dart';
+
+import '../home_page.dart';
+
+class OrderPlacedScreen extends StatelessWidget {
   final String? orderId;
 
   const OrderPlacedScreen({super.key, this.orderId});
 
   @override
   Widget build(BuildContext context) {
+    // Determine the ID text to display
+    final String displayId = (orderId != null && orderId!.isNotEmpty)
+        ? orderId!
+        : 'Unknown';
+
     return PopScope(
-      canPop: false, // Prevent back button from going back to checkout
+      canPop: false, // Prevent back button
       child: Scaffold(
-        backgroundColor: Colors.white,
+        // Figma Background Color
+        backgroundColor: const Color(0xFFCCF656),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Spacer(),
+          child: Column(
+            children: [
+              const Spacer(),
 
-                // --- Success Icon / Illustration ---
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCCF656).withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.check_circle,
-                      color: Color(0xFF94C800),
-                      size: 64,
-                    ),
+              // --- Central Icon (Black Circle) ---
+              Container(
+                width: 130,
+                height: 130,
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  // Added a checkmark since the Figma had a placeholder box
+                  child: Icon(
+                    Icons.check,
+                    color: Color(0xFFCCF656),
+                    size: 60,
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
-                // --- Title ---
-                const Text(
-                  'Order Placed Successfully!',
+              // --- Title "Order Placed" ---
+              const Text(
+                'Order Placed',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 30,
+                  fontFamily: 'Inter', // Or 'Plus Jakarta Sans' depending on your font assets
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // --- Subtitle with Order ID ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Text(
+                  'Order ID - #$displayId is successful placed',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Encode Sans',
-                    color: Color(0xFF121111),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 21,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 12),
+              const Spacer(),
 
-                // --- Subtitle ---
-                const Text(
-                  'Thank you for your purchase. Your order has been received and is being processed.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF787676),
-                    fontFamily: 'Encode Sans',
-                    height: 1.5,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // --- Order ID Badge ---
-                if (orderId != null && orderId!.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2F4F5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Order ID: #$orderId',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                        fontFamily: 'Encode Sans',
-                      ),
-                    ),
-                  ),
-
-                const Spacer(),
-
-                // --- Buttons ---
-
-                // View Orders Button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      // Navigate to Order History (Replace route as needed)
-                      // You might want to navigate to home and then switch to the profile/orders tab
-                      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: Color(0xFF121111)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: const Text(
-                      'View My Orders',
-                      style: TextStyle(
-                        color: Color(0xFF121111),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Encode Sans',
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Continue Shopping Button
-                SizedBox(
+              // --- "Back To Home Screen" Button ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30),
+                child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => HomePage()),
+                            (Route<dynamic> route) => false,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFFCCF656),
-                      foregroundColor: Colors.black,
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                     child: const Text(
-                      'Continue Shopping',
+                      'Back To Home Screen',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
                         fontFamily: 'Encode Sans',
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 24),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

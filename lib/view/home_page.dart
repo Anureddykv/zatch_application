@@ -16,13 +16,17 @@ import '../Widget/top_picks_this_week_widget.dart';
 import '../Widget/trending.dart';
 import 'cart_screen.dart';
 import 'navigation_page.dart';
-
+final GlobalKey<_HomePageState> homePageKey = GlobalKey<_HomePageState>();
 class HomePage extends StatefulWidget {
   final LoginResponse? loginResponse;
   final List<Category>? selectedCategories;
   final int initialIndex;
 
-  const HomePage({super.key, this.loginResponse, this.selectedCategories, this.initialIndex = 0});
+   HomePage({
+    this.loginResponse,
+    this.selectedCategories,
+    this.initialIndex = 0,
+  }): super(key: homePageKey);
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -36,20 +40,27 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = true;
   String? error;
   Category? _selectedCategory;
-  bool get _isSingleCategoryInitiallySelected => widget.selectedCategories?.length == 1 && widget.selectedCategories!.first.name.toLowerCase() != 'explore all';
+  bool get _isSingleCategoryInitiallySelected =>
+      widget.selectedCategories?.length == 1 &&
+      widget.selectedCategories!.first.name.toLowerCase() != 'explore all';
   bool _shouldShowKeyboardOnSearch = false;
   Widget? _currentSubScreen;
-  void _navigateToSubScreen(Widget screen) {
+  void navigateToSubScreen(Widget screen) {
     setState(() {
       _currentSubScreen = screen;
     });
   }
-  void _closeSubScreen() {
+
+  void closeSubScreen() {
     setState(() {
       _currentSubScreen = null;
     });
   }
-  void _onItemTapped(int index,{bool fromHeader = false}) {
+
+  void _onItemTapped(int index, {bool fromHeader = false}) {
+    if (_currentSubScreen != null) {
+      closeSubScreen();
+    }
     setState(() {
       _selectedIndex = index;
       if (index == 1 && fromHeader) {
@@ -59,11 +70,14 @@ class _HomePageState extends State<HomePage> {
       }
     });
   }
+
   void _openZatchAi() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the sheet to be taller than half the screen
-      backgroundColor: Colors.transparent, // Makes container's rounded corners visible
+      isScrollControlled:
+          true, // Allows the sheet to be taller than half the screen
+      backgroundColor:
+          Colors.transparent, // Makes container's rounded corners visible
       builder: (context) => const ZatchAiScreen(),
     );
   }
@@ -75,7 +89,7 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       _apiService.init().then((_) {
         fetchUserProfile();
-       // _fetchAllCategories();
+        // _fetchAllCategories();
       });
     }
   }
@@ -121,7 +135,9 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomeTab() {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFA3DD00)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFA3DD00)),
+      );
     }
 
     if (error != null) {
@@ -131,7 +147,10 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(error ?? "Something went wrong"),
             const SizedBox(height: 10),
-            ElevatedButton(onPressed: fetchUserProfile, child: const Text("Retry")),
+            ElevatedButton(
+              onPressed: fetchUserProfile,
+              child: const Text("Retry"),
+            ),
           ],
         ),
       );
@@ -139,14 +158,19 @@ class _HomePageState extends State<HomePage> {
     return Column(
       children: [
         SafeArea(
-          child: HeaderWidget(userProfile: userProfile, onSearchTap: () => _onItemTapped(1,fromHeader: true),  onCartTap: () {
-            _navigateToSubScreen(
+          child: HeaderWidget(
+            userProfile: userProfile,
+            onSearchTap: () => _onItemTapped(1, fromHeader: true),
+            onCartTap: () {
+              navigateToSubScreen(
                 CartScreen(
                   // Pass the navigation callback so Cart can open details inside Home
-                  onNavigate: (Widget nextScreen) => _navigateToSubScreen(nextScreen),
-                )
-            );
-          },),
+                  onNavigate:
+                      (Widget nextScreen) => navigateToSubScreen(nextScreen),
+                ),
+              );
+            },
+          ),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -161,7 +185,9 @@ class _HomePageState extends State<HomePage> {
                       setState(() {
                         _selectedCategory = category;
                       });
-                      debugPrint("Selected Category Changed to: ${category.name}");
+                      debugPrint(
+                        "Selected Category Changed to: ${category.name}",
+                      );
                     }
                   },
                 ),
@@ -180,19 +206,31 @@ class _HomePageState extends State<HomePage> {
       _buildHomeTab(),
       isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SearchScreen(key: UniqueKey(), userProfile: userProfile,autoFocus:_shouldShowKeyboardOnSearch ,onTabChange: (index) {
-        setState(() {
-          _selectedIndex = index; // This switches the BottomNavBar tab
-        });
-      },),
+          : SearchScreen(
+            key: UniqueKey(),
+            userProfile: userProfile,
+            autoFocus: _shouldShowKeyboardOnSearch,
+            onTabChange: (index) {
+              setState(() {
+                _selectedIndex = index; // This switches the BottomNavBar tab
+              });
+            },
+        onCartTap: () {
+          navigateToSubScreen(
+            CartScreen(
+              onNavigate: (Widget nextScreen) => navigateToSubScreen(nextScreen),
+            ),
+          );
+        },
+          ),
       SellHomeScreen(),
       AccountSettingsScreen(),
     ];
 
-    return  WillPopScope(
+    return WillPopScope(
       onWillPop: () async {
         if (_currentSubScreen != null) {
-          _closeSubScreen();
+          closeSubScreen();
           return false;
         }
         if (_selectedIndex != 0) {
@@ -205,21 +243,18 @@ class _HomePageState extends State<HomePage> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        body: _currentSubScreen ?? IndexedStack(
-          index: _selectedIndex,
-          children: pages,
-        ),
+        body:
+            _currentSubScreen ??
+            IndexedStack(index: _selectedIndex, children: pages),
         bottomNavigationBar: CustomBottomNavBar(
           selectedIndex: _selectedIndex,
           onItemTapped: (index) {
-            if (_currentSubScreen != null) _closeSubScreen();
+            if (_currentSubScreen != null) closeSubScreen();
             _onItemTapped(index);
           },
           userProfile: userProfile,
         ),
-        floatingActionButton: FloatingZButton(
-            onPressed: _openZatchAi,
-        ),
+        floatingActionButton: FloatingZButton(onPressed: _openZatchAi),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       ),
     );

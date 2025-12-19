@@ -366,7 +366,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
             if (_selectedVariantIndex != -1) {
               finalColor = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color;
-              finalSize = product.variants[_selectedVariantIndex].sku;
+              finalSize = product.variants[_selectedVariantIndex].size;
             }
             print("🚀 SENDING ADD TO CART REQUEST:");
             print("Product ID: ${widget.productId}");
@@ -376,6 +376,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               productId: widget.productId,
               quantity: 1,
               color: finalColor,
+              size: finalSize
 
             );
             try {
@@ -555,13 +556,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       ),
     );
   }
-
-  // === UPDATED TO USE CLASS VARIABLES ===
   Widget _buildSizeSelector() {
+    // Filter only variants that actually have a size
+    // We check if size is not null and not empty
     final variantsWithSizes = product.variants
-        .where((v) => v.sku != null && v.sku!.isNotEmpty)
+        .where((v) => v.size != null && v.size!.isNotEmpty)
         .toList();
 
+    // If no variants have a size, hide the entire section
     if (variantsWithSizes.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -594,7 +596,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   borderRadius: BorderRadius.circular(32),
                 ),
                 child: Text(
-                  variant.sku ?? "",
+                  variant.size ?? "", // Changed from variant.sku to variant.size
                   style: TextStyle(
                     color: isSelected ? Colors.white : const Color(0xFF292526),
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
@@ -604,7 +606,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             );
           }),
         ),
-
       ],
     );
   }
@@ -1129,7 +1130,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
                 if (_selectedVariantIndex != -1) {
                   selectedShade = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color;
-                  selectedSize =  product.variants[_selectedVariantIndex].sku;
+                  selectedSize =  product.variants[_selectedVariantIndex].size;
                 }
                 final itemToPurchase = cart_model.CartItemModel(
                   id: "temp_${product.id}",

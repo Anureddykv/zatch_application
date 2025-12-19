@@ -310,7 +310,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
   Widget _profileCard(UserProfileResponse? userProfile) {
     final name = userProfile?.user.username ?? "Unknown User";
-    final followers = userProfile?.user.followerCount?.toString() ?? "0";
+    final followers = userProfile?.user.following?.length.toString() ?? "0";
     final profilePicUrl =
     (userProfile?.user.profilePic.url.isNotEmpty ?? false)
         ? userProfile!.user.profilePic.url

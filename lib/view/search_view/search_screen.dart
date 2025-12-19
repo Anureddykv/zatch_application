@@ -19,8 +19,9 @@ class SearchScreen extends StatefulWidget {
   final UserProfileResponse? userProfile;
   final bool autoFocus;
   final Function(int)? onTabChange;
+  final VoidCallback? onCartTap;
 
-  const SearchScreen({super.key, this.userProfile,this.autoFocus = false, this.onTabChange, // 2. Add to constructor
+  const SearchScreen({super.key, this.userProfile,this.autoFocus = false, this.onTabChange,this.onCartTap, // 2. Add to constructor
   });
 
   @override
@@ -196,11 +197,11 @@ class _SearchScreenState extends State<SearchScreen>
                HeaderWidget(
                 userProfile: widget.userProfile,
                  onCartTap: () {
-                   if (widget.onTabChange != null) {
-                     // Assuming Cart is at index 2 (0=Home, 1=Search, 2=Cart, 3=Profile)
-                     widget.onTabChange!(2);
+                   if (widget.onCartTap != null) {
+                     // Use the parent's custom navigation (e.g. _navigateToSubScreen)
+                     widget.onCartTap!();
                    } else {
-                     // Fallback: If used standalone, push normally
+                     // Fallback: standard push
                      Navigator.push(
                        context,
                        MaterialPageRoute(builder: (context) => const CartScreen()),

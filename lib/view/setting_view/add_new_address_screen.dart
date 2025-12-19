@@ -18,16 +18,11 @@ class AddNewAddressScreen extends StatefulWidget {
 class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
-
-  // --- Map Controller & State ---
   final Completer<GoogleMapController> _mapController = Completer();
-  static const CameraPosition _initialCameraPosition = CameraPosition(
-    target: LatLng(17.3850, 78.4867), // Default to Hyderabad
-    zoom: 11.0,
-  );
+
+  late CameraPosition _initialCameraPosition;
   Set<Marker> _markers = {};
 
-  // --- Form Controllers ---
   final TextEditingController labelController = TextEditingController();
   final TextEditingController address1Controller = TextEditingController();
   final TextEditingController address2Controller = TextEditingController();
@@ -35,7 +30,6 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   final TextEditingController pinCodeController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
 
-  // --- UI State ---
   String? selectedAddressType;
   String? selectedState;
   bool _isLocating = false;
@@ -54,11 +48,49 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.addressToEdit != null) {
-      // If editing, populate the form with existing data
+    _initializeMapLocation();
+  }
+
+  void _initializeMapLocation() {
+    // Default to Hyderabad if nothing else works
+    LatLng targetPos = const LatLng(17.3850, 78.4867);
+
+    // 1. If Editing, check if saved coordinates exist in the model
+    if (widget.addressToEdit != null &&
+        widget.addressToEdit!.lat != null &&
+        widget.addressToEdit!.lng != null) {
+
+      targetPos = LatLng(widget.addressToEdit!.lat!, widget.addressToEdit!.lng!);
+
+      _markers = {
+        Marker(
+          markerId: const MarkerId('savedLocation'),
+          position: targetPos,
+        )
+      };
+
+      // Crucial: Initialize _currentPosition so saving works without moving map
+      _currentPosition = Position(
+        latitude: targetPos.latitude,
+        longitude: targetPos.longitude,
+        timestamp: DateTime.now(),
+        accuracy: 1.0, altitude: 0.0, heading: 0.0, speed: 0.0,
+        speedAccuracy: 0.0, altitudeAccuracy: 1.0, headingAccuracy: 1.0,
+      );
+
       _populateFormForEdit();
     }
+    // 2. If New Address, start location tracking
+    else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleLocateMe();
+      });
+    }
 
+    _initialCameraPosition = CameraPosition(
+      target: targetPos,
+      zoom: 15.0,
+    );
   }
 
   void _populateFormForEdit() {
@@ -69,11 +101,13 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     cityController.text = address.city;
     pinCodeController.text = address.pincode;
     phoneController.text = address.phone.replaceAll('+91', '').trim();
+
     if (addressTypes.contains(address.type)) {
       selectedAddressType = address.type;
     } else {
       selectedAddressType = "Others";
     }
+
     if (indianStates.contains(address.state)) {
       selectedState = address.state;
     }
@@ -89,13 +123,19 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     phoneController.dispose();
     super.dispose();
   }
+
   Future<void> _handleLocateMe() async {
     setState(() => _isLocating = true);
     try {
+      // 1. Check Service
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        // Optional: Open location settings
+        // await Geolocator.openLocationSettings();
         throw Exception('Location services are disabled. Please turn on GPS.');
       }
+
+      // 2. Check Permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -104,31 +144,45 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions are permanently denied. Settings > App > Permissions.');
+        throw Exception('Location permissions are permanently denied.');
       }
 
-      print("📍 Geolocator: Fetching current position (Timeout: 20s)...");
-   final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 20),
-      );
+      print("📍 Geolocator: Attempting to get location...");
 
-      _currentPosition = position;
+      // 3. RETRIEVE LOCATION
+      // First try last known (instant)
+      Position? position = await Geolocator.getLastKnownPosition();
 
-      print("🚀 GENERATING REQUEST:");
-      print("   LAT: ${position.latitude}");
-      print("   LNG: ${position.longitude}");
+      // If null, get current (takes a few seconds)
+      if (position == null) {
+        print("📍 Fetching fresh location...");
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 10),
+        );
+      }
 
-      // 4. Update Map
+      // Update state
       if (mounted) {
-        await _animateCameraAndAddMarker(LatLng(position.latitude, position.longitude));
+        setState(() {
+          _currentPosition = position;
+        });
       }
 
-      print("📞 API Call: Sending request to /address/geocode...");
+      print("🚀 LOCATION FOUND: ${position.latitude}, ${position.longitude}");
 
+      // 4. Update Map Camera
+      if (mounted) {
+        await _animateCameraAndAddMarker(
+            LatLng(position.latitude, position.longitude));
+      }
+
+      // 5. Geocoding API Call (Only if not editing or explicitly requested)
+      // If we are just starting up and editing, we might not want to overwrite data immediately
+      // But since _handleLocateMe is called automatically only for NEW addresses, this is safe.
       try {
-        final addressData = await _apiService.geocodeAddress(position.latitude, position.longitude);
-        print("✅ API Response Received: $addressData");
+        final addressData = await _apiService.geocodeAddress(
+            position.latitude, position.longitude);
 
         if (mounted) {
           setState(() {
@@ -139,58 +193,56 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
 
             String? incomingState = addressData['state'];
             if (incomingState != null) {
-              if (indianStates.contains(incomingState)) {
-                selectedState = incomingState;
-              }
-              else {
-                try {
-                  selectedState = indianStates.firstWhere(
-                          (s) => s.toLowerCase() == incomingState.toLowerCase()
-                  );
-                } catch (e) {
-                  print("State mismatch: $incomingState not found in list");
+              try {
+                selectedState = indianStates.firstWhere(
+                      (s) => s.toLowerCase() == incomingState.toLowerCase(),
+                  orElse: () => incomingState,
+                );
+                if (!indianStates.contains(selectedState)) {
+                  selectedState = null;
                 }
+              } catch (e) {
+                print("State match error: $e");
               }
             }
           });
         }
       } catch (apiError) {
         print("⚠️ API Error during geocoding: $apiError");
-        _showErrorSnackBar('Found location, but could not fetch address text.');
       }
-
-    } on TimeoutException catch (_) {
-      print("❌ Geolocator Timeout");
-      _showErrorSnackBar("GPS timed out. Please try again or move to an open area.");
     } catch (e) {
       print("❌ Error in _handleLocateMe: $e");
-      _showErrorSnackBar(e.toString().replaceAll("Exception:", "").trim());
+      // Don't show snackbar on auto-load to avoid annoyance,
+      // only show if user manually clicked button or major error.
+      if(_isLocating) {
+        // logic to differentiate auto-load vs manual click could be added
+      }
     } finally {
       if (mounted) setState(() => _isLocating = false);
     }
   }
 
-      Future<void> _animateCameraAndAddMarker(LatLng position) async {
-      final GoogleMapController controller = await _mapController.future;
+  Future<void> _animateCameraAndAddMarker(LatLng position) async {
+    final GoogleMapController controller = await _mapController.future;
 
-      if (!mounted) return; // Check if screen is valid
+    if (!mounted) return;
 
-      try {
+    try {
       await controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(target: position, zoom: 16.0),
+        CameraPosition(target: position, zoom: 16.0),
       ));
-      } catch (e) {
+    } catch (e) {
       debugPrint("Error animating camera: $e");
-      }
+    }
 
-      if (!mounted) return; // Check again before updating UI
+    if (!mounted) return;
 
-      setState(() {
+    setState(() {
       _markers = {
-      Marker(
-      markerId: const MarkerId('currentLocation'),
-      position: position,
-      infoWindow: const InfoWindow(title: 'Your Location'),
+        Marker(
+          markerId: const MarkerId('currentLocation'),
+          position: position,
+          infoWindow: const InfoWindow(title: 'Your Location'),
         )
       };
     });
@@ -200,43 +252,36 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     if (!_formKey.currentState!.validate()) {
       _showErrorSnackBar('Please fix the errors in the form.');
       return;
+    }    setState(() => _isSaving = true);
+
+    // Get current lat/lng from the map/geolocator state
+    double? finalLat = _currentPosition?.latitude;
+    double? finalLng = _currentPosition?.longitude;
+
+    // Fallback if user didn't click "Locate Me" but coordinates are in the edit model
+    if (finalLat == null && widget.addressToEdit != null) {
+      finalLat = widget.addressToEdit!.lat;
+      finalLng = widget.addressToEdit!.lng;
     }
 
-    setState(() => _isSaving = true);
-
     try {
-      final payload = {
-        "addressId": widget.addressToEdit?.id,
-        "label": labelController.text.trim(),
-        "type": selectedAddressType!,
-        "line1": address1Controller.text.trim(),
-        "line2": address2Controller.text.trim(),
-        "city": cityController.text.trim(),
-        "state": selectedState!,
-        "pincode": pinCodeController.text.trim(),
-        "phone": phoneController.text.trim(),
-        "lat": _currentPosition?.latitude,
-        "lng": _currentPosition?.longitude,
-      };
-      print("📞 API Call (Save Address): $payload");
-
-      final savedAddress = await _apiService.saveAddress(
-        addressId: payload['addressId'] as String?,
-        label: payload['label'] as String,
-        type: payload['type'] as String,
-        line1: payload['line1'] as String,
-        line2: payload['line2'] as String?,
-        city: payload['city'] as String,
-        state: payload['state'] as String,
-        pincode: payload['pincode'] as String,
-        phone: payload['phone'] as String,
-        lat: payload['lat'] as double?,
-        lng: payload['lng'] as double?,
+      // Build request payload exactly as you requested
+      // { label, type, line1, line2, city, state, pincode, phone, lat, lng, isDefault }
+      await _apiService.saveAddress(
+        addressId: widget.addressToEdit?.id, // ID only used for URL, not payload
+        label: labelController.text.trim(),
+        type: selectedAddressType ?? "Home",
+        line1: address1Controller.text.trim(),
+        line2: address2Controller.text.trim(),
+        city: cityController.text.trim(),
+        state: selectedState ?? "",
+        pincode: pinCodeController.text.trim(),
+        phone: phoneController.text.trim(),
+        lat: finalLat,
+        lng: finalLng,
       );
-      print("✅ API Response (Save Address): ${savedAddress.toJson()}");
 
       if (mounted) Navigator.pop(context, true);
-
     } catch (e) {
       _showErrorSnackBar('Failed to save address: ${e.toString()}');
     } finally {
@@ -244,9 +289,11 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     }
   }
 
+
   void _showErrorSnackBar(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red));
     }
   }
 
@@ -257,7 +304,12 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(isEditing ? "Edit Address" : "Add New Address", style: const TextStyle(color: Color(0xFF121111), fontSize: 16, fontFamily: 'Encode Sans', fontWeight: FontWeight.w600)),
+        title: Text(isEditing ? "Edit Address" : "Add New Address",
+            style: const TextStyle(
+                color: Color(0xFF121111),
+                fontSize: 16,
+                fontFamily: 'Encode Sans',
+                fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -285,10 +337,8 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                     },
                     markers: _markers,
                     myLocationEnabled: true,
-                    // ✅ CHANGE 2: Enable the 'current location' button behavior internally (optional)
                     myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
-                    // ✅ CHANGE 3: Add gestures for better UX
                     scrollGesturesEnabled: true,
                     zoomGesturesEnabled: true,
                   ),
@@ -298,16 +348,20 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       onPressed: _isLocating ? null : _handleLocateMe,
                       icon: _isLocating
                           ? Container(
-                          width: 20, height: 20,
+                          width: 20,
+                          height: 20,
                           margin: const EdgeInsets.only(right: 8),
-                          child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          child: const CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black))
                           : const Icon(Icons.my_location),
                       label: Text(_isLocating ? 'Locating...' : 'Locate Me'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFCCF656),
                         foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(60)),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(60)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 40, vertical: 15),
                       ),
                     ),
                   ),
@@ -322,7 +376,15 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(isEditing ? 'Update Address Details' : 'Or, Add Address Details Manually', style: const TextStyle(color: Colors.black, fontSize: 16, fontFamily: 'DM Sans', fontWeight: FontWeight.w500)),
+                    Text(
+                        isEditing
+                            ? 'Update Address Details'
+                            : 'Or, Add Address Details Manually',
+                        style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontFamily: 'DM Sans',
+                            fontWeight: FontWeight.w500)),
                     const SizedBox(height: 20),
 
                     _CustomDropdown(
@@ -333,10 +395,12 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       onChanged: (value) {
                         setState(() {
                           selectedAddressType = value;
-                          labelController.text = (value != "Others") ? (value ?? '') : '';
+                          labelController.text =
+                          (value != "Others") ? (value ?? '') : '';
                         });
                       },
-                      validator: (value) => value == null ? 'Please select a type' : null,
+                      validator: (value) =>
+                      value == null ? 'Please select a type' : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -349,7 +413,8 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                             hintText: 'Enter a custom label',
                             maxLength: 20,
                             validator: (value) {
-                              if (selectedAddressType == "Others" && (value == null || value.isEmpty)) {
+                              if (selectedAddressType == "Others" &&
+                                  (value == null || value.isEmpty)) {
                                 return 'Please enter a custom label';
                               }
                               return null;
@@ -364,7 +429,9 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       labelText: 'Address line - 1',
                       hintText: 'Enter Flat No, Building Name, Street',
                       maxLength: 150,
-                      validator: (value) => value == null || value.isEmpty ? 'Address line 1 is required' : null,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Address line 1 is required'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -380,7 +447,9 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       controller: cityController,
                       labelText: 'City',
                       hintText: 'Enter City',
-                      validator: (value) => value == null || value.isEmpty ? 'Please enter a city' : null,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Please enter a city'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -393,8 +462,11 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                             labelText: 'State',
                             hint: 'Select State',
                             items: indianStates,
-                            onChanged: (value) => setState(() => selectedState = value),
-                            validator: (value) => value == null ? 'Please select a state' : null,
+                            onChanged: (value) =>
+                                setState(() => selectedState = value),
+                            validator: (value) => value == null
+                                ? 'Please select a state'
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -404,10 +476,13 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                             labelText: 'Pin Code',
                             hintText: '6 digits',
                             keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
                             maxLength: 6,
                             validator: (value) {
-                              if (value == null || value.isEmpty) return 'Required';
+                              if (value == null || value.isEmpty)
+                                return 'Required';
                               if (value.length != 6) return '6 digits only';
                               return null;
                             },
@@ -426,7 +501,8 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                       maxLength: 10,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       validator: (value) {
-                        if (value == null || value.isEmpty) return 'Phone number is required';
+                        if (value == null || value.isEmpty)
+                          return 'Phone number is required';
                         if (value.length != 10) return 'Must be 10 digits';
                         return null;
                       },
@@ -439,11 +515,16 @@ class _AddNewAddressScreenState extends State<AddNewAddressScreen> {
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: const Color(0xFFCCF656),
                         foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
                       ),
                       child: _isSaving
                           ? const CircularProgressIndicator(color: Colors.black)
-                          : Text(isEditing ? "Update Address" : "Save Address", style: const TextStyle(fontSize: 16, fontFamily: 'Encode Sans', fontWeight: FontWeight.w700)),
+                          : Text(isEditing ? "Update Address" : "Save Address",
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontFamily: 'Encode Sans',
+                              fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
@@ -483,7 +564,12 @@ class _CustomTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(labelText, style: const TextStyle(color: Color(0xFFABABAB), fontSize: 14, fontFamily: 'Encode Sans', fontWeight: FontWeight.w500)),
+        Text(labelText,
+            style: const TextStyle(
+                color: Color(0xFFABABAB),
+                fontSize: 14,
+                fontFamily: 'Encode Sans',
+                fontWeight: FontWeight.w500)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -494,21 +580,40 @@ class _CustomTextField extends StatelessWidget {
           decoration: InputDecoration(
             counterText: "",
             hintText: hintText,
-            hintStyle: const TextStyle(color: Color(0xFF616161), fontSize: 16, fontFamily: 'Encode Sans'),
+            hintStyle: const TextStyle(
+                color: Color(0xFF616161),
+                fontSize: 16,
+                fontFamily: 'Encode Sans'),
             prefixIcon: prefixText != null
                 ? Padding(
-              padding: const EdgeInsets.only(left: 24, right: 8, top: 13, bottom: 13),
-              child: Text(prefixText!, style: const TextStyle(color: Color(0xFF616161), fontSize: 16, fontFamily: 'Plus Jakarta Sans')),
+              padding: const EdgeInsets.only(
+                  left: 24, right: 8, top: 13, bottom: 13),
+              child: Text(prefixText!,
+                  style: const TextStyle(
+                      color: Color(0xFF616161),
+                      fontSize: 16,
+                      fontFamily: 'Plus Jakarta Sans')),
             )
                 : null,
             filled: true,
             fillColor: const Color(0xFFF2F4F5),
-            contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.black, width: 1.5)),
-            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
-            focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+            contentPadding:
+            const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.black, width: 1.5)),
+            errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+            focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.red, width: 1.5)),
             isDense: true,
           ),
         ),
@@ -539,23 +644,43 @@ class _CustomDropdown extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(labelText, style: const TextStyle(color: Color(0xFFABABAB), fontSize: 14, fontFamily: 'Encode Sans', fontWeight: FontWeight.w500)),
+        Text(labelText,
+            style: const TextStyle(
+                color: Color(0xFFABABAB),
+                fontSize: 14,
+                fontFamily: 'Encode Sans',
+                fontWeight: FontWeight.w500)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           value: value,
           onChanged: onChanged,
           validator: validator,
-          hint: Text(hint, style: const TextStyle(color: Color(0xFF616161), fontSize: 16, fontFamily: 'Encode Sans')),
+          hint: Text(hint,
+              style: const TextStyle(
+                  color: Color(0xFF616161),
+                  fontSize: 16,
+                  fontFamily: 'Encode Sans')),
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF2F4F5),
-            contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.black, width: 1.5)),
-            errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
-            focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(70), borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+            contentPadding:
+            const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.black, width: 1.5)),
+            errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.red, width: 1.5)),
+            focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(70),
+                borderSide: const BorderSide(color: Colors.red, width: 1.5)),
             isDense: true,
           ),
           items: items.map((String state) {

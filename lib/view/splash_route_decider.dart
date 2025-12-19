@@ -48,7 +48,7 @@ class _SplashRouteDeciderState extends State<SplashRouteDecider>
     } else if (categories.isEmpty) {
       next = const CategoryScreen();
     } else {
-      next = const HomePage();
+      next =  HomePage();
     }
 
     if (mounted) {

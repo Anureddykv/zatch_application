@@ -4,16 +4,19 @@ import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
 import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
+import 'package:zatch_app/view/bottom_sheet/catalogue_sheet.dart'; // Import CatalogueSheet
 
 class BuyZatchSheet extends StatefulWidget {
   final Product product;
   final String defaultOption;
+  final List<Product> allProducts;
   final Function(Widget) onNavigate;
-  final VoidCallback? onBackToCatalogue;
+  final VoidCallback? onBackToCatalogue; // Callback to trigger re-opening catalogue
 
   const BuyZatchSheet({
     super.key,
     required this.product,
+    required this.allProducts,
     this.defaultOption = "buy",
     required this.onNavigate,
     this.onBackToCatalogue,
@@ -37,14 +40,36 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
     bargainPrice = widget.product.price;
   }
 
+  void _goBackToCatalogue() {
+    Navigator.pop(context);
+
+    if (widget.onBackToCatalogue != null) {      widget.onBackToCatalogue!();
+    } else {
+      // Fallback: Show the FULL catalogue again
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => CatalogueSheet(
+          products: widget.allProducts, // <--- USE FULL LIST HERE
+          onNavigate: widget.onNavigate,
+        ),
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     double price = widget.product.price;
 
     return WillPopScope(
       onWillPop: () async {
-        if (widget.onBackToCatalogue != null) widget.onBackToCatalogue!();
-        return true;
+        _goBackToCatalogue();
+        return false; // Prevent default pop since we handled it manually
       },
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -55,12 +80,7 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (widget.onBackToCatalogue != null) {
-                      widget.onBackToCatalogue!();
-                    }
-                  },
+                  onPressed: _goBackToCatalogue, // Use the helper method
                 ),
                 const SizedBox(width: 8),
                 const Text("Buy / Zatch",
@@ -116,6 +136,8 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
       ),
     );
   }
+
+  // ... (Rest of your _buildOptionCard, _buildProductRow, and _handleAction methods remain unchanged)
 
   Widget _buildOptionCard(
       {required String value,
@@ -246,12 +268,10 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
       ],
     );
   }
+
   void _handleAction() {
-    // 1. Close the bottom sheet immediately.
-    // This prevents the user from clicking multiple times and cleans up the UI.
     Navigator.pop(context);
 
-    // 2. Prepare logic
     if (selectedOption == "buy") {
       String safeImageUrl = placeholderUrl;
       try {
@@ -286,16 +306,10 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
           itemToCheckout
         ];
 
-        // Calculate explicitly
         final double itemsTotal = widget.product.price * quantity;
         const double shippingFee = 50.0;
         final double subTotal = itemsTotal + shippingFee;
 
-        debugPrint("Navigating to Checkout with: ${itemsForCheckout.length} items, Total: $itemsTotal");
-
-        // 3. Navigate using the callback inside a Future.delayed.
-        // This prevents "Null check operator" errors by ensuring the parent context
-        // is ready to push the new route after the sheet closes.
         Future.delayed(const Duration(milliseconds: 200), () {
           widget.onNavigate(
             CheckoutOrPaymentsScreen(
@@ -313,7 +327,6 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
         debugPrint(stack.toString());
       }
     } else {
-      // Logic for Zatch
       try {
         String safeImageUrl = placeholderUrl;
         if (widget.product.images.isNotEmpty) {
@@ -337,7 +350,6 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
           ),
         );
 
-        // Navigate using the callback with delay
         Future.delayed(const Duration(milliseconds: 200), () {
           widget.onNavigate(zatchDetails);
         });
@@ -347,5 +359,4 @@ class _BuyZatchSheetState extends State<BuyZatchSheet> {
       }
     }
   }
-
 }

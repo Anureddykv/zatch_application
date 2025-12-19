@@ -1,158 +1,117 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:zatch_app/Widget/top_picks_this_week_widget.dart';
-import 'package:zatch_app/model/CartApiResponse.dart' as cart_model;
-import 'package:zatch_app/model/carts_model.dart';
-import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
-import 'package:zatch_app/view/zatching_details_screen.dart';
-import 'package:zatch_app/services/api_service.dart';
-import 'package:zatch_app/model/product_response.dart';
+import 'package:zatch_app/model/order_model.dart';
 
-// Enum to represent the different states of an order
-enum OrderStatus {
-  accepted,
-  processing,
-  inTransit,
-  outForDelivery,
-  delivered,
-  canceled
-}
-class TrackOrderScreen extends StatefulWidget {
-  final OrderStatus status;
-  final String orderId = "2272345673287";
-  final String deliveryDate = "12 Aug 2025";
-  final int totalItems = 9;
-  final double totalAmount = 1014.95;
+class TrackOrderScreen extends StatelessWidget {
+  final OrderModel order;
 
-  const TrackOrderScreen({super.key, required this.status});
-
-  @override
-  State<TrackOrderScreen> createState() => _TrackOrderScreenState();
-}
-
-class _TrackOrderScreenState extends State<TrackOrderScreen> {
-  final ApiService _apiService = ApiService();
-  late Future<List<Product>> _futureProducts;
-
-  @override
-  void initState() {
-    super.initState();
-    _futureProducts = _fetchProducts();
-  }
-
-  Future<List<Product>> _fetchProducts() async {
-    try {
-      return await _apiService.getProducts();
-    } catch (e) {
-      debugPrint("Error fetching products: $e");
-      rethrow;
-    }
-  }
+  const TrackOrderScreen({super.key, required this.order});
 
   @override
   Widget build(BuildContext context) {
+    // Determine the current step index based on the order status
+    int currentStep = _getStepIndexFromStatus(order.status);
+    bool isCanceled = order.status.toLowerCase() == 'cancelled';
+
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(context),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- Custom Stepper (Updated Design) ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildCustomStepper(),
-            ),
-            const SizedBox(height: 30),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildActionButtons(),
-            ),
-            const SizedBox(height: 30),
-            const Divider(color: Color(0xFFCBCBCB)),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildProductCard(),
-            ),
-            if (widget.status == OrderStatus.delivered)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Center(
-                  child: SizedBox(
-                    height: 44,
-                    width: 200,
-                    child: InkWell(
-                      onTap: () {
-                        // Fully populated Product with all required fields
-                        final productToBuy = Product(
-                          id: 'prod_123',
-                          name: 'Modern light clothes',
-                          isTopPick: false,
-                          saveCount: 0,
-                          viewCount: 0,
-                          commentCount: 0,
-                          averageRating: 0.0,
-                          totalStock: 10,
-                          images: [ProductImage(url: "https://i.pravatar.cc/100?img=5", publicId: '', id: '')],
-                          price: 212.99,
-                          variants: [],
-                          likeCount: 5,
-                          description: '',
-                          reviews: []
-                        );
-                        _showBuyOrZatchBottomSheet(context, productToBuy, "buy");
-                      },
-                      borderRadius: BorderRadius.circular(15),
-                      child: Container(
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFFF1F1F1),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Buy Again',
-                            style: TextStyle(
-                              color: Color(0xFF272727),
-                              fontSize: 14,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24),
+              child: Center(
+                child: CustomOrderStepper(
+                  currentStep: currentStep,
+                  isCancelled: isCanceled,
                 ),
               ),
-            const SizedBox(height: 30),
+            ),
+            const SizedBox(height: 24),
+
+            // --- Action Buttons ---
+            if (!isCanceled && order.status.toLowerCase() != 'delivered')
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _buildActionButtons(),
+              ),
+
+            const SizedBox(height: 24),
+            const Divider(color: Color(0xFFE0E0E0), thickness: 1),
+            const SizedBox(height: 16),
+
+            // --- Product Cards ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildDeliveryLocation(),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: order.items
+                    .map((item) => _buildProductCard(item))
+                    .toList(),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // --- Delivery Location ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _buildDeliveryLocation(order.deliveryAddress),
             ),
             const SizedBox(height: 30),
+
+            // --- Shipping Details ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildShippingDetails(),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _buildShippingDetails(order),
             ),
             const SizedBox(height: 30),
+
+            // --- Shipping Information ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildShippingInfo(),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _buildShippingInfo(order),
             ),
             const SizedBox(height: 30),
-            TopPicksThisWeekWidget(
-              title: "products from this seller",
+
+            // --- Recommended Products ---
+            const TopPicksThisWeekWidget(
+              title: "Products from this seller",
               showSeeAll: false,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  AppBar _buildAppBar() {
+  // Helper Methods (Same as before)
+  int _getStepIndexFromStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+      case 'confirmed':
+        return 0; // Order Accepted
+      case 'processing': // If you want 4 steps, keep this. If 3 steps, remove this case or map to 0/1
+        return 1;
+      case 'shipped':
+      case 'out_for_delivery':
+        return 2; // Out for Delivery
+      case 'delivered':
+      case 'completed':
+        return 3; // Delivered
+      case 'cancelled':
+        return 0;
+      default:
+        return 0;
+    }
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -172,9 +131,10 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
           child: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 18),
         ),
       ),
-      title: const Text(
-        'Track Order',
-        style: TextStyle(
+      title: Text(
+        'Track Order'
+        /*'Order #${order.orderId.substring(order.orderId.length - 8)}'*/,
+        style: const TextStyle(
           color: Color(0xFF121111),
           fontSize: 16,
           fontFamily: 'Encode Sans',
@@ -183,38 +143,123 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
       ),
     );
   }
-  Widget _buildCustomStepper() {
-    // Minimal version
-    return Container(
-      height: 50,
-      color: Colors.grey[200],
-      child: const Center(child: Text("Stepper Placeholder")),
-    );
-  }
 
   Widget _buildActionButtons() {
-    // Minimal version
     return Row(
       children: [
-        ElevatedButton(onPressed: () {}, child: const Text("Cancel")),
-        const SizedBox(width: 10),
-        ElevatedButton(onPressed: () {}, child: const Text("Buy Again")),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () {},
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: const BorderSide(color: Colors.black),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            child: const Text('Cancel Order', style: TextStyle(color: Colors.black)),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF1F1F1),
+              foregroundColor: Colors.black,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            child: const Text('Help with Order'),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDeliveryLocation() {
+  Widget _buildProductCard(OrderItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD3D3D3), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.network(
+              item.image,
+              width: 54,
+              height: 54,
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, err, st) =>
+                  Container(width: 54, height: 54, color: Colors.grey[200]),
+            ),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    color: Color(0xFF121111),
+                    fontSize: 14,
+                    fontFamily: 'Encode Sans',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (item.variant?.color != null)
+                      Text('Color: ${item.variant!.color}',
+                          style: const TextStyle(color: Color(0xFF787676), fontSize: 10)),
+                    if (item.variant?.size != null)
+                      Text('Size: ${item.variant!.size}',
+                          style: const TextStyle(color: Color(0xFF787676), fontSize: 10)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${item.qty} x ${item.price.toStringAsFixed(2)} ₹',
+                  style: const TextStyle(
+                    color: Color(0xFF292526),
+                    fontSize: 14,
+                    fontFamily: 'Encode Sans',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${item.total.toStringAsFixed(2)} ₹',
+            style: const TextStyle(
+              color: Color(0xFF292526),
+              fontSize: 14,
+              fontFamily: 'Encode Sans',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryLocation(DeliveryAddress address) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Delivery Location',
           style: TextStyle(
-            color: Colors.black,
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-            fontWeight: FontWeight.w600,
-          ),
+              fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Encode Sans'),
         ),
         const SizedBox(height: 12),
         Container(
@@ -232,36 +277,33 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                 height: 66,
                 decoration: ShapeDecoration(
                   color: const Color(0xFFF2F2F2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 child: const Icon(Icons.home_outlined, size: 32, color: Colors.black54),
               ),
               const SizedBox(width: 20),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Home',
-                      style: TextStyle(
-                        color: Color(0xFF2C2C2C),
-                        fontSize: 12,
-                        fontFamily: 'Encode Sans',
-                        fontWeight: FontWeight.w600,
-                      ),
+                      address.label,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Encode Sans'),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'A-403 Mantri Celestia, Financial District, Nanakram guda,...',
-                      style: TextStyle(
-                        color: Color(0xFF8D8D8D),
-                        fontSize: 12,
-                        fontFamily: 'Encode Sans',
-                      ),
-                      maxLines: 2,
+                      address.toString(),
+                      style: const TextStyle(
+                          color: Color(0xFF8D8D8D), fontSize: 12, fontFamily: 'Encode Sans'),
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Phone: ${address.phone}',
+                      style: const TextStyle(
+                          color: Color(0xFF8D8D8D), fontSize: 12, fontFamily: 'Encode Sans'),
                     ),
                   ],
                 ),
@@ -273,85 +315,47 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
     );
   }
 
-  Widget _buildShippingDetails() {
+  Widget _buildShippingDetails(OrderModel order) {
+    String deliveryDate = "Pending Confirmation";
+    if (order.expectedDelivery != null) {
+      deliveryDate = DateFormat('d MMMM y').format(order.expectedDelivery!);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Shipping Details',
           style: TextStyle(
-            color: Color(0xFF121111),
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-            fontWeight: FontWeight.w600,
-          ),
+              fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Encode Sans'),
         ),
         const SizedBox(height: 12),
-        Text(
-          'Deliver on : ${widget.deliveryDate}',
-          style: const TextStyle(
-            color: Color(0xFF292526),
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-          ),
-        ),
+        Text('Expected Delivery: $deliveryDate',
+            style: const TextStyle(fontSize: 14, fontFamily: 'Encode Sans')),
         const SizedBox(height: 16),
-        const Text(
-          'Shipped with DELHIVARY',
-          style: TextStyle(
-            color: Color(0xFF121111),
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        const Text('Shipped with Zatch Logistics',
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Encode Sans')),
         const SizedBox(height: 8),
-        Text(
-          'Tracking ID : ${widget.orderId}',
-          style: const TextStyle(
-            color: Color(0xFF292526),
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'You can also contact delivery partner for order updates',
-          style: TextStyle(
-            color: Color(0xFF292526),
-            fontSize: 11,
-            fontFamily: 'Encode Sans',
-          ),
-        ),
+        Text('Order ID : ${order.orderId}',
+            style: const TextStyle(fontSize: 14, fontFamily: 'Encode Sans')),
       ],
     );
   }
 
-  Widget _buildShippingInfo() {
-    Widget infoRow(String title, String value) {
+  Widget _buildShippingInfo(OrderModel order) {
+    Widget infoRow(String title, String value, {bool isBold = false}) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFF292526),
-                fontSize: 14,
-                fontFamily: 'Encode Sans',
-              ),
-            ),
-            Text(
-              '$value ₹',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF121111),
-                fontSize: 14,
-                fontFamily: 'Encode Sans',
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(title, style: const TextStyle(fontSize: 14, fontFamily: 'Encode Sans')),
+            Text('$value ₹',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                    fontFamily: 'Encode Sans')),
           ],
         ),
       );
@@ -363,87 +367,172 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
         const Text(
           'Shipping Information',
           style: TextStyle(
-            color: Color(0xFF121111),
-            fontSize: 14,
-            fontFamily: 'Encode Sans',
-            fontWeight: FontWeight.w600,
-          ),
+              fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Encode Sans'),
         ),
         const SizedBox(height: 12),
-        const Divider(color: Color(0xFFCBCBCB)),
-        infoRow('Total (${widget.totalItems} items)', widget.totalAmount.toStringAsFixed(2)),
-        infoRow('Shipping Fee', '0.00'),
-        infoRow('Discount', '0.00'),
-        const Divider(color: Color(0xFFCBCBCB)),
-        infoRow('Sub Total', widget.totalAmount.toStringAsFixed(2)),
-        const Divider(color: Color(0xFFCBCBCB)),
+        const Divider(color: Color(0xFFE0E0E0)),
+        infoRow('Subtotal', order.pricing.subtotal.toStringAsFixed(2)),
+        infoRow('Shipping Fee', order.pricing.shipping.toStringAsFixed(2)),
+        infoRow('Tax', order.pricing.tax.toStringAsFixed(2)),
+        if (order.pricing.discount > 0)
+          infoRow('Discount', '- ${order.pricing.discount.toStringAsFixed(2)}'),
+        const Divider(color: Color(0xFFE0E0E0)),
+        infoRow('Total', order.pricing.total.toStringAsFixed(2), isBold: true),
+        const Divider(color: Color(0xFFE0E0E0)),
       ],
     );
   }
+}
 
-  Widget _buildProductCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD3D3D3), width: 1),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+// ------------------------------------------------------------------
+// REVISED CUSTOM STEPPER (MATCHING FIGMA EXACTLY)
+// ------------------------------------------------------------------
+class CustomOrderStepper extends StatelessWidget {
+  final int currentStep;
+  final bool isCancelled;
+
+  // Note: Your Figma design has 3 steps visually:
+  // 1. Order Accepted
+  // 2. Out for Delivery
+  // 3. Order Delivered
+  // However, your logic had 4 steps. I've adapted it to 3 main visual steps.
+  // If `currentStep` is 0 (Pending) -> Step 1 Active
+  // If `currentStep` is 1 (Processing) -> Step 1 Active (or 2 depending on preference)
+  // If `currentStep` is 2 (Shipped/Out) -> Step 2 Active
+  // If `currentStep` is 3 (Delivered) -> Step 3 Active
+
+  CustomOrderStepper({
+    super.key,
+    required this.currentStep,
+    this.isCancelled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Map logic step (0-3) to visual step (0-2)
+    int visualStep = 0;
+    if (currentStep >= 3) visualStep = 2; // Delivered
+    else if (currentStep >= 2) visualStep = 1; // Out for delivery
+    else visualStep = 0; // Accepted / Processing
+
+    return SizedBox(
+      width: 350, // Matches Figma width
+      height: 85, // Matches Figma height approx
+      child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.network(
-              "https://i.pravatar.cc/100?img=5",
-              width: 54,
-              height: 54,
-              fit: BoxFit.cover,
+          // 1. The Horizontal Lines
+          // Background Line (Grey)
+          Positioned(
+            left: 35, // Starts after first circle center
+            right: 35, // Ends before last circle center
+            top: 15, // Vertically centered to circles (32px / 2 approx)
+            child: Container(
+              height: 2,
+              color: const Color(0xFFDDDDDD),
             ),
           ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Modern light clothes',
-                  style: TextStyle(
-                    color: Color(0xFF121111),
-                    fontSize: 14,
-                    fontFamily: 'Encode Sans',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Dress modern',
-                  style: TextStyle(
-                    color: Color(0xFF787676),
-                    fontSize: 10,
-                    fontFamily: 'Encode Sans',
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '2 x 212.99 ₹',
-                  style: TextStyle(
-                    color: Color(0xFF292526),
-                    fontSize: 14,
-                    fontFamily: 'Encode Sans',
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+          // Active Line (Green or Red)
+          Positioned(
+            left: 35,
+            top: 15,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Total width of line area (approx 350 - 70 = 280)
+                double totalLineWidth = 280;
+                double activeWidth = 0;
+
+                if (visualStep == 1) activeWidth = totalLineWidth / 2;
+                if (visualStep == 2) activeWidth = totalLineWidth;
+                if (isCancelled) activeWidth = 0; // No line progress on cancel usually
+
+                return Container(
+                  width: activeWidth,
+                  height: 2,
+                  color: isCancelled ? Colors.red : const Color(0xFFA2DC00),
+                );
+              },
             ),
           ),
-          const Text(
-            '442 ₹',
-            style: TextStyle(
-              color: Color(0xFF292526),
-              fontSize: 14,
-              fontFamily: 'Encode Sans',
-              fontWeight: FontWeight.w600,
+
+          // 2. The Circles (Nodes)
+          // Node 1: Order Accepted
+          Positioned(
+            left: 21,
+            top: 0,
+            child: _buildCircleNode(
+                isActive: true, // First step always active unless logic differs
+                isCancelled: isCancelled,
+                isCompleted: visualStep > 0
+            ),
+          ),
+          // Node 2: Out for Delivery
+          Positioned(
+            left: 159, // Matches Figma
+            top: 0.33,
+            child: _buildCircleNode(
+                isActive: visualStep >= 1,
+                isCancelled: isCancelled && visualStep >= 1,
+                isCompleted: visualStep > 1
+            ),
+          ),
+          // Node 3: Order Delivered
+          Positioned(
+            left: 302, // Matches Figma
+            top: 0.33,
+            child: _buildCircleNode(
+                isActive: visualStep >= 2,
+                isCancelled: isCancelled && visualStep >= 2,
+                isCompleted: visualStep == 2
+            ),
+          ),
+
+          // 3. The Text Labels
+          Positioned(
+            left: 0,
+            top: 45.33,
+            width: 80, // Constrain width for centering
+            child: const Text(
+              'Order\nAccepted',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF2C2C2C),
+                fontSize: 12,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400,
+                height: 1.36,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 135, // Approx center for 159
+            top: 45.33,
+            width: 80,
+            child: const Text(
+              'Out for\nDelivery',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF2C2C2C),
+                fontSize: 12,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400,
+                height: 1.36,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 277, // Approx center for 302
+            top: 45.33,
+            width: 80,
+            child: const Text(
+              'Order\nDelivered',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF2C2C2C),
+                fontSize: 12,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400,
+                height: 1.36,
+              ),
             ),
           ),
         ],
@@ -451,86 +540,57 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
     );
   }
 
-  // Remaining methods like _currentStepIndex(), _buildCustomStepper(), _buildActionButtons(),
-  // and _showBuyOrZatchBottomSheet remain unchanged but the Product instances now have all required fields.
+  Widget _buildCircleNode({
+    required bool isActive,
+    required bool isCancelled,
+    required bool isCompleted,
+  }) {
+    // Colors from Figma
+    Color circleColor = const Color(0xFFDDDDDD); // Default Grey
+    Color borderColor = Colors.white;
 
-  int _currentStepIndex() {
-    switch (widget.status) {
-      case OrderStatus.accepted:
-        return 0;
-      case OrderStatus.processing: // <--- ADD THIS CASE
-        return 0; // Or 1, depending on how your visual stepper is designed
-      case OrderStatus.inTransit:
-        return 1;
-      case OrderStatus.outForDelivery:
-        return 2;
-      case OrderStatus.delivered:
-        return 3;
-      case OrderStatus.canceled:
-        return 0; // Or handle cancellation specifically
+    if (isCancelled && isActive) {
+      circleColor = Colors.red;
+    } else if (isActive) {
+      circleColor = const Color(0xFFA2DC00); // Green
     }
-  }
 
+    // Figma Design uses a specific "Stroke Align Center" approach which implies
+    // the white border cuts into the circle or surrounds it.
+    // The provided code used: width: 31.87, then inner circles.
+    // Here is a clean implementation of that look:
 
-  // _buildCustomStepper() and _buildActionButtons() remain unchanged from your previous code
-
-  void _showBuyOrZatchBottomSheet(BuildContext context, Product product, String defaultOption) {
-    String? selectedVariant;
-    int quantity = 1;
-    double bargainPrice = product.price;
-    String selectedOption = defaultOption;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: ShapeDecoration(
+        color: circleColor,
+        shape: const OvalBorder(),
       ),
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setState) {
-          double price = product.price;
-          double subTotal = selectedOption == "buy" ? price * quantity : bargainPrice * quantity;
-
-          return Padding(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Buy / Zatch",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFCCF656),
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size.fromHeight(45),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text(selectedOption == "buy" ? "Buy" : "Bargain"),
-                ),
-                const SizedBox(height: 16),
-              ],
+      child: Center(
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: ShapeDecoration(
+            color: Colors.transparent, // Inner part
+            shape: OvalBorder(
+              side: BorderSide(
+                width: 4,
+                strokeAlign: BorderSide.strokeAlignCenter,
+                color: borderColor,
+              ),
             ),
-          );
-        });
-      },
+          ),
+          // Checkmark logic
+          child: (isActive || isCompleted) && !isCancelled
+              ? const Center(
+              child: Icon(Icons.check, size: 10, color: Colors.white))
+              : (isCancelled
+              ? const Center(
+              child: Icon(Icons.close, size: 10, color: Colors.white))
+              : null),
+        ),
+      ),
     );
   }
 }

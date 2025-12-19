@@ -11,6 +11,9 @@ class Address {
   final String pincode;
   final String phone;
   final bool isDefault;
+  // Added coordinate fields
+  final double? lat;
+  final double? lng;
 
   Address({
     required this.id,
@@ -23,20 +26,27 @@ class Address {
     required this.pincode,
     required this.phone,
     this.isDefault = false,
+    this.lat,
+    this.lng,
   });
 
   factory Address.fromJson(Map<String, dynamic> json) {
+    // API returns coordinates as a nested object: "coordinates": {"lat": ..., "lng": ...}
+    final coords = json['coordinates'] as Map<String, dynamic>?;
+
     return Address(
-      id: json['_id'],
-      label: json['label'],
-      type: json['type'],
-      line1: json['line1'],
+      id: json['_id'] ?? '',
+      label: json['label'] ?? '',
+      type: json['type'] ?? '',
+      line1: json['line1'] ?? '',
       line2: json['line2'],
-      city: json['city'],
-      state: json['state'],
-      pincode: json['pincode'],
-      phone: json['phone'],
+      city: json['city'] ?? '',
+      state: json['state'] ?? '',
+      pincode: json['pincode'] ?? '',
+      phone: json['phone'] ?? '',
       isDefault: json['isDefault'] ?? false,
+      lat: coords != null ? (coords['lat'] as num?)?.toDouble() : null,
+      lng: coords != null ? (coords['lng'] as num?)?.toDouble() : null,
     );
   }
 
@@ -52,23 +62,24 @@ class Address {
       'pincode': pincode,
       'phone': phone,
       'isDefault': isDefault,
+      'coordinates': {
+        'lat': lat,
+        'lng': lng,
+      }
     };
   }
-   String get fullAddress {
+
+  String get fullAddress {
     return [line1, line2, city, state, pincode]
         .where((s) => s != null && s.isNotEmpty)
         .join(', ');
   }
 
-  // Helper to get an icon based on the type
   IconData get icon {
     switch (type.toLowerCase()) {
-      case 'home':
-        return Icons.home_outlined;
-      case 'office':
-        return Icons.apartment_outlined;
-      default:
-        return Icons.location_on_outlined;
+      case 'home': return Icons.home_outlined;
+      case 'office': return Icons.apartment_outlined;
+      default: return Icons.location_on_outlined;
     }
   }
 }

@@ -4,6 +4,7 @@ import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
+import 'home_page.dart';
 import 'zatching_details_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -213,6 +214,20 @@ class _CartScreenState extends State<CartScreen>
         backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
+        // inside CartScreen.dart -> build -> AppBar
+
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            // 👇 USE THE GLOBAL KEY TO CLOSE THE SUB-SCREEN
+            if (homePageKey.currentState != null && homePageKey.currentState!.mounted) {
+              homePageKey.currentState!.closeSubScreen();
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
+
       ),
       body: Column(
         children: [

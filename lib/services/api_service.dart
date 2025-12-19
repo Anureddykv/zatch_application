@@ -36,7 +36,6 @@ import 'package:zatch_app/utils/local_storage.dart';
 
 import '../model/address_model.dart';
 
-
 class ApiService {
   static final ApiService _instance = ApiService._internal();
 
@@ -44,41 +43,45 @@ class ApiService {
 
   ApiService._internal() {
     // Add interceptor for 401
-    _dio.interceptors.add(InterceptorsWrapper(
-      onError: (e, handler) async {
-        if (e.response?.statusCode == 401) {
-          // Unauthorized → force logout
-          _token = null;
-          _dio.options.headers.remove("Authorization");
-          await LocalStorage.clearToken();
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (e, handler) async {
+          if (e.response?.statusCode == 401) {
+            // Unauthorized → force logout
+            _token = null;
+            _dio.options.headers.remove("Authorization");
+            await LocalStorage.clearToken();
 
-          // Navigate to login page if possible
-          if (navigatorKey.currentState != null) {
-            Navigator.pushNamedAndRemoveUntil(
-              navigatorKey.currentState!.context,
-              '/login',
-                  (route) => false,
-            );
+            // Navigate to login page if possible
+            if (navigatorKey.currentState != null) {
+              Navigator.pushNamedAndRemoveUntil(
+                navigatorKey.currentState!.context,
+                '/login',
+                (route) => false,
+              );
+            }
           }
-        }
-        handler.next(e);
-      },
-    ));
+          handler.next(e);
+        },
+      ),
+    );
   }
 
   static const String baseUrl = "https://zatch-e9ye.onrender.com/api/v1";
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
-    headers: {"Content-Type": "application/json"},
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 40),
-    sendTimeout: const Duration(seconds: 15),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      headers: {"Content-Type": "application/json"},
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 40),
+      sendTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   String? _token;
 
   static final GlobalKey<NavigatorState> navigatorKey =
-  GlobalKey<NavigatorState>();
+      GlobalKey<NavigatorState>();
 
   /// Initialize service: load token from storage if available
   Future<void> init() async {
@@ -126,7 +129,7 @@ class ApiService {
       Navigator.pushNamedAndRemoveUntil(
         navigatorKey.currentState!.context,
         '/login',
-            (route) => false,
+        (route) => false,
       );
     }
   }
@@ -182,7 +185,9 @@ class ApiService {
   Future<RegisterResponse> registerUser(RegisterRequest request) async {
     try {
       final response = await _dio.post(
-          "/user/register", data: request.toJson());
+        "/user/register",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       final registerResponse = RegisterResponse.fromJson(data);
       setToken(registerResponse.token);
@@ -209,7 +214,9 @@ class ApiService {
   Future<VerifyApiResponse> verifyOtp(VerifyOtpRequest request) async {
     try {
       final response = await _dio.post(
-          "/twilio-sms/verify-otp", data: request.toJson());
+        "/twilio-sms/verify-otp",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       return VerifyApiResponse.fromJson(data);
     } on DioException catch (e) {
@@ -221,7 +228,9 @@ class ApiService {
   Future<ResponseApi> sendOtp(SendOtpRequest request) async {
     try {
       final response = await _dio.post(
-          "/twilio-sms/send-otp", data: request.toJson());
+        "/twilio-sms/send-otp",
+        data: request.toJson(),
+      );
       final data = _decodeResponse(response.data);
       return ResponseApi.fromJson(response.data);
     } on DioException catch (e) {
@@ -229,7 +238,7 @@ class ApiService {
     }
   }
 
-  Future<UserProfileResponse>getUserProfile() async {
+  Future<UserProfileResponse> getUserProfile() async {
     try {
       final response = await _dio.get("/user/profile");
 
@@ -262,7 +271,6 @@ class ApiService {
     }
   }
 
-
   /// CATEGORIES
   Future<List<Category>> getCategories() async {
     try {
@@ -285,7 +293,9 @@ class ApiService {
       if (data is Map<String, dynamic>) {
         return LiveSessionsResponse.fromJson(data);
       } else {
-        print("Error: Expected a Map for LiveSessionsResponse but got ${data.runtimeType}");
+        print(
+          "Error: Expected a Map for LiveSessionsResponse but got ${data.runtimeType}",
+        );
         throw Exception("Invalid data format received for live sessions.");
       }
     } on DioException catch (e) {
@@ -310,7 +320,9 @@ class ApiService {
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("❌ Unexpected error joining live session: $e");
-      throw Exception("An unexpected error occurred while joining the session.");
+      throw Exception(
+        "An unexpected error occurred while joining the session.",
+      );
     }
   }
 
@@ -377,7 +389,9 @@ class ApiService {
   Future<Map<String, dynamic>> sendEmailOtp(String email) async {
     try {
       final response = await _dio.post(
-          "/brevo/send-email-otp", data: {"email": email});
+        "/brevo/send-email-otp",
+        data: {"email": email},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -388,7 +402,9 @@ class ApiService {
   Future<Map<String, dynamic>> verifyEmailOtp(String otp) async {
     try {
       final response = await _dio.post(
-          "/brevo/verify-email-otp", data: {"otp": otp});
+        "/brevo/verify-email-otp",
+        data: {"otp": otp},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -396,13 +412,15 @@ class ApiService {
   }
 
   /// Send OTP to phone
-  Future<Map<String, dynamic>> sendPhoneOtp(String countryCode,
-      String phoneNumber) async {
+  Future<Map<String, dynamic>> sendPhoneOtp(
+    String countryCode,
+    String phoneNumber,
+  ) async {
     try {
-      final response = await _dio.post("/twilio-sms/send-otp", data: {
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-      });
+      final response = await _dio.post(
+        "/twilio-sms/send-otp",
+        data: {"countryCode": countryCode, "phoneNumber": phoneNumber},
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -410,14 +428,20 @@ class ApiService {
   }
 
   /// Verify OTP for phone
-  Future<Map<String, dynamic>> verifyPhoneOtp(String countryCode,
-      String phoneNumber, String otp) async {
+  Future<Map<String, dynamic>> verifyPhoneOtp(
+    String countryCode,
+    String phoneNumber,
+    String otp,
+  ) async {
     try {
-      final response = await _dio.post("/twilio-sms/verify-otp", data: {
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-        "otp": otp,
-      });
+      final response = await _dio.post(
+        "/twilio-sms/verify-otp",
+        data: {
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+          "otp": otp,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -425,14 +449,20 @@ class ApiService {
   }
 
   /// Send OTPs for both email and phone
-  Future<Map<String, dynamic>> sendBothOtp(String email, String countryCode,
-      String phoneNumber) async {
+  Future<Map<String, dynamic>> sendBothOtp(
+    String email,
+    String countryCode,
+    String phoneNumber,
+  ) async {
     try {
-      final response = await _dio.post("/otp/send-both", data: {
-        "email": email,
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-      });
+      final response = await _dio.post(
+        "/otp/send-both",
+        data: {
+          "email": email,
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -448,13 +478,16 @@ class ApiService {
     required String phoneOtp,
   }) async {
     try {
-      final response = await _dio.post("/otp/verify-both", data: {
-        "email": email,
-        "emailOtp": emailOtp,
-        "countryCode": countryCode,
-        "phoneNumber": phoneNumber,
-        "phoneOtp": phoneOtp,
-      });
+      final response = await _dio.post(
+        "/otp/verify-both",
+        data: {
+          "email": email,
+          "emailOtp": emailOtp,
+          "countryCode": countryCode,
+          "phoneNumber": phoneNumber,
+          "phoneOtp": phoneOtp,
+        },
+      );
       return _decodeResponse(response.data);
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -556,17 +589,16 @@ class ApiService {
         throw Exception(response.data["message"] ?? "Failed to fetch product");
       }
     } on DioException catch (e) {
-      final errorMessage = e.response?.data is Map &&
-          e.response?.data["message"] != null
-          ? e.response?.data["message"]
-          : e.message ?? "API Error";
+      final errorMessage =
+          e.response?.data is Map && e.response?.data["message"] != null
+              ? e.response?.data["message"]
+              : e.message ?? "API Error";
 
       throw Exception(errorMessage);
     } catch (e) {
       throw Exception("Unexpected error: $e");
     }
   }
-
 
   Future<int> likeProduct(String productId) async {
     try {
@@ -596,52 +628,54 @@ class ApiService {
     }
   }
 
-
-  Future<List<TrendingBit>> fetchTrendingBits() async {try {
-    // This endpoint returns both 'live' and 'bits' lists.
-    final response = await _dio.get("/trending/trending");
-    final Map<String, dynamic> data = response.data;
-    final List<dynamic> liveJson = data['live'] as List<dynamic>? ?? [];
-    final List<dynamic> bitsJson = data['bits'] as List<dynamic>? ?? [];
-    final List<dynamic> combinedJson = [...liveJson, ...bitsJson];
-  if (combinedJson.isNotEmpty) {
-      return combinedJson
-          .map((json) => TrendingBit.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } else {
-      return [];
+  Future<List<TrendingBit>> fetchTrendingBits() async {
+    try {
+      // This endpoint returns both 'live' and 'bits' lists.
+      final response = await _dio.get("/trending/trending");
+      final Map<String, dynamic> data = response.data;
+      final List<dynamic> liveJson = data['live'] as List<dynamic>? ?? [];
+      final List<dynamic> bitsJson = data['bits'] as List<dynamic>? ?? [];
+      final List<dynamic> combinedJson = [...liveJson, ...bitsJson];
+      if (combinedJson.isNotEmpty) {
+        return combinedJson
+            .map((json) => TrendingBit.fromJson(json as Map<String, dynamic>))
+            .toList();
+      } else {
+        return [];
+      }
+    } on DioException catch (e) {
+      debugPrint("DioException fetching trending bits: ${e.response?.data}");
+      throw Exception("Failed to fetch trending bits due to a network error.");
+    } catch (e) {
+      debugPrint("Unexpected error fetching trending bits: $e");
+      throw Exception("Failed to fetch trending bits: $e");
     }
-  } on DioException catch (e) {
-    debugPrint("DioException fetching trending bits: ${e.response?.data}");
-    throw Exception("Failed to fetch trending bits due to a network error.");
-  } catch (e) {
-    debugPrint("Unexpected error fetching trending bits: $e");
-    throw Exception("Failed to fetch trending bits: $e");
   }
-  }
-
 
   /// Get the user's search history
   Future<SearchHistoryResponse> getUserSearchHistory() async {
     try {
       final response = await _dio.get("/user/search-history");
-      final dynamic data = _decodeResponse(response.data);      // FIX: Handle case where API returns a raw List instead of a Map
+      final dynamic data = _decodeResponse(
+        response.data,
+      ); // FIX: Handle case where API returns a raw List instead of a Map
       if (data is List) {
-        final List<Map<String, dynamic>> formattedList = data.map((item) {
-          // If items are already maps, use them; otherwise, treat as strings
-          if (item is Map<String, dynamic>) return item;
-          return {
-            "query": item.toString(),
-            "createdAt": DateTime.now().toIso8601String(),
-            "_id": DateTime.now().millisecondsSinceEpoch.toString(),
-          };
-        }).toList();
+        final List<Map<String, dynamic>> formattedList =
+            data.map((item) {
+              // If items are already maps, use them; otherwise, treat as strings
+              if (item is Map<String, dynamic>) return item;
+              return {
+                "query": item.toString(),
+                "createdAt": DateTime.now().toIso8601String(),
+                "_id": DateTime.now().millisecondsSinceEpoch.toString(),
+              };
+            }).toList();
 
         // Manually construct the response map expected by fromJson
         return SearchHistoryResponse.fromJson({
           "success": true,
           "message": "Fetched successfully",
-          "searchHistory": formattedList
+          "searchHistory": formattedList,
         });
       }
 
@@ -679,16 +713,20 @@ class ApiService {
 
   Future<SearchResult> search(String query) async {
     if (query.isEmpty) {
-      return SearchResult(success: false,
-          message: "Empty query",
-          products: [],
-          people: [],
-          all: []);
+      return SearchResult(
+        success: false,
+        message: "Empty query",
+        products: [],
+        people: [],
+        all: [],
+      );
     }
 
     try {
       final response = await _dio.get(
-          "/search/search", queryParameters: {"query": query});
+        "/search/search",
+        queryParameters: {"query": query},
+      );
       final data = _decodeResponse(response.data);
 
       print("🔹 Search API Response: $data"); // debug log
@@ -729,15 +767,8 @@ class ApiService {
     try {
       final response = await _dio.put(
         "/user/change-password",
-        data: {
-          'newPassword': newPassword,
-          'confirmPassword': confirmPassword,
-        },
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $_token',
-          },
-        ),
+        data: {'newPassword': newPassword, 'confirmPassword': confirmPassword},
+        options: Options(headers: {'Authorization': 'Bearer $_token'}),
       );
 
       // Log response for debugging
@@ -765,16 +796,14 @@ class ApiService {
       debugPrint("❌ DioException (changePassword): ${e.response?.data}");
       return {
         'success': false,
-        'message': e.response?.data is Map
-            ? e.response?.data['message'] ?? 'Password change failed'
-            : _handleError(e),
+        'message':
+            e.response?.data is Map
+                ? e.response?.data['message'] ?? 'Password change failed'
+                : _handleError(e),
       };
     } catch (e) {
       debugPrint("❌ Unexpected error (changePassword): $e");
-      return {
-        'success': false,
-        'message': 'Unexpected error: $e',
-      };
+      return {'success': false, 'message': 'Unexpected error: $e'};
     }
   }
 
@@ -790,10 +819,7 @@ class ApiService {
 
       debugPrint("Seller Registration Step $step → $body");
 
-      final response = await _dio.post(
-        "/user/seller/register",
-        data: body,
-      );
+      final response = await _dio.post("/user/seller/register", data: body);
 
       final data = _decodeResponse(response.data);
       debugPrint("Seller Registration Step $step Response: $data");
@@ -817,16 +843,16 @@ class ApiService {
       throw Exception("Error fetching terms: $e");
     }
   }
-  Future<Map<String, dynamic>> submitProductStep(Map<String, dynamic> payload) async {
+
+  Future<Map<String, dynamic>> submitProductStep(
+    Map<String, dynamic> payload,
+  ) async {
     try {
       debugPrint("🔹 Submitting Product Step ${payload['step']} -> $payload");
 
       const String productCreateUrl = "/product/create";
 
-      final response = await _dio.post(
-        productCreateUrl,
-        data: payload,
-      );
+      final response = await _dio.post(productCreateUrl, data: payload);
 
       final data = _decodeResponse(response.data);
       debugPrint("✅ Product Step ${payload['step']} Response: $data");
@@ -837,7 +863,9 @@ class ApiService {
         throw Exception(data['message'] ?? 'API returned success=false');
       }
     } on DioException catch (e) {
-      debugPrint("❌ Product Step ${payload['step']} Error: ${e.response?.data}");
+      debugPrint(
+        "❌ Product Step ${payload['step']} Error: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     }
   }
@@ -869,20 +897,23 @@ class ApiService {
     try {
       final response = await _dio.post("/bits/$bitId/toggleLike");
       final data = _decodeResponse(response.data);
-      if (data['success'] == true && data.containsKey('likeCount') && data.containsKey('message')) {
+      if (data['success'] == true &&
+          data.containsKey('likeCount') &&
+          data.containsKey('message')) {
         final int likeCount = data['likeCount'] as int;
         final String message = data['message'] as String;
-         final bool isLiked = message.toLowerCase().contains("liked");
+        final bool isLiked = message.toLowerCase().contains("liked");
 
-        debugPrint("Successfully toggled like for bit: $bitId. New count: $likeCount, isLiked: $isLiked");
-        return {
-          'likeCount': likeCount,
-          'isLiked': isLiked,
-        };
-
+        debugPrint(
+          "Successfully toggled like for bit: $bitId. New count: $likeCount, isLiked: $isLiked",
+        );
+        return {'likeCount': likeCount, 'isLiked': isLiked};
       } else {
         // If the response format is unexpected, throw an error.
-        throw Exception(data['message'] ?? 'Failed to toggle like status or invalid response format');
+        throw Exception(
+          data['message'] ??
+              'Failed to toggle like status or invalid response format',
+        );
       }
     } on DioException catch (e) {
       debugPrint("API Error toggling like for bit $bitId: ${e.response?.data}");
@@ -898,13 +929,19 @@ class ApiService {
       final response = await _dio.post("/product/$productId/like");
       final data = _decodeResponse(response.data);
       if (data['success'] == true && data.containsKey('likeCount')) {
-        debugPrint("Successfully toggled like for product: $productId. New count: ${data['likeCount']}");
+        debugPrint(
+          "Successfully toggled like for product: $productId. New count: ${data['likeCount']}",
+        );
         return data['likeCount'] as int;
       } else {
-        throw Exception(data['message'] ?? 'Failed to toggle product like status');
+        throw Exception(
+          data['message'] ?? 'Failed to toggle product like status',
+        );
       }
     } on DioException catch (e) {
-      debugPrint("API Error toggling like for product $productId: ${e.response?.data}");
+      debugPrint(
+        "API Error toggling like for product $productId: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("Unexpected error toggling like for product $productId: $e");
@@ -924,19 +961,23 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<SaveProductResponse> toggleSaveProduct(String productId) async {
     try {
       final response = await _dio.post("/product/$productId/save");
       final data = _decodeResponse(response.data);
       return SaveProductResponse.fromJson(data);
     } on DioException catch (e) {
-      debugPrint("API Error toggling save for product $productId: ${e.response?.data}");
+      debugPrint(
+        "API Error toggling save for product $productId: ${e.response?.data}",
+      );
       throw Exception(_handleError(e));
     } catch (e) {
       debugPrint("Unexpected error toggling save for product $productId: $e");
       rethrow;
     }
   }
+
   Future<SaveBitResponse> toggleSaveBit(String bitId) async {
     try {
       final response = await _dio.post("/bits/$bitId/save");
@@ -950,14 +991,12 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<Comment> addCommentToBit(String bitId, String text) async {
     final String commentEndpoint = "/bits/$bitId/comments";
 
     try {
-      final response = await _dio.post(
-        commentEndpoint,
-        data: {'text': text},
-      );
+      final response = await _dio.post(commentEndpoint, data: {'text': text});
 
       final data = _decodeResponse(response.data);
 
@@ -973,6 +1012,7 @@ class ApiService {
       throw Exception("Could not post comment. Please try again.");
     }
   }
+
   Future<Map<String, dynamic>> toggleLiveSessionLike(String sessionId) async {
     final String endpoint = "/live/session/$sessionId/like";
     try {
@@ -987,18 +1027,22 @@ class ApiService {
           'triggerAnimation': data['triggerAnimation'] ?? false,
         };
       } else {
-        if (data['message'] == "Already liked" || data['message'] == "Liked successfully") {
+        if (data['message'] == "Already liked" ||
+            data['message'] == "Liked successfully") {
           return {
             'likeCount': data['likeCount'] ?? 0,
             'isLiked': true,
             'triggerAnimation': false,
           };
         }
-        throw Exception(data['message'] ?? "Failed to toggle live session like.");
+        throw Exception(
+          data['message'] ?? "Failed to toggle live session like.",
+        );
       }
     } on DioException catch (e) {
       // If it's a 400 'Already liked', treat as success/synced
-      if(e.response?.statusCode == 400 && e.response?.data['message'] == "Already liked") {
+      if (e.response?.statusCode == 400 &&
+          e.response?.data['message'] == "Already liked") {
         return {
           'likeCount': e.response?.data['likeCount'] ?? 0,
           'isLiked': true,
@@ -1011,16 +1055,21 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<SessionDetails> getLiveSessionDetails(String sessionId) async {
     final String detailsEndpoint = "/live/session/$sessionId/details";
     try {
       final Response response = await _dio.get(detailsEndpoint);
       final data = _decodeResponse(response.data);
 
-      if (data is Map<String, dynamic> && data['success'] == true && data['sessionDetails'] != null) {
+      if (data is Map<String, dynamic> &&
+          data['success'] == true &&
+          data['sessionDetails'] != null) {
         return SessionDetails.fromJson(data['sessionDetails']);
       } else {
-        throw Exception(data['message'] ?? "Failed to get live session details.");
+        throw Exception(
+          data['message'] ?? "Failed to get live session details.",
+        );
       }
     } on DioException catch (e) {
       throw Exception(_handleError(e));
@@ -1030,8 +1079,13 @@ class ApiService {
   }
 
   // Update return type to LiveCommentResponse to get access to 'total'
-  Future<LiveCommentResponse> getLiveSessionComments(String sessionId, {int limit = 20, int offset = 0}) async {
-    final String commentsEndpoint = "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
+  Future<LiveCommentResponse> getLiveSessionComments(
+    String sessionId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final String commentsEndpoint =
+        "/live/session/$sessionId/comments?limit=$limit&offset=$offset";
     try {
       final response = await _dio.get(commentsEndpoint);
       final data = _decodeResponse(response.data);
@@ -1053,10 +1107,7 @@ class ApiService {
     final String commentEndpoint = "/live/session/$sessionId/comment";
 
     try {
-      final response = await _dio.post(
-        commentEndpoint,
-        data: {'text': text},
-      );
+      final response = await _dio.post(commentEndpoint, data: {'text': text});
 
       final data = _decodeResponse(response.data);
 
@@ -1068,8 +1119,7 @@ class ApiService {
         // Fallback: if 'comment' is missing but 'newComment' exists or similar
         else if (data['newComment'] is Map<String, dynamic>) {
           return LiveComment.fromJson(data['newComment']);
-        }
-        else {
+        } else {
           throw Exception("API response is missing the comment object.");
         }
       } else {
@@ -1119,6 +1169,7 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<UpdatedCartModel?> updateCartItem({
     required String productId,
     required int quantity,
@@ -1189,7 +1240,10 @@ class ApiService {
       rethrow;
     }
   }
-  Future<Map<String, dynamic>> joinLiveSessionWithToken(String sessionId) async {
+
+  Future<Map<String, dynamic>> joinLiveSessionWithToken(
+    String sessionId,
+  ) async {
     final String endpoint = "/live/session/$sessionId/join";
     try {
       debugPrint("🔹 Joining session to get token: $sessionId");
@@ -1208,7 +1262,9 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getLiveSessionFullDetails(String sessionId) async {
+  Future<Map<String, dynamic>> getLiveSessionFullDetails(
+    String sessionId,
+  ) async {
     final String endpoint = "/live/session/$sessionId/details";
     try {
       debugPrint("🔹 Fetching full session details: $sessionId");
@@ -1226,6 +1282,7 @@ class ApiService {
       throw Exception(_handleError(e));
     }
   }
+
   // Share Live Session
   Future<String> shareLiveSession(String sessionId) async {
     final String endpoint = "/live/session/$sessionId/share";
@@ -1243,37 +1300,68 @@ class ApiService {
       return "https://zatch.live/live/$sessionId";
     }
   }
-  // Fetch My Orders with status filter
-  Future<List<OrderModel>> getMyOrders({String status = 'pending'}) async {
-    try {
-      final response = await _dio.get(
-        "/orders/my-orders",
-        queryParameters: {'status': status},
-      );
 
+  Future<List<OrderModel>> getMyOrders({String? status}) async {
+    try {
+      final response = await _dio.get('/orders/my-orders');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final List<dynamic> ordersJson = response.data['orders'];
+
+        List<OrderModel> orders =
+            ordersJson.map((json) => OrderModel.fromJson(json)).toList();
+
+        if (status != null) {
+          return orders.where((o) => o.status == status).toList();
+        }
+        return orders;
+      } else {
+        throw Exception("Failed to load orders");
+      }
+    } catch (e) {
+      throw Exception("Error fetching orders: $e");
+    }
+  }
+  Future<Map<String, dynamic>> createDirectOrder({  required String addressId,
+    required String paymentMethod,
+    required List<Map<String, dynamic>> items,
+    String? buyerNote,
+  }) async {
+    const String endpoint = "/orders/create-direct";
+    try {
+      final Map<String, dynamic> body = {
+        "addressId": addressId,
+        "paymentMethod": paymentMethod,
+        "items": items,
+        "buyerNote": buyerNote,
+      };
+
+      debugPrint("📞 API Request: $endpoint");
+      debugPrint("   Body: $body");
+
+      final response = await _dio.post(endpoint, data: body);
       final data = _decodeResponse(response.data);
 
       if (data['success'] == true) {
-        final List ordersList = data['orders'];
-        return ordersList.map((e) => OrderModel.fromJson(e)).toList();
+        return data;
       } else {
-        return [];
+        throw Exception(data['message'] ?? 'Failed to place direct order');
       }
     } on DioException catch (e) {
+      debugPrint("❌ Dio Error on $endpoint: ${e.response?.data}");
       throw Exception(_handleError(e));
     } catch (e) {
-      throw Exception("Unexpected error fetching orders: $e");
+      debugPrint("❌ Unexpected Error on $endpoint: $e");
+      throw Exception("Unexpected error: $e");
     }
   }
-  // Create Order (Checkout)
-  // In lib/services/api_service.dart
+
 
   Future<Map<String, dynamic>> createOrder({
-  required String addressId,
-  required String paymentMethod,
-  String? buyerNote,
-  // --- ADD THIS ---
-  required List<Map<String, dynamic>> items,
+    required String addressId,
+    required String paymentMethod,
+    String? buyerNote,
+    // --- ADD THIS ---
+    required List<Map<String, dynamic>> items,
   }) async {
     try {
       final body = {
@@ -1287,10 +1375,7 @@ class ApiService {
       print("📞 API Request: /orders/create");
       print("   Body: $body");
 
-      final response = await _dio.post(
-        "/orders/create",
-        data: body,
-      );
+      final response = await _dio.post("/orders/create", data: body);
 
       print("✅ API Response Received: /orders/create");
       print("   Status Code: ${response.statusCode}");
@@ -1305,7 +1390,7 @@ class ApiService {
       }
     } on DioException catch (e) {
       print("❌ Dio Error on /orders/create: ${e.response?.data}");
-    throw Exception(_handleError(e));
+      throw Exception(_handleError(e));
     } catch (e) {
       print("❌ Unexpected Error on /orders/create: $e");
       throw Exception("Unexpected error placing order: $e");
@@ -1318,9 +1403,7 @@ class ApiService {
       final data = _decodeResponse(response.data);
       if (data is List) {
         return data.map((json) => Address.fromJson(json)).toList();
-      }
-
-      else if (data is Map<String, dynamic>) {
+      } else if (data is Map<String, dynamic>) {
         if (data['addresses'] is List) {
           final List addressList = data['addresses'];
           return addressList.map((json) => Address.fromJson(json)).toList();
@@ -1337,7 +1420,6 @@ class ApiService {
     }
   }
 
-
   Future<Address> saveAddress({
     String? addressId, // Provide ID if updating, null if creating
     required String label,
@@ -1353,16 +1435,23 @@ class ApiService {
   }) async {
     try {
       final Map<String, dynamic> payload = {
-        'label': label, 'type': type, 'line1': line1, 'city': city,
-        'state': state, 'pincode': pincode, 'phone': phone,
+        'label': label,
+        'type': type,
+        'line1': line1,
+        'city': city,
+        'state': state,
+        'pincode': pincode,
+        'phone': phone,
         if (line2 != null && line2.isNotEmpty) 'line2': line2,
-        if (lat != null) 'lat': lat, if (lng != null) 'lng': lng,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
       };
 
       // Use PUT for update, POST for create
-      final response = addressId != null
-          ? await _dio.put("/address/$addressId", data: payload)
-          : await _dio.post("/address/save", data: payload);
+      final response =
+          addressId != null
+              ? await _dio.put("/address/$addressId", data: payload)
+              : await _dio.post("/address/save", data: payload);
 
       final data = _decodeResponse(response.data);
       if (data['success'] == true && data['address'] != null) {
@@ -1377,7 +1466,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> geocodeAddress(double lat, double lng) async {
     try {
-      print("🔹 ApiService: POST /address/geocode with body: {'lat': $lat, 'lng': $lng}");
+      print(
+        "🔹 ApiService: POST /address/geocode with body: {'lat': $lat, 'lng': $lng}",
+      );
 
       final response = await _dio.post(
         "/address/geocode",
@@ -1436,11 +1527,7 @@ class ApiService {
     try {
       final response = await _dio.post(
         "/coupons/apply/$couponId",
-        data: {
-          "code": code,
-          "cartTotal": cartTotal,
-          "productIds": productIds,
-        },
+        data: {"code": code, "cartTotal": cartTotal, "productIds": productIds},
       );
       final data = _decodeResponse(response.data);
       if (data['success'] == true) {
@@ -1452,6 +1539,7 @@ class ApiService {
       throw Exception(_handleError(e));
     }
   }
+
   /// Get available categories for preferences (Onboarding/Settings)
   /// Endpoint: /preference/categories
   Future<List<dynamic>> getPreferenceCategories() async {
@@ -1494,19 +1582,16 @@ class ApiService {
 
   /// Save or Update User Preferences
   /// Endpoint: /preference/save (Can also use /preference/update)
-  Future<Map<String, dynamic>> saveUserPreferences(List<String> categories) async {
+  Future<Map<String, dynamic>> saveUserPreferences(
+    List<String> categories,
+  ) async {
     try {
       // API expects: { "categories": ["slug1", "slug2"] }
-      final Map<String, dynamic> payload = {
-        "categories": categories
-      };
+      final Map<String, dynamic> payload = {"categories": categories};
 
       debugPrint("🔹 Saving Preferences: $payload");
 
-      final response = await _dio.post(
-        "/preference/save",
-        data: payload,
-      );
+      final response = await _dio.post("/preference/save", data: payload);
 
       final data = _decodeResponse(response.data);
 
@@ -1519,8 +1604,4 @@ class ApiService {
       throw Exception(_handleError(e));
     }
   }
-
-
-
-
 }

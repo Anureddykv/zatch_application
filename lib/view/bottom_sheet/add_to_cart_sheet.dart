@@ -1,20 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/product_response.dart';
-import 'package:zatch_app/services/api_service.dart'; // Import your ApiService
+import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/cart_screen.dart';
 
 class AddToCartSheet extends StatefulWidget {
   final Product product;
+  final String? size;
+  final String? color;
+  final Function(Widget) onNavigate;
 
-  const AddToCartSheet({super.key, required this.product});
+  const AddToCartSheet({
+    super.key,
+    required this.product,
+    this.size,
+    this.color,
+    required this.onNavigate,
+  });
 
   @override
   State<AddToCartSheet> createState() => _AddToCartSheetState();
 }
 
 class _AddToCartSheetState extends State<AddToCartSheet> {
-  final ApiService _apiService = ApiService(); // 1. Initialize API Service
+  final ApiService _apiService = ApiService();
   int quantity = 1;
-  bool _isLoading = false; // 2. Add loading state
+  bool _isLoading = false;
 
   Future<void> _handleAddToCart() async {
     setState(() {
@@ -22,28 +32,34 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
     });
 
     try {
-      // 3. Call the API
       await _apiService.updateCartItem(
         productId: widget.product.id,
         quantity: quantity,
-        color: null,
-        size: null,
+        color: widget.color,
+        size: widget.size,
       );
 
       if (!mounted) return;
 
-      // 4. Handle Success
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Product added to cart successfully!"),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 1),
         ),
       );
-      Navigator.pop(context); // Close the sheet
+
+      // 1. Close the AddToCart Sheet
+      Navigator.pop(context);
+      widget.onNavigate(
+        CartScreen(
+          // Important: Pass the navigation logic so CartScreen can stay within context
+          onNavigate: (Widget nextScreen) => widget.onNavigate(nextScreen),
+        ),
+      );
+
     } catch (e) {
       if (!mounted) return;
-
-      // 5. Handle Error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to add to cart: ${e.toString()}"),
@@ -68,6 +84,10 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
         ? widget.product.images.first.url
         : "https://placehold.co/95x118";
 
+    String variantText = "";
+    if (widget.size != null) variantText += "Size: ${widget.size}  ";
+    if (widget.color != null) variantText += "Color: ${widget.color}";
+
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -84,7 +104,7 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
               IconButton(
                   icon: const Icon(Icons.close, color: Colors.transparent),
                   onPressed: () {}),
-              const Text('Cart',
+              const Text('Add to Cart',
                   style: TextStyle(
                       color: Color(0xFF121111),
                       fontSize: 18,
@@ -133,7 +153,7 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(widget.product.name ?? 'Product Name',
+                                Text(widget.product.name,
                                     style: const TextStyle(
                                         color: Color(0xFF121111),
                                         fontSize: 14,
@@ -146,7 +166,17 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
                                         color: Color(0xFF787676),
                                         fontSize: 10,
                                         fontFamily: 'Encode Sans')),
-                                const SizedBox(height: 16),
+                                if (variantText.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(variantText,
+                                        style: const TextStyle(
+                                            color: Colors.black54,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'Encode Sans')),
+                                  ),
+                                const SizedBox(height: 10),
                                 Text(
                                     '${widget.product.price.toStringAsFixed(2)} ₹',
                                     style: const TextStyle(
@@ -212,7 +242,7 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
           ),
           const SizedBox(height: 30),
           GestureDetector(
-            onTap: _isLoading ? null : _handleAddToCart, // 6. Connect the function
+            onTap: _isLoading ? null : _handleAddToCart,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -250,7 +280,7 @@ class _AddToCartSheetState extends State<AddToCartSheet> {
   Widget _buildQuantityButton(
       {required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
-      onTap: _isLoading ? null : onTap, // Disable buttons while loading
+      onTap: _isLoading ? null : onTap,
       child: Container(
         width: 24,
         height: 24,

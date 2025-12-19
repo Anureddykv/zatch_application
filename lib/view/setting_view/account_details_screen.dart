@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Import image_picker
+import 'package:flutter/services.dart'; // Import for input formatters
+import 'package:image_picker/image_picker.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'change_info_screen.dart';
@@ -34,18 +35,19 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   String? _selectedMonth;
   String? _selectedYear;
 
-  late List<String> _days;
+  List<String> _days = [];
   final List<String> _months = const [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   ];
   late List<String> _years;
 
   bool _isLoading = false;
-  bool _isFormValid = false;
+
+  // Flags to lock fields if data already exists
+  bool _isDobLocked = false;
+  bool _isGenderLocked = false;
 
   UserProfileResponse? _currentProfile;
-
-  // --- NEW: Image handling state variables ---
   File? _profileImageFile;
   final ImagePicker _picker = ImagePicker();
 
@@ -53,11 +55,16 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   void initState() {
     super.initState();
 
+    // Generate years (100 years back)
+    int currentYear = DateTime.now().year;
+    _years = List.generate(100, (i) => (currentYear - i).toString());
+
     if (widget.userProfile == null) {
       _currentProfile = null;
       _nameController = TextEditingController();
       _phoneController = TextEditingController();
       _emailController = TextEditingController();
+      _updateDays(); // Initialize default days
     } else {
       _currentProfile = widget.userProfile!;
       final user = _currentProfile!.user;
@@ -68,31 +75,45 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       gender = user.gender;
       _selectedCountryCode = user.countryCode ?? "+91";
 
-      if (user.dob != null && user.dob!.isNotEmpty) {
-        final parts = user.dob!.split("-");
-        if (parts.length == 3) {
-          _selectedYear = parts[0];
-          final monthIndex = int.tryParse(parts[1]);
-          if (monthIndex != null && monthIndex >= 1 && monthIndex <= 12) {
-            _selectedMonth = _months[monthIndex - 1];
-          }
-          _selectedDay = parts[2].padLeft(2, '0');
-        }
+      // Check if we need to lock fields (if they are not empty from API)
+      if (gender.isNotEmpty) {
+        _isGenderLocked = true;
       }
 
-      _nameController.addListener(_validateForm);
-      _phoneController.addListener(_validateForm);
-      _emailController.addListener(_validateForm);
+      if (user.dob != null && user.dob!.isNotEmpty) {
+        try {
+          DateTime date = DateTime.parse(user.dob!);
+          _selectedYear = date.year.toString();
+          _selectedMonth = _months[date.month - 1];
+          _selectedDay = date.day.toString().padLeft(2, '0');
+          _isDobLocked = true; // Lock DOB if it exists
+        } catch (e) {
+          debugPrint("Error parsing DOB: $e");
+        }
+      }
+      _updateDays(); // Generate correct days for the loaded/default date
     }
-
-    _days = List.generate(31, (i) => (i + 1).toString().padLeft(2, '0'));
-    int currentYear = DateTime.now().year;
-    _years = List.generate(100, (i) => (currentYear - i).toString());
-
-    _validateForm();
   }
 
-  // --- NEW: Method to get the current image provider ---
+  /// Calculates the number of days based on Month and Year (handles leap years)
+  void _updateDays() {
+    int year = int.tryParse(_selectedYear ?? DateTime.now().year.toString()) ?? DateTime.now().year;
+    // Month index 1-12
+    int monthIndex = (_selectedMonth != null ? _months.indexOf(_selectedMonth!) : 0) + 1;
+
+    // DateTime(year, month + 1, 0).day gives the last day of the 'month'
+    int daysInMonth = DateTime(year, monthIndex + 1, 0).day;
+
+    setState(() {
+      _days = List.generate(daysInMonth, (i) => (i + 1).toString().padLeft(2, '0'));
+
+      // If previously selected day is now out of range (e.g., was 31, now month has 30), reset it
+      if (_selectedDay != null && int.parse(_selectedDay!) > daysInMonth) {
+        _selectedDay = null;
+      }
+    });
+  }
+
   ImageProvider? get _currentImageProvider {
     if (_profileImageFile != null) {
       return FileImage(_profileImageFile!);
@@ -103,38 +124,31 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     return null;
   }
 
-  // --- NEW: Logic for picking an image ---
   Future<void> _pickImage(ImageSource source) async {
-    Navigator.of(context).pop(); // Close the actions dialog first
-
+    Navigator.of(context).pop();
     try {
       final pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
-
       if (pickedFile != null) {
         setState(() {
           _profileImageFile = File(pickedFile.path);
         });
-        // Now close the preview dialog underneath
         Navigator.of(context).pop();
       }
     } catch (e) {
-      print("Image picker error: $e");
       if(Navigator.of(context).canPop()){
         Navigator.of(context).pop();
       }
     }
   }
 
-  // --- NEW: Logic for deleting the image ---
   void _deleteImage() {
     setState(() {
       _profileImageFile = null;
     });
-    Navigator.of(context).pop(); // Close actions dialog
-    Navigator.of(context).pop(); // Close preview dialog
+    Navigator.of(context).pop();
+    Navigator.of(context).pop();
   }
 
-  // --- NEW: Shows the dialog with "Take Photo", "Upload", "Delete" ---
   void _showImageActionsDialog() {
     showDialog(
       context: context,
@@ -162,7 +176,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     );
   }
 
-  // --- NEW: Helper for building dialog action items ---
   Widget _buildDialogActionItem(String title, VoidCallback onTap, {Color color = const Color(0xFF6A7282)}) {
     return InkWell(
       onTap: onTap,
@@ -182,10 +195,8 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     );
   }
 
-  // --- NEW: Shows the full-screen circular image preview ---
   void _showImagePreviewDialog() {
     final imageProvider = _currentImageProvider;
-
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.5),
@@ -196,7 +207,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
             alignment: Alignment.center,
             children: [
               GestureDetector(
-                onTap: () => Navigator.of(context).pop(), // Tap background to dismiss
+                onTap: () => Navigator.of(context).pop(),
                 child: Container(color: Colors.transparent),
               ),
               Container(
@@ -236,25 +247,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         );
       },
     );
-  }
-
-  void _validateForm() {
-    if (_currentProfile == null) {
-      if (mounted) setState(() => _isFormValid = false);
-      return;
-    }
-
-    if (mounted) {
-      setState(() {
-        _isFormValid = _nameController.text.isNotEmpty &&
-            _phoneController.text.isNotEmpty &&
-            _emailController.text.isNotEmpty &&
-            _selectedDay != null &&
-            _selectedMonth != null &&
-            _selectedYear != null &&
-            gender.isNotEmpty;
-      });
-    }
   }
 
   @override
@@ -305,12 +297,15 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                       const SizedBox(height: 16),
                       _buildLabel("Gender"),
                       const SizedBox(height: 8),
+                      // Pass the locked state
                       _genderSelector(),
                       const SizedBox(height: 16),
                       _buildLabel("Date of Birth"),
                       const SizedBox(height: 8),
+                      // Pass the locked state
                       _dateOfBirthFields(),
                       const SizedBox(height: 16),
+                      // Pass input constraints
                       _phoneField(inputHeight, inputFontSize),
                       const SizedBox(height: 16),
                       _buildTextField("Email", _emailController),
@@ -334,7 +329,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     );
   }
 
-  // -------------------- UI Helpers --------------------
   PreferredSizeWidget _appBar(String title) => AppBar(
     backgroundColor: Colors.grey.shade100,
     elevation: 0,
@@ -359,7 +353,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       children: [
         Stack(
           children: [
-            // Use the _currentImageProvider which reflects local changes
             CircleAvatar(
               radius: 40,
               backgroundImage: _currentImageProvider,
@@ -371,7 +364,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               bottom: 0,
               right: 0,
               child: GestureDetector(
-                // --- MODIFIED: This now triggers the preview dialog ---
                 onTap: _showImagePreviewDialog,
                 child: Container(
                   decoration: BoxDecoration(
@@ -466,58 +458,73 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
   Widget _genderSelector() {
     final options = {"Male": Icons.male, "Female": Icons.female, "Other": Icons.transgender};
-    return Row(
-      children: options.entries.map((entry) {
-        final isSelected = gender == entry.key;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() {
-              gender = entry.key;
-              _validateForm();
-            }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFA3DD00) : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+
+    // If locked, disable interaction
+    return IgnorePointer(
+      ignoring: _isGenderLocked,
+      child: Opacity(
+        opacity: _isGenderLocked ? 0.5 : 1.0, // Visual feedback that it's disabled
+        child: Row(
+          children: options.entries.map((entry) {
+            final isSelected = gender == entry.key;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  gender = entry.key;
+                }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFA3DD00) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(entry.value, color: isSelected ? Colors.black : Colors.grey),
+                      const SizedBox(width: 6),
+                      Text(entry.key,
+                          style: TextStyle(
+                              color: isSelected ? Colors.black : Colors.grey,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(entry.value, color: isSelected ? Colors.black : Colors.grey),
-                  const SizedBox(width: 6),
-                  Text(entry.key,
-                      style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.grey,
-                          fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 
   Widget _dateOfBirthFields() {
-    return Row(
-      children: [
-        _dobDropdown(_days, _selectedDay, "DD", (v) => setState(() {
-          _selectedDay = v;
-          _validateForm();
-        })),
-        const SizedBox(width: 8),
-        _dobDropdown(_months, _selectedMonth, "MM", (v) => setState(() {
-          _selectedMonth = v;
-          _validateForm();
-        })),
-        const SizedBox(width: 8),
-        _dobDropdown(_years, _selectedYear, "YYYY", (v) => setState(() {
-          _selectedYear = v;
-          _validateForm();
-        })),
-      ],
+    return IgnorePointer(
+      ignoring: _isDobLocked,
+      child: Opacity(
+        opacity: _isDobLocked ? 0.5 : 1.0,
+        child: Row(
+          children: [
+            // Day Dropdown
+            _dobDropdown(_days, _selectedDay, "DD", (v) => setState(() {
+              _selectedDay = v;
+            })),
+            const SizedBox(width: 8),
+            // Month Dropdown
+            _dobDropdown(_months, _selectedMonth, "MM", (v) => setState(() {
+              _selectedMonth = v;
+              _updateDays(); // Update days when month changes
+            })),
+            const SizedBox(width: 8),
+            // Year Dropdown
+            _dobDropdown(_years, _selectedYear, "YYYY", (v) => setState(() {
+              _selectedYear = v;
+              _updateDays(); // Update days when year changes (leap year check)
+            })),
+          ],
+        ),
+      ),
     );
   }
 
@@ -561,7 +568,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                 onChanged: (countryCode) {
                   setState(() {
                     _selectedCountryCode = countryCode.dialCode ?? "+91";
-                    _validateForm();
                   });
                 },
                 initialSelection: 'IN',
@@ -585,9 +591,15 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                 child: TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  // 1. LIMIT TO 10 DIGITS & NUMBERS ONLY
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Enter phone number',
+                    counterText: "", // Hide the 0/10 counter
                   ),
                   style: TextStyle(fontSize: inputFontSize),
                 ),
@@ -621,7 +633,8 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isFormValid ? _handleSaveChanges : null,
+            // 2. ALWAYS CLICKABLE to show validation msg
+            onPressed: _onSavePressed,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFA3DD00),
               foregroundColor: Colors.black,
@@ -637,7 +650,56 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     );
   }
 
-  // -------------------- Save Logic --------------------
+  // Called when "Save Changes" is clicked
+  void _onSavePressed() {
+    // 3. VALIDATION CHECK
+    final bool isValid = _nameController.text.isNotEmpty &&
+        _phoneController.text.isNotEmpty &&
+        _emailController.text.isNotEmpty &&
+        _selectedDay != null &&
+        _selectedMonth != null &&
+        _selectedYear != null &&
+        gender.isNotEmpty;
+
+    if (!isValid) {
+      showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Missing Fields"),
+            content: const Text("Please fill in all details (Name, Gender, DOB, Phone, Email) to save changes."),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+            ],
+          )
+      );
+      return;
+    }
+
+    // 4. CONFIRMATION DIALOG
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Confirm Changes"),
+          content: const Text("Are you sure you want to update your account details?"),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text("Yes, Update"),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                _handleSaveChanges(); // Proceed to save
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _handleSaveChanges() async {
     final oldPhone = _currentProfile!.user.phone;
     final oldEmail = _currentProfile!.user.email;
@@ -651,8 +713,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     final phoneChanged = newPhone != oldPhone;
     final emailChanged = newEmail != oldEmail;
     final dobChanged = newDob != oldDob;
-
-    // --- MODIFIED: Also check if a new profile image has been picked ---
     final imageChanged = _profileImageFile != null;
 
     final otherChanges =
@@ -699,6 +759,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       }
       return;
     }
+
     if (phoneChanged) {
       setState(() => _isLoading = true);
       try {
@@ -746,11 +807,8 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // --- MODIFIED: The 'profileImage' parameter is removed as requested ---
-      // We still check for other changes and show a success message.
-      // In a real app, you would pass the _profileImageFile here.
       if(_profileImageFile != null) {
-        print("An image was selected, but we are not uploading it as per the request.");
+        print("An image was selected but upload logic requires backend support for file.");
       }
 
       final response = await _apiService.updateUserProfile(
@@ -763,8 +821,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
         otp: otp,
         otpType: otpType,
       );
-
-      print("Update Profile Request Sent.");
       print("Update Profile Response: $response");
 
       if (!mounted) return;
@@ -774,6 +830,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       );
 
       Navigator.pop(context, true);
+
 
     } catch (e) {
       if (!mounted) return;

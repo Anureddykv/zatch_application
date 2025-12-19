@@ -19,22 +19,51 @@ class CatalogueSheet extends StatefulWidget {
 }
 
 class _CatalogueSheetState extends State<CatalogueSheet> {
-  // --- UPDATED: Dynamic Color Parser (Hex Support) ---
+  // --- UPDATED: Dynamic Color Parser (Supports Names & Hex) ---
   Color _getColorFromString(String colorString) {
     try {
-      // 1. Clean the string
-      String hex = colorString.replaceAll("#", "").trim();
+      String input = colorString.trim();
 
-      // 2. Parse Hex (6 digit or 8 digit)
-      if (hex.length == 6) {
-        return Color(int.parse("0xFF$hex"));
-      } else if (hex.length == 8) {
-        return Color(int.parse("0x$hex"));
+      // 1. Check if it is a Hex code (starts with # or contains digits)
+      if (input.startsWith("#") ||
+          (input.length >= 6 && int.tryParse("0xFF$input") != null)) {
+        String hex = input.replaceAll("#", "");
+        if (hex.length == 6) {
+          return Color(int.parse("0xFF$hex"));
+        } else if (hex.length == 8) {
+          return Color(int.parse("0x$hex"));
+        }
       }
 
-      // 3. Fallback if the backend sends simple names instead of Hex
-      // (You can assume your backend sends Hex now, otherwise this defaults to grey)
-      return Colors.grey;
+      // 2. Map Backend Color Names to Flutter Colors
+      final Map<String, Color> colorMap = {
+        // Your backend specific colors
+        'gold': const Color(0xFFFFD700),
+        'silver': const Color(0xFFC0C0C0),
+        'clear': const Color(0xFFE0E0E0), // Using light grey for 'clear'
+        'black': Colors.black,
+
+        // Standard colors
+        'red': Colors.red,
+        'blue': Colors.blue,
+        'green': Colors.green,
+        'yellow': Colors.yellow,
+        'white': Colors.white,
+        'grey': Colors.grey,
+        'gray': Colors.grey,
+        'orange': Colors.orange,
+        'purple': Colors.purple,
+        'pink': Colors.pink,
+        'brown': Colors.brown,
+        'cyan': Colors.cyan,
+        'teal': Colors.teal,
+        'navy': const Color(0xFF000080),
+        'beige': const Color(0xFFF5F5DC),
+        'maroon': const Color(0xFF800000),
+      };
+
+      // Return the mapped color, or Grey if not found
+      return colorMap[input.toLowerCase()] ?? Colors.grey;
     } catch (e) {
       return Colors.grey;
     }
@@ -57,15 +86,19 @@ class _CatalogueSheetState extends State<CatalogueSheet> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child:
-                    const Icon(Icons.arrow_back_ios, color: Colors.black),
+                    child: const Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.black,
+                    ),
                   ),
                   const Expanded(
                     child: Center(
                       child: Text(
                         "Catalogue",
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -84,6 +117,7 @@ class _CatalogueSheetState extends State<CatalogueSheet> {
                   final product = widget.products[index];
                   return _ProductItem(
                     product: product,
+                    allProducts: widget.products,
                     getColorFromString: _getColorFromString,
                     onNavigate: widget.onNavigate,
                   );
@@ -91,8 +125,10 @@ class _CatalogueSheetState extends State<CatalogueSheet> {
               ),
             ),
             Padding(
-              padding:
-              const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 8.0,
+                horizontal: 16.0,
+              ),
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(45),
@@ -102,8 +138,10 @@ class _CatalogueSheetState extends State<CatalogueSheet> {
                   ),
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel",
-                    style: TextStyle(color: Colors.black)),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
             ),
           ],
@@ -112,14 +150,17 @@ class _CatalogueSheetState extends State<CatalogueSheet> {
     );
   }
 }
+
 class _ProductItem extends StatefulWidget {
   final Product product;
+  final List<Product> allProducts;
   final Color Function(String) getColorFromString;
   final Function(Widget) onNavigate;
 
   const _ProductItem({
     super.key,
     required this.product,
+    required this.allProducts,
     required this.getColorFromString,
     required this.onNavigate,
   });
@@ -130,9 +171,13 @@ class _ProductItem extends StatefulWidget {
 
 class _ProductItemState extends State<_ProductItem> {
   String? selectedSize;
-  Color? selectedColor;
+  String? selectedColorString; // Changed: Store the string value
 
-  // --- 1. GETTERS: Extract Unique & Non-Null Values ---
+  // Helper to get Color object from the string for UI display
+  Color? get selectedColor =>
+      selectedColorString != null
+          ? widget.getColorFromString(selectedColorString!)
+          : null;
 
   List<String> get availableSizes {
     if (widget.product.variants.isEmpty) return [];
@@ -188,16 +233,18 @@ class _ProductItemState extends State<_ProductItem> {
     // If sizes exist, one must be selected. If no sizes exist, it's considered valid.
     final bool isSizeValid = !hasSizes || selectedSize != null;
     // If colors exist, one must be selected. If no colors exist, it's considered valid.
-    final bool isColorValid = !hasColors || selectedColor != null;
+    final bool isColorValid = !hasColors || selectedColorString != null;
 
     final bool areOptionsSelected = isSizeValid && isColorValid;
 
     // Image Fallback
-    final bool hasValidImage = widget.product.images.isNotEmpty &&
+    final bool hasValidImage =
+        widget.product.images.isNotEmpty &&
         widget.product.images.first.url.isNotEmpty;
-    final String productImage = hasValidImage
-        ? widget.product.images.first.url
-        : "https://placehold.co/95x118";
+    final String productImage =
+        hasValidImage
+            ? widget.product.images.first.url
+            : "https://placehold.co/95x118";
 
     return Container(
       width: double.infinity,
@@ -213,7 +260,8 @@ class _ProductItemState extends State<_ProductItem> {
               onTap: () {
                 Navigator.pop(context);
                 widget.onNavigate(
-                    ProductDetailScreen(productId: widget.product.id));
+                  ProductDetailScreen(productId: widget.product.id),
+                );
               },
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,10 +279,11 @@ class _ProductItemState extends State<_ProductItem> {
                     child: Image.network(
                       productImage,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.broken_image, size: 24),
-                      ),
+                      errorBuilder:
+                          (context, error, stackTrace) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image, size: 24),
+                          ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -266,8 +315,11 @@ class _ProductItemState extends State<_ProductItem> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.star,
-                                size: 12, color: Color(0xFFF5A623)),
+                            const Icon(
+                              Icons.star,
+                              size: 12,
+                              color: Color(0xFFF5A623),
+                            ),
                             const SizedBox(width: 2),
                             Text(
                               "${widget.product.averageRating > 0 ? widget.product.averageRating : 5.0}",
@@ -323,51 +375,62 @@ class _ProductItemState extends State<_ProductItem> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: availableSizes.map((s) {
-                              final isSelected =
-                                  selectedSize?.toLowerCase() == s.toLowerCase();
-                              return GestureDetector(
-                                onTap: () => setState(() => selectedSize = s),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                  decoration: ShapeDecoration(
-                                    color: isSelected
-                                        ? const Color(0xFF292526)
-                                        : Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      side: BorderSide(
-                                        width: 1,
-                                        color: isSelected
-                                            ? Colors.transparent
-                                            : const Color(0xFFDFDEDE),
+                            children:
+                                availableSizes.map((s) {
+                                  final isSelected =
+                                      selectedSize?.toLowerCase() ==
+                                      s.toLowerCase();
+                                  return GestureDetector(
+                                    onTap:
+                                        () => setState(() => selectedSize = s),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
                                       ),
-                                      borderRadius: BorderRadius.circular(32),
+                                      decoration: ShapeDecoration(
+                                        color:
+                                            isSelected
+                                                ? const Color(0xFF292526)
+                                                : Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          side: BorderSide(
+                                            width: 1,
+                                            color:
+                                                isSelected
+                                                    ? Colors.transparent
+                                                    : const Color(0xFFDFDEDE),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            32,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        s,
+                                        style: TextStyle(
+                                          color:
+                                              isSelected
+                                                  ? const Color(0xFFFDFDFD)
+                                                  : const Color(0xFF292526),
+                                          fontSize: 12,
+                                          fontFamily: 'Encode Sans',
+                                          fontWeight:
+                                              isSelected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w400,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    s,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? const Color(0xFFFDFDFD)
-                                          : const Color(0xFF292526),
-                                      fontSize: 12,
-                                      fontFamily: 'Encode Sans',
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                                  );
+                                }).toList(),
                           ),
                         ],
                       ),
                     ),
 
                   // Spacer between columns if both exist
-                  if (hasSizes && hasColors)
-                    const SizedBox(width: 16),
+                  if (hasSizes && hasColors) const SizedBox(width: 16),
 
                   // 2. COLORS COLUMN (Only render if hasColors is true)
                   if (hasColors)
@@ -389,42 +452,53 @@ class _ProductItemState extends State<_ProductItem> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: availableColors.map((cString) {
-                              final c = widget.getColorFromString(cString);
-                              final isSelected = selectedColor == c;
+                            children:
+                                availableColors.map((cString) {
+                                  final c = widget.getColorFromString(cString);
+                                  final isSelected =
+                                      selectedColorString == cString;
 
-                              return GestureDetector(
-                                onTap: () => setState(() => selectedColor = c),
-                                child: Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: isSelected
-                                        ? Border.all(
-                                        color: const Color(0xFFAFE80C),
-                                        width: 2)
-                                        : null,
-                                  ),
-                                  padding: const EdgeInsets.all(2),
-                                  child: Container(
-                                    decoration: ShapeDecoration(
-                                      color: c,
-                                      shape: RoundedRectangleBorder(
-                                        side: BorderSide(
-                                          width: 1,
-                                          color: c == Colors.white
-                                              ? const Color(0xFFDFDEDE)
-                                              : Colors.transparent,
+                                  return GestureDetector(
+                                    onTap:
+                                        () => setState(
+                                          () => selectedColorString = cString,
                                         ),
-                                        borderRadius:
-                                        BorderRadius.circular(100),
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border:
+                                            isSelected
+                                                ? Border.all(
+                                                  color: const Color(
+                                                    0xFFAFE80C,
+                                                  ),
+                                                  width: 2,
+                                                )
+                                                : null,
+                                      ),
+                                      padding: const EdgeInsets.all(2),
+                                      child: Container(
+                                        decoration: ShapeDecoration(
+                                          color: c,
+                                          shape: RoundedRectangleBorder(
+                                            side: BorderSide(
+                                              width: 1,
+                                              color:
+                                                  c == Colors.white
+                                                      ? const Color(0xFFDFDEDE)
+                                                      : Colors.transparent,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              100,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                                  );
+                                }).toList(),
                           ),
                         ],
                       ),
@@ -441,17 +515,35 @@ class _ProductItemState extends State<_ProductItem> {
                 GestureDetector(
                   onTap: () {
                     if (areOptionsSelected) {
-                      Navigator.pop(context);
+                      debugPrint(
+                        "🔵 [Catalogue] PREPARING ADD TO CART REQUEST:",
+                      );
+                      debugPrint("   Product ID: ${widget.product.id}");
+                      debugPrint("   Product Name: ${widget.product.name}");
+                      debugPrint("   Selected Size: $selectedSize");
+                      debugPrint("   Selected Color: $selectedColorString");
+                      debugPrint(
+                        "---------------------------------------------",
+                      );
+
+                      Navigator.pop(context); // Close Catalogue
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.white,
                         shape: const RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(20)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
                         ),
-                        builder: (context) =>
-                            AddToCartSheet(product: widget.product),
+                        builder:
+                            (context) => AddToCartSheet(
+                              product: widget.product,
+                              size: selectedSize, // Pass selected size
+                              color:
+                                  selectedColorString, // Pass selected color string
+                              onNavigate: widget.onNavigate,
+                            ),
                       );
                     } else {
                       _showTopSnackBar(context, "Please select options first");
@@ -481,17 +573,42 @@ class _ProductItemState extends State<_ProductItem> {
                           isScrollControlled: true,
                           backgroundColor: Colors.white,
                           shape: const RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(20)),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
                           ),
-                          builder: (context) => BuyZatchSheet(
-                              product: widget.product,
-                              defaultOption: "buy",
-                              onNavigate: widget.onNavigate,
-                              onBackToCatalogue: () {}),
+                          builder:
+                              (context) => BuyZatchSheet(
+                                product: widget.product,         // The specific item clicked
+                                allProducts: widget.allProducts,    // <--- PASS THE FULL LIST FROM PARENT WIDGET
+                                defaultOption: "buy",
+                                onNavigate: widget.onNavigate,
+                                onBackToCatalogue: () {
+                                  // Re-open the catalogue sheet here
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.white,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                    ),
+                                    builder:
+                                        (ctx) => CatalogueSheet(
+                                          // FIX: Wrap the single product in a list [ ]
+                                          products: widget.allProducts,
+                                          onNavigate: widget.onNavigate,
+                                        ),
+                                  );
+                                },
+                              ),
                         );
                       } else {
-                        _showTopSnackBar(context, "Please select options first");
+                        _showTopSnackBar(
+                          context,
+                          "Please select options first",
+                        );
                       }
                     },
                     child: Container(
@@ -499,7 +616,9 @@ class _ProductItemState extends State<_ProductItem> {
                       decoration: ShapeDecoration(
                         shape: RoundedRectangleBorder(
                           side: const BorderSide(
-                              width: 2, color: Color(0xFFCCF656)),
+                            width: 2,
+                            color: Color(0xFFCCF656),
+                          ),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -530,17 +649,40 @@ class _ProductItemState extends State<_ProductItem> {
                           isScrollControlled: true,
                           backgroundColor: Colors.white,
                           shape: const RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(20)),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
                           ),
+                            // Inside the 'Buy' button onTap
                           builder: (context) => BuyZatchSheet(
-                              product: widget.product,
-                              defaultOption: "zatch",
-                              onNavigate: widget.onNavigate,
-                              onBackToCatalogue: () {}),
+                            product: widget.product,
+                            allProducts: widget.allProducts, // Pass full list
+                            defaultOption: "zatch", // <--- Set to "zatch"
+                            onNavigate: widget.onNavigate,
+                            onBackToCatalogue: () {
+                              // Re-open the catalogue sheet here
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.white,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20),
+                                  ),
+                                ),
+                                builder: (ctx) => CatalogueSheet(
+                                  products: widget.allProducts,
+                                  onNavigate: widget.onNavigate,
+                                ),
+                              );
+                            },
+                          ),
                         );
                       } else {
-                        _showTopSnackBar(context, "Please select options first");
+                        _showTopSnackBar(
+                          context,
+                          "Please select options first",
+                        );
                       }
                     },
                     child: Container(
@@ -573,5 +715,3 @@ class _ProductItemState extends State<_ProductItem> {
     );
   }
 }
-
-
