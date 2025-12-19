@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import this for homePageKey
 
 class NotificationPage extends StatelessWidget {
   const NotificationPage({super.key});
+
+  void _onBackTap(BuildContext context) {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,11 +75,11 @@ class NotificationPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFFF2F2F2),
+        backgroundColor: const Color(0xFFF2F2F2),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _onBackTap(context),
         ),
         title: const Text(
           "Notifications",
@@ -85,7 +94,6 @@ class NotificationPage extends StatelessWidget {
           return Column(
             children: [
               Divider(height: 1, color: Colors.grey.shade300),
-
               ListTile(
                 leading: CircleAvatar(
                   backgroundColor: (item["iconColor"] as Color).withOpacity(0.15),
@@ -108,7 +116,6 @@ class NotificationPage extends StatelessWidget {
           );
         },
       )
-
     );
   }
 }

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/carts_model.dart';
 import 'package:zatch_app/view/cart_screen.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import homePageKey
 
 class ZatchingDetailsScreen extends StatelessWidget {
   final Zatch zatch;
 
   const ZatchingDetailsScreen({super.key, required this.zatch});
+
+  void _onBackTap(BuildContext context) {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +26,7 @@ class ZatchingDetailsScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _onBackTap(context),
         ),
         title: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -30,7 +39,7 @@ class ZatchingDetailsScreen extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 16.0),
                   child: CircleAvatar(
                     backgroundImage: NetworkImage(
-                      zatch.imageUrl, // Assuming this is the seller's image
+                      zatch.imageUrl, 
                     ),
                     radius: 18,
                   ),
@@ -59,10 +68,8 @@ class ZatchingDetailsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-
               ],
             ),
-
           ],
         ),
       ),
@@ -162,7 +169,7 @@ class ZatchingDetailsScreen extends StatelessWidget {
           icon: const CircleAvatar(
             radius: 22,
             backgroundImage: NetworkImage(
-              "https://randomuser.me/api/portraits/men/32.jpg", // Example seller
+              "https://randomuser.me/api/portraits/men/32.jpg", 
             ),
           ),
           title: "Offer Rejected",
@@ -185,7 +192,7 @@ class ZatchingDetailsScreen extends StatelessWidget {
           icon: const CircleAvatar(
             radius: 22,
             backgroundImage: NetworkImage(
-              "https://randomuser.me/api/portraits/men/45.jpg", // Example seller
+              "https://randomuser.me/api/portraits/men/45.jpg", 
             ),
           ),
           title: "Seller Offer",
@@ -292,10 +299,14 @@ class ZatchingDetailsScreen extends StatelessWidget {
           if (showAddToCart)
             _buildButton("Add To Cart", isPrimary: showPay ? false : true,
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => CartScreen()),
-                  );
+                  if (homePageKey.currentState != null) {
+                    homePageKey.currentState!.navigateToSubScreen(const CartScreen());
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CartScreen()),
+                    );
+                  }
                 }),
           if (showPay) const SizedBox(height: 16),
           if (showPay)
@@ -452,7 +463,7 @@ class ZatchingDetailsScreen extends StatelessWidget {
             style: TextStyle(
               color: Colors.black,
               fontSize: 14,
-              fontFamily: 'Gilroy-Regular', // Note: Another custom font
+              fontFamily: 'Plus Jakarta Sans',
               fontWeight: FontWeight.w400,
             ),
           ),

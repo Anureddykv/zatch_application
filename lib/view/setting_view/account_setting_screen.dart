@@ -6,6 +6,7 @@ import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/services/preference_service.dart';
 import 'package:zatch_app/view/category_screen/category_screen.dart';
 import 'package:zatch_app/view/help_screen.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import this for homePageKey
 import 'package:zatch_app/view/order_view/order_screen.dart';
 import 'package:zatch_app/view/setting_view/payments_shipping_screen.dart';
 import 'package:zatch_app/view/setting_view/preferences_screen.dart';
@@ -13,7 +14,7 @@ import 'package:zatch_app/view/setting_view/profile_screen.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
 import 'account_details_screen.dart';
 import 'package:zatch_app/view/policy_screen.dart';
-import 'dart:convert'; // ✅ for jsonEncode()
+import 'dart:convert';
 
 class AccountSettingsScreen extends StatefulWidget {
   final VoidCallback? onOpenAccountDetails;
@@ -29,7 +30,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   UserProfileResponse? userProfile;
   bool isLoading = true;
   String? error;
-  String? rawResponseText; // ✅ to display raw API data
+  String? rawResponseText;
 
   @override
   void initState() {
@@ -48,25 +49,28 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
     try {
       final profileModel = await _apiService.getUserProfile();
-
-      // ✅ Capture the response as a readable JSON string
       final jsonResponse = const JsonEncoder.withIndent('  ')
           .convert(profileModel.toJson());
 
       setState(() {
         userProfile = profileModel;
-        rawResponseText = jsonResponse; // store it for screen display
+        rawResponseText = jsonResponse;
         isLoading = false;
       });
-
-      print("✅ Profile Response (JSON): $jsonResponse");
     } catch (e, st) {
-      print("❌ Error fetching user profile: $e");
-      print(st);
+      debugPrint("Error fetching user profile: $e");
       setState(() {
         error = e.toString();
         isLoading = false;
       });
+    }
+  }
+
+  void _handleNavigation(Widget screen) {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.navigateToSubScreen(screen);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
     }
   }
 
@@ -79,11 +83,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           content: const Text('Are you sure you want to log out?'),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Dismiss and return false
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true), // Dismiss and return true
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Log Out', style: TextStyle(color: Colors.red)),
             ),
           ],
@@ -91,13 +95,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       },
     );
 
-    // If the user confirmed (confirm is true), then proceed with logout.
     if (confirm == true) {
       await _performLogout();
     }
   }
+
   Future<void> _performLogout() async {
-    // This logic was moved from the onTap callback.
     setState(() => isLoading = true);
     final prefs = PreferenceService();
 
@@ -112,7 +115,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Logout failed: $e")),
         );
-        // Only stop loading on failure, as success navigates away.
         setState(() => isLoading = false);
       }
     }
@@ -131,17 +133,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProfileScreen(userProfile),
-                ),
-              );
-            },
+            onTap: () => _handleNavigation(ProfileScreen(userProfile)),
             child: _profileCard(userProfile),
           ),
-
           const SizedBox(height: 16),
           _settingsContainer(),
         ],
@@ -149,7 +143,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     );
   }
 
-  // Reusable settings container
   Widget _settingsContainer() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -166,127 +159,55 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
       child: Column(
         children: [
-          // In the _settingsContainer method:
-
-          _settingsTile(Icons.account_circle, "Account Details", () async {
-            // ✅ ADD THIS PRINT STATEMENT
-            print("--- Tapped 'Account Details'. Navigating to screen. No API call is made yet. ---");
-
-            final result = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AccountDetailsScreen(
-                  userProfile: userProfile,
-                ),
-              ),
-            );
-            if (result == true) {
-              print("✅ Navigated back from AccountDetailsScreen with success. Refreshing profile...");
-              fetchUserProfile(); // API call happens HERE
-            } else {
-              // ✅ ADD THIS FOR CLARITY
-              print("--- Navigated back from AccountDetailsScreen without success signal. No refresh needed. ---");
-            }
+          _settingsTile(Icons.account_circle, "Account Details", () {
+             _handleNavigation(AccountDetailsScreen(userProfile: userProfile));
           }),
           _settingsTile(Icons.shopping_cart, "Zatches", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ZatchingDetailsScreen(
-                  zatch: Zatch(
-                    id: "3",
-                    name: "Modern light clothes",
-                    description: "Dress modern",
-                    seller: "Neu Fashions, Hyderabad",
-                    imageUrl: "https://picsum.photos/202/300",
-                    active: false,
-                    status: "Offer Rejected",
-                    quotePrice: "212.99 ₹",
-                    sellerPrice: "800 ₹",
-                    quantity: 4,
-                    subTotal: "800 ₹",
-                    date: "Yesterday 12:00PM",
-                  ),
-                ),
+            _handleNavigation(ZatchingDetailsScreen(
+              zatch: Zatch(
+                id: "3",
+                name: "Modern light clothes",
+                description: "Dress modern",
+                seller: "Neu Fashions, Hyderabad",
+                imageUrl: "https://picsum.photos/202/300",
+                active: false,
+                status: "Offer Rejected",
+                quotePrice: "212.99 ₹",
+                sellerPrice: "800 ₹",
+                quantity: 4,
+                subTotal: "800 ₹",
+                date: "Yesterday 12:00PM",
               ),
-            );
+            ));
           }),
           _settingsTile(Icons.shopping_cart, "Your Orders", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => OrdersScreen()),
-            );
+            _handleNavigation(OrdersScreen());
           }),
           _settingsTile(
             Icons.local_shipping,
             "Payments and Shipping",
-                () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      CheckoutOrPaymentsScreen(isCheckout: false),
-                ),
-              );
-            },
+                () => _handleNavigation(CheckoutOrPaymentsScreen(isCheckout: false)),
           ),
           _settingsTile(Icons.dark_mode, "Dark Mode", () {}),
-          _settingsTile(Icons.tune, "Change Preferences in shopping", () async {
-            final result = await Navigator.push<List<String>>(
-              context,
-              MaterialPageRoute(builder: (context) => const PreferencesScreen()),
-            );
-            if (result != null) {
-              print("✅ Navigated back from Preferences with data: $result");
-              if (!mounted) return;
-              Flushbar(
-                title: "Success",
-                message: "Preferences updated with ${result.length} items.",
-                duration: const Duration(seconds: 3),
-                backgroundColor: Colors.green,
-                margin: const EdgeInsets.all(8),
-                borderRadius: BorderRadius.circular(8),
-                icon: const Icon(Icons.check_circle_outline, size: 28.0, color: Colors.white),
-                flushbarPosition: FlushbarPosition.TOP,
-              ).show(context);
-
-            } else {
-              print("--- Navigated back from Preferences without data. ---");
-            }
+          _settingsTile(Icons.tune, "Change Preferences in shopping", () {
+            _handleNavigation(const PreferencesScreen());
           }),
-
-
           _settingsTile(Icons.help_outline, "Help", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const HelpScreen(),
-              ),
-            );
+            _handleNavigation(const HelpScreen());
           }),
           _settingsTile(Icons.info_outline, "Understand Zatch", () {}),
           _settingsTile(Icons.privacy_tip, "Privacy Policy", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PolicyScreen(title: "Privacy Policy"),
-              ),
-            );
+            _handleNavigation(const PolicyScreen(title: "Privacy Policy"));
           }),
           _settingsTile(Icons.description, "Terms & Conditions", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                const PolicyScreen(title: "Terms & Conditions"),
-              ),
-            );
+            _handleNavigation(const PolicyScreen(title: "Terms & Conditions"));
           }),
           _settingsTile(
             Icons.logout,
             "Log out",
             _showLogoutConfirmationDialog,
-          ),        ],
+          ),
+        ],
       ),
     );
   }
@@ -359,7 +280,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     );
   }
 
-  Widget _settingsTile(IconData icon, String title, VoidCallback onTap,{BuildContext? contexts}) {
+  Widget _settingsTile(IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: Colors.black),
       title: Text(title),

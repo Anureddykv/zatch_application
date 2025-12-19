@@ -38,7 +38,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
 
     try {
-      // 1. Run both API calls in parallel
       final results = await Future.wait([
         _apiService.getCategories(),
         _apiService.getUserPreferences(),
@@ -47,16 +46,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       final allCategories = results[0] as List<Category>;
       final userPrefs = results[1] as Map<String, dynamic>;
 
-      // 2. Filter categories for display
       final displayCategories = allCategories
           .where((cat) => cat.name.toLowerCase() != 'explore all')
           .toList();
 
-      // 3. Extract saved slugs from preferences response
       final List<dynamic> savedSlugs = userPrefs['categories'] ?? [];
       final Set<String> savedSlugSet = savedSlugs.map((e) => e.toString()).toSet();
 
-      // 4. Map saved slugs back to Category IDs for UI selection
       final Set<String> preSelectedIds = {};
       for (var cat in displayCategories) {
         if (cat.slug != null && savedSlugSet.contains(cat.slug)) {
@@ -67,7 +63,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       if (mounted) {
         setState(() {
           _categories = displayCategories;
-          // Store in both current and initial sets
           _selectedCategoryIds.addAll(preSelectedIds);
           _initialSelectedCategoryIds.addAll(preSelectedIds);
         });
@@ -97,13 +92,19 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
   }
 
-  // Check if the current selection is different from the initial selection
   bool _hasChanges() {
     if (_selectedCategoryIds.length != _initialSelectedCategoryIds.length) {
       return true;
     }
-    // Check if current selection contains everything from initial (and lengths are same)
     return !_selectedCategoryIds.containsAll(_initialSelectedCategoryIds);
+  }
+
+  void _onBackTap() {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _onUpdatePressed() async {
@@ -119,20 +120,15 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
 
     try {
-      // 1. Convert selected IDs back to Slugs for the API
       final selectedSlugs = _categories
           .where((c) => _selectedCategoryIds.contains(c.id))
           .map((c) => c.slug ?? c.name)
           .toList();
 
-      print("Saving preferences: $selectedSlugs");
-
-      // 2. Call API
       await _apiService.saveUserPreferences(selectedSlugs);
 
       if (!mounted) return;
 
-      // 3. Navigate to HomePage with the NEW selection list so Home knows to update
       final selectedCategoryObjects = _categories
           .where((c) => _selectedCategoryIds.contains(c.id))
           .toList();
@@ -146,10 +142,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       );
 
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to update: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update: $e")),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -204,7 +201,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             height: circleDiameter,
             decoration: ShapeDecoration(
               shape: RoundedRectangleBorder(
-                side: BorderSide(width: 2, color: const Color(0xFFF1F4FF)),
+                side: const BorderSide(width: 2, color: Color(0xFFF1F4FF)),
                 borderRadius: BorderRadius.circular(circleDiameter / 2),
               ),
             ),
@@ -218,7 +215,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             height: circleDiameter,
             decoration: ShapeDecoration(
               shape: RoundedRectangleBorder(
-                side: BorderSide(width: 2, color: const Color(0xFFF1F4FF)),
+                side: const BorderSide(width: 2, color: Color(0xFFF1F4FF)),
                 borderRadius: BorderRadius.circular(circleDiameter / 2),
               ),
             ),
@@ -234,7 +231,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       left: 27,
       top: topPadding + 10,
       child: GestureDetector(
-        onTap: () => Navigator.of(context).pop(),
+        onTap: _onBackTap,
         child: Container(
           width: 40,
           height: 40,
@@ -324,7 +321,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   }
 
   Widget _buildUpdateButton() {
-    // Enable button ONLY if not empty AND has changes
     bool isEnabled = _selectedCategoryIds.isNotEmpty && _hasChanges();
 
     return Align(

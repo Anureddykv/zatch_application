@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import this
 
 class PolicyScreen extends StatefulWidget {
   final String title;
@@ -43,6 +44,14 @@ class _PolicyScreenState extends State<PolicyScreen> {
     }
   }
 
+  void _onBackTap() {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,7 +62,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _onBackTap,
         ),
         title: Text(
           widget.title,

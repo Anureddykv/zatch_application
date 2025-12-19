@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
-import 'package:zatch_app/view/help_screen.dart';
+import 'package:zatch_app/view/home_page.dart'; // Added home_page import for homePageKey
+import 'package:zatch_app/view/notification/notification_screen.dart' show NotificationPage;
 import '../view/setting_view/profile_screen.dart';
 
 class HeaderWidget extends StatefulWidget {
@@ -51,6 +52,14 @@ class _HeaderWidgetState extends State<HeaderWidget> {
     }
   }
 
+  void _handleNavigation(Widget screen) {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.navigateToSubScreen(screen);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -76,9 +85,7 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                   const SizedBox(height: 4),
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => ProfileScreen(widget.userProfile),
-                      ));
+                      _handleNavigation(ProfileScreen(widget.userProfile));
                     },
                     child: Text(
                       widget.userProfile?.user.username ?? '',
@@ -94,21 +101,13 @@ class _HeaderWidgetState extends State<HeaderWidget> {
                   IconButton(
                     icon: const Icon(Icons.bookmark_border, color: Colors.black),
                     onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ProfileScreen(widget.userProfile))
-                      );
+                      _handleNavigation(ProfileScreen(widget.userProfile));
                     },
                   ),
                   IconButton(
                     icon: const Icon(Icons.notifications_none, color: Colors.black),
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const HelpScreen(),
-                        ),
-                      );
+                      _handleNavigation(const NotificationPage());
                     },
                   ),
                   // Cart icon with badge

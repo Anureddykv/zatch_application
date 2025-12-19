@@ -16,17 +16,19 @@ import '../Widget/top_picks_this_week_widget.dart';
 import '../Widget/trending.dart';
 import 'cart_screen.dart';
 import 'navigation_page.dart';
+
 final GlobalKey<_HomePageState> homePageKey = GlobalKey<_HomePageState>();
+
 class HomePage extends StatefulWidget {
   final LoginResponse? loginResponse;
   final List<Category>? selectedCategories;
   final int initialIndex;
 
-   HomePage({
+  HomePage({
     this.loginResponse,
     this.selectedCategories,
     this.initialIndex = 0,
-  }): super(key: homePageKey);
+  }) : super(key: homePageKey);
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -36,15 +38,13 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final ApiService _apiService = ApiService();
   UserProfileResponse? userProfile;
-  List<Category> _allCategories = [];
   bool isLoading = true;
   String? error;
   Category? _selectedCategory;
-  bool get _isSingleCategoryInitiallySelected =>
-      widget.selectedCategories?.length == 1 &&
-      widget.selectedCategories!.first.name.toLowerCase() != 'explore all';
+
   bool _shouldShowKeyboardOnSearch = false;
   Widget? _currentSubScreen;
+
   void navigateToSubScreen(Widget screen) {
     setState(() {
       _currentSubScreen = screen;
@@ -74,10 +74,8 @@ class _HomePageState extends State<HomePage> {
   void _openZatchAi() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled:
-          true, // Allows the sheet to be taller than half the screen
-      backgroundColor:
-          Colors.transparent, // Makes container's rounded corners visible
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => const ZatchAiScreen(),
     );
   }
@@ -89,19 +87,16 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       _apiService.init().then((_) {
         fetchUserProfile();
-        // _fetchAllCategories();
       });
     }
   }
 
   Future<void> fetchUserProfile() async {
     if (!mounted) return;
-
     setState(() {
       isLoading = true;
       error = null;
     });
-
     try {
       final profileModel = await _apiService.getUserProfile();
       if (mounted) {
@@ -120,26 +115,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildContentForCategory() {
-    return Column(
-      children: [
-        LiveFollowersWidget(category: _selectedCategory),
-        BargainPicksWidget(category: _selectedCategory),
-        FollowersWidget(category: _selectedCategory),
-        TopPicksThisWeekWidget(category: _selectedCategory),
-        TrendingSection(category: _selectedCategory),
-        const SizedBox(height: 40),
-      ],
-    );
-  }
-
   Widget _buildHomeTab() {
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFFA3DD00)),
-      );
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFA3DD00)));
     }
-
     if (error != null) {
       return Center(
         child: Column(
@@ -147,10 +126,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(error ?? "Something went wrong"),
             const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: fetchUserProfile,
-              child: const Text("Retry"),
-            ),
+            ElevatedButton(onPressed: fetchUserProfile, child: const Text("Retry")),
           ],
         ),
       );
@@ -164,9 +140,7 @@ class _HomePageState extends State<HomePage> {
             onCartTap: () {
               navigateToSubScreen(
                 CartScreen(
-                  // Pass the navigation callback so Cart can open details inside Home
-                  onNavigate:
-                      (Widget nextScreen) => navigateToSubScreen(nextScreen),
+                  onNavigate: (Widget nextScreen) => navigateToSubScreen(nextScreen),
                 ),
               );
             },
@@ -185,13 +159,15 @@ class _HomePageState extends State<HomePage> {
                       setState(() {
                         _selectedCategory = category;
                       });
-                      debugPrint(
-                        "Selected Category Changed to: ${category.name}",
-                      );
                     }
                   },
                 ),
-                _buildContentForCategory(),
+                LiveFollowersWidget(category: _selectedCategory),
+                BargainPicksWidget(category: _selectedCategory),
+                FollowersWidget(category: _selectedCategory),
+                TopPicksThisWeekWidget(category: _selectedCategory),
+                TrendingSection(category: _selectedCategory),
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -207,22 +183,20 @@ class _HomePageState extends State<HomePage> {
       isLoading
           ? const Center(child: CircularProgressIndicator())
           : SearchScreen(
-            key: UniqueKey(),
-            userProfile: userProfile,
-            autoFocus: _shouldShowKeyboardOnSearch,
-            onTabChange: (index) {
-              setState(() {
-                _selectedIndex = index; // This switches the BottomNavBar tab
-              });
-            },
-        onCartTap: () {
-          navigateToSubScreen(
-            CartScreen(
-              onNavigate: (Widget nextScreen) => navigateToSubScreen(nextScreen),
+              userProfile: userProfile,
+              autoFocus: _shouldShowKeyboardOnSearch,
+              onTabChange: (index) {
+                setState(() => _selectedIndex = index);
+              },
+              onCartTap: () {
+                navigateToSubScreen(
+                  CartScreen(
+                    onNavigate: (Widget nextScreen) => navigateToSubScreen(nextScreen),
+                  ),
+                );
+              },
+              onNavigate: (Widget screen) => navigateToSubScreen(screen),
             ),
-          );
-        },
-          ),
       SellHomeScreen(),
       AccountSettingsScreen(),
     ];
@@ -234,18 +208,14 @@ class _HomePageState extends State<HomePage> {
           return false;
         }
         if (_selectedIndex != 0) {
-          setState(() {
-            _selectedIndex = 0;
-          });
+          setState(() => _selectedIndex = 0);
           return false;
         }
         return true;
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        body:
-            _currentSubScreen ??
-            IndexedStack(index: _selectedIndex, children: pages),
+        body: _currentSubScreen ?? IndexedStack(index: _selectedIndex, children: pages),
         bottomNavigationBar: CustomBottomNavBar(
           selectedIndex: _selectedIndex,
           onItemTapped: (index) {

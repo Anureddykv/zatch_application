@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:zatch_app/model/order_model.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import homePageKey
 import 'package:zatch_app/view/order_view/track_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -27,6 +28,14 @@ class _OrdersScreenState extends State<OrdersScreen>
     super.dispose();
   }
 
+  void _onBackTap() {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,7 +45,7 @@ class _OrdersScreenState extends State<OrdersScreen>
         backgroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _onBackTap,
         ),
         centerTitle: true,
         title: const Text(
@@ -50,7 +59,6 @@ class _OrdersScreenState extends State<OrdersScreen>
       ),
       body: Column(
         children: [
-          // TabBar
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -84,18 +92,13 @@ class _OrdersScreenState extends State<OrdersScreen>
               ],
             ),
           ),
-
-          // Views
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: const [
-                // Tab 1: Ongoing Orders (Fetch active statuses)
                 OrderListTab(
                   statuses: ["pending", "confirmed", "processing", "shipped"],
                 ),
-
-                // Tab 2: Past Orders (Fetch completed/cancelled)
                 OrderListTab(
                   statuses: ["delivered", "cancelled"],
                 ),
@@ -108,14 +111,9 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 }
 
-// ---------------------------------------------------------------------------
-// Reusable Tab Widget that handles API Fetching & UI Mapping
-// ---------------------------------------------------------------------------
 class OrderListTab extends StatefulWidget {
   final List<String> statuses;
-
   const OrderListTab({super.key, required this.statuses});
-
   @override
   State<OrderListTab> createState() => _OrderListTabState();
 }
@@ -181,16 +179,12 @@ class _OrderListTabState extends State<OrderListTab> {
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text("No orders found."));
           }
-
           final orders = snapshot.data!;
-
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             itemCount: orders.length,
             itemBuilder: (context, index) {
-              final order = orders[index];
-              // Use the new, styled card
-              return _FigmaStyledOrderCard(order: order);
+              return _FigmaStyledOrderCard(order: orders[index]);
             },
           );
         },
@@ -199,12 +193,8 @@ class _OrderListTabState extends State<OrderListTab> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// A NEW, STYLED WIDGET TO MATCH THE FIGMA DESIGN
-// ---------------------------------------------------------------------------
 class _FigmaStyledOrderCard extends StatelessWidget {
   final OrderModel order;
-
   const _FigmaStyledOrderCard({required this.order});
 
   @override
@@ -212,15 +202,12 @@ class _FigmaStyledOrderCard extends StatelessWidget {
     final firstItem = order.items.isNotEmpty ? order.items.first : null;
     final isCanceled = order.status.toLowerCase() == 'cancelled';
     final isDelivered = order.status.toLowerCase() == 'delivered';
-
-    Color statusBgColor = const Color(0xFFFAFFEF); // Default for Ongoing
-    Color statusHighlightColor = const Color(0xFF91C207); // Green
-
+    Color statusBgColor = const Color(0xFFFAFFEF);
+    Color statusHighlightColor = const Color(0xFF91C207);
     if (isCanceled) {
-      statusBgColor = const Color(0xFFFFEEE6); // Reddish
-      statusHighlightColor = const Color(0xFFD30000); // Red
+      statusBgColor = const Color(0xFFFFEEE6);
+      statusHighlightColor = const Color(0xFFD30000);
     }
-
     String dateStr = "Unknown Date";
     if (order.expectedDelivery != null) {
       dateStr = DateFormat('d MMMM y').format(order.expectedDelivery!);
@@ -246,7 +233,6 @@ class _FigmaStyledOrderCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Top Section: Product Info
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
               child: Row(
@@ -256,9 +242,7 @@ class _FigmaStyledOrderCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: Image.network(
                       firstItem?.image ?? "https://placehold.co/95x118",
-                      width: 54,
-                      height: 54,
-                      fit: BoxFit.cover,
+                      width: 54, height: 54, fit: BoxFit.cover,
                       errorBuilder: (ctx, err, st) => Container(width: 54, height: 54, color: Colors.grey[200]),
                     ),
                   ),
@@ -269,69 +253,41 @@ class _FigmaStyledOrderCard extends StatelessWidget {
                       children: [
                         Text(
                           firstItem?.name ?? 'Unknown Product',
-                          style: const TextStyle(
-                            color: Color(0xFF121111),
-                            fontSize: 14,
-                            fontFamily: 'Encode Sans',
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(color: Color(0xFF121111), fontSize: 14, fontFamily: 'Encode Sans', fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Order #${order.orderId.substring(order.orderId.length - 8)}',
-                          style: const TextStyle(
-                            color: Color(0xFF787676),
-                            fontSize: 10,
-                            fontFamily: 'Encode Sans',
-                            fontWeight: FontWeight.w400,
-                          ),
+                          style: const TextStyle(color: Color(0xFF787676), fontSize: 10, fontFamily: 'Encode Sans', fontWeight: FontWeight.w400),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '${firstItem?.price.toStringAsFixed(2) ?? '0.00'} ₹',
-                          style: const TextStyle(
-                            color: Color(0xFF292526),
-                            fontSize: 14,
-                            fontFamily: 'Encode Sans',
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: Color(0xFF292526), fontSize: 14, fontFamily: 'Encode Sans', fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     '${order.pricing.total.toStringAsFixed(2)} ₹',
-                    style: const TextStyle(
-                      color: Color(0xFF292526),
-                      fontSize: 14,
-                      fontFamily: 'Encode Sans',
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(color: Color(0xFF292526), fontSize: 14, fontFamily: 'Encode Sans', fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
             ),
-            // Middle Section: Address
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: ShapeDecoration(
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1, color: Color(0xFFD3D3D3)),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  shape: RoundedRectangleBorder(side: const BorderSide(width: 1, color: Color(0xFFD3D3D3)), borderRadius: BorderRadius.circular(20)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 66,
-                      height: 66,
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFF2F2F2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
+                      width: 66, height: 66,
+                      decoration: ShapeDecoration(color: const Color(0xFFF2F2F2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                       child: const Icon(Icons.home_outlined, size: 30, color: Colors.black54),
                     ),
                     const SizedBox(width: 12),
@@ -341,24 +297,13 @@ class _FigmaStyledOrderCard extends StatelessWidget {
                         children: [
                           Text(
                             order.deliveryAddress.label,
-                            style: const TextStyle(
-                              color: Color(0xFF2C2C2C),
-                              fontSize: 12,
-                              fontFamily: 'Encode Sans',
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 12, fontFamily: 'Encode Sans', fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             order.deliveryAddress.toString(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF8D8D8D),
-                              fontSize: 12,
-                              fontFamily: 'Encode Sans',
-                              fontWeight: FontWeight.w400,
-                            ),
+                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Color(0xFF8D8D8D), fontSize: 12, fontFamily: 'Encode Sans', fontWeight: FontWeight.w400),
                           ),
                         ],
                       ),
@@ -367,17 +312,12 @@ class _FigmaStyledOrderCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Bottom Section: Status
             Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 16),
+              width: double.infinity, margin: const EdgeInsets.only(top: 16),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               decoration: ShapeDecoration(
                 color: statusBgColor,
-                shape: const RoundedRectangleBorder(
-                  side: BorderSide(width: 1, color: Color(0xFFE5E5E5)),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-                ),
+                shape: const RoundedRectangleBorder(side: BorderSide(width: 1, color: Color(0xFFE5E5E5)), borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
               ),
               child: Row(
                 children: [
@@ -386,40 +326,20 @@ class _FigmaStyledOrderCard extends StatelessWidget {
                   Expanded(
                     child: RichText(
                       text: TextSpan(
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 12,
-                            fontFamily: 'Encode Sans',
-                            height: 1.5),
+                        style: const TextStyle(color: Colors.black, fontSize: 12, fontFamily: 'Encode Sans', height: 1.5),
                         children: [
                           if (isDelivered) ...[
                             const TextSpan(text: 'Your order is Successfully Delivered on '),
-                            TextSpan(
-                              text: dateStr,
-                              style: TextStyle(
-                                  color: statusHighlightColor, fontWeight: FontWeight.w700),
-                            ),
+                            TextSpan(text: dateStr, style: TextStyle(color: statusHighlightColor, fontWeight: FontWeight.w700)),
                           ] else if (isCanceled) ...[
                             const TextSpan(text: 'Order Canceled on '),
-                            TextSpan(
-                              text: dateStr,
-                              style: TextStyle(
-                                  color: statusHighlightColor, fontWeight: FontWeight.w700),
-                            ),
+                            TextSpan(text: dateStr, style: TextStyle(color: statusHighlightColor, fontWeight: FontWeight.w700)),
                           ] else if (order.status == 'shipped') ...[
                             const TextSpan(text: 'Your order is Shipped Successfully.\nDelivery Expected '),
-                            TextSpan(
-                              text: dateStr,
-                              style: TextStyle(
-                                  color: statusHighlightColor, fontWeight: FontWeight.w700),
-                            ),
+                            TextSpan(text: dateStr, style: TextStyle(color: statusHighlightColor, fontWeight: FontWeight.w700)),
                           ] else ...[
                             const TextSpan(text: 'Your order has been placed.\nDelivery Expected '),
-                            TextSpan(
-                              text: dateStr,
-                              style: TextStyle(
-                                  color: statusHighlightColor, fontWeight: FontWeight.w700),
-                            ),
+                            TextSpan(text: dateStr, style: TextStyle(color: statusHighlightColor, fontWeight: FontWeight.w700)),
                           ]
                         ],
                       ),

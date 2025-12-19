@@ -11,6 +11,7 @@ import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
 import 'package:zatch_app/view/cart_screen.dart';
+import 'package:zatch_app/view/home_page.dart'; // Added this import
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/profile/profile_screen.dart';
 
@@ -20,8 +21,15 @@ class SearchScreen extends StatefulWidget {
   final bool autoFocus;
   final Function(int)? onTabChange;
   final VoidCallback? onCartTap;
+  final Function(Widget)? onNavigate; // Add this callback
 
-  const SearchScreen({super.key, this.userProfile,this.autoFocus = false, this.onTabChange,this.onCartTap, // 2. Add to constructor
+  const SearchScreen({
+    super.key,
+    this.userProfile,
+    this.autoFocus = false,
+    this.onTabChange,
+    this.onCartTap,
+    this.onNavigate,
   });
 
   @override
@@ -46,7 +54,6 @@ class _SearchScreenState extends State<SearchScreen>
 
   List<UserModel> _searchResultsPeople = [];
   List<Product> _searchResultsProducts = [];
-  // MODIFIED: Added a list for filtered bits
   List<Bits> _searchResultsBits = [];
 
   @override
@@ -97,7 +104,6 @@ class _SearchScreenState extends State<SearchScreen>
       });
       return;
     }
-   /* _addSearch(query);*/
     setState(() {
       _searchResultsPeople = _allPeople
           .where((u) => u.displayName.toLowerCase().contains(trimmedQuery))
@@ -133,7 +139,6 @@ class _SearchScreenState extends State<SearchScreen>
     _performSearch(trimmed);
   }
 
-
   Future<void> _loadSearchHistory() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -160,9 +165,12 @@ class _SearchScreenState extends State<SearchScreen>
     _saveSearchHistory();
   }
 
-  void _clearSearch() {
-    setState(() => searchHistory.clear());
-    _saveSearchHistory();
+  void _handleNavigation(Widget screen) {
+    if (widget.onNavigate != null) {
+      widget.onNavigate!(screen);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
   }
 
   @override
@@ -193,21 +201,9 @@ class _SearchScreenState extends State<SearchScreen>
         body: SafeArea(
           child: Column(
             children: [
-
                HeaderWidget(
                 userProfile: widget.userProfile,
-                 onCartTap: () {
-                   if (widget.onCartTap != null) {
-                     // Use the parent's custom navigation (e.g. _navigateToSubScreen)
-                     widget.onCartTap!();
-                   } else {
-                     // Fallback: standard push
-                     Navigator.push(
-                       context,
-                       MaterialPageRoute(builder: (context) => const CartScreen()),
-                     );
-                   }
-                 },
+                 onCartTap: widget.onCartTap, // Pass directly
                 isSearchable: true,
                 searchController: _searchController,
                 searchFocusNode: _searchFocusNode,
@@ -219,7 +215,6 @@ class _SearchScreenState extends State<SearchScreen>
                     setState(() {});
                   }
                 },
-
                 onSearchTap: () {
                   FocusScope.of(context).requestFocus(_searchFocusNode);
                 },
@@ -255,12 +250,7 @@ class _SearchScreenState extends State<SearchScreen>
           _buildSection(
             "Products",
             _allProducts.take(4).toList(),
-            onSeeAll: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProductListScreen(products: _allProducts),
-              ),
-            ),
+            onSeeAll: () => _handleNavigation(ProductListScreen(products: _allProducts)),
           ),
         ],
         if (_allPeople.isNotEmpty) ...[
@@ -268,12 +258,7 @@ class _SearchScreenState extends State<SearchScreen>
           _buildSection(
             "People",
             _allPeople.take(6).toList(),
-            onSeeAll: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PeopleListScreen(people: _allPeople),
-              ),
-            ),
+            onSeeAll: () => _handleNavigation(PeopleListScreen(people: _allPeople)),
           ),
         ],
         if (exploreBits.isNotEmpty) ...[
@@ -303,7 +288,10 @@ class _SearchScreenState extends State<SearchScreen>
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           TextButton(
-            onPressed: _clearSearch,
+            onPressed: () {
+              setState(() => searchHistory.clear());
+              _saveSearchHistory();
+            },
             child: const Text(
               "Clear All",
               style: TextStyle(color: Colors.black),
@@ -396,7 +384,6 @@ class _SearchScreenState extends State<SearchScreen>
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    // Use the bit's thumbnail URL if it exists, otherwise a placeholder
                     bit.thumbnail.url ?? "https://placehold.co/300x500",
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
@@ -409,8 +396,6 @@ class _SearchScreenState extends State<SearchScreen>
                       ),
                     ),
                   ),
-
-                  // Overlay with a subtle gradient for text readability
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
@@ -426,8 +411,6 @@ class _SearchScreenState extends State<SearchScreen>
                       ),
                     ),
                   ),
-
-                  // Display the bit type icon (video or image)
                   if (bit.type == 'video')
                     const Center(
                       child: Icon(
@@ -436,8 +419,6 @@ class _SearchScreenState extends State<SearchScreen>
                         size: 40,
                       ),
                     ),
-
-                  // Display the title at the bottom
                   Positioned(
                     bottom: 8,
                     left: 8,
@@ -496,7 +477,6 @@ class _SearchScreenState extends State<SearchScreen>
             _searchProductsTab(items.cast<Product>(), simple: true),
           if (title == "People" && items.isNotEmpty)
             _searchPeopleTab(items.cast<UserModel>(), simple: true),
-          // MODIFIED: Pass the correct list to the grid
           if (title == "Explore" && items.isNotEmpty)
             _buildExploreGrid(items.cast<Bits>())
         ],
@@ -609,7 +589,6 @@ class _SearchScreenState extends State<SearchScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Product Image
                 Container(
                   width: 57,
                   height: 57,
@@ -631,8 +610,6 @@ class _SearchScreenState extends State<SearchScreen>
                   ),
                 ),
                 const SizedBox(width: 15),
-
-                // 2. Product Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -699,20 +676,15 @@ class _SearchScreenState extends State<SearchScreen>
       },
     );
   }
-  String _formatFollowerCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    } else {
-      return count.toString();
-    }
-  }
-  Widget _searchPeopleTab(List<UserModel> people, {bool simple = false}) {
 
-    if (people.isEmpty) {
-      return const Center(heightFactor: 5, child: Text("No people found"));
-    }
+  String _formatFollowerCount(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
+  }
+
+  Widget _searchPeopleTab(List<UserModel> people, {bool simple = false}) {
+    if (people.isEmpty) return const Center(heightFactor: 5, child: Text("No people found"));
     return ListView.builder(
       padding: EdgeInsets.zero,
       shrinkWrap: simple,
@@ -721,12 +693,7 @@ class _SearchScreenState extends State<SearchScreen>
       itemBuilder: (context, index) {
         final user = people[index];
         return InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProfileScreen(userId: user.id),
-            ),
-          ),
+          onTap: () => _handleNavigation(ProfileScreen(userId: user.id)),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
@@ -743,7 +710,6 @@ class _SearchScreenState extends State<SearchScreen>
                   backgroundColor: Colors.grey.shade200,
                 ),
                 const SizedBox(width: 15),
-                // 2. User Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,6 +762,7 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 }
+
 class ProductListScreen extends StatefulWidget {
   final List<Product> products;
   const ProductListScreen({super.key, required this.products});
@@ -842,6 +809,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+             if (homePageKey.currentState != null) {
+               homePageKey.currentState!.closeSubScreen();
+             } else {
+               Navigator.pop(context);
+             }
+          },
+        ),
         title: const Text(
           'All Products',
           style: TextStyle(
@@ -951,9 +928,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                       color: Colors.black,
                                       size: 16,
                                     ),
-                                    onPressed: () {
-                                      // TODO: Implement favorite
-                                    },
+                                    onPressed: () {},
                                   ),
                                 ),
                               ),
@@ -1015,6 +990,16 @@ class PeopleListScreen extends StatelessWidget {
         title: const Text("All People"),
         backgroundColor: const Color(0xffd5ff4d),
         foregroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+             if (homePageKey.currentState != null) {
+               homePageKey.currentState!.closeSubScreen();
+             } else {
+               Navigator.pop(context);
+             }
+          },
+        ),
       ),
       body: people.isEmpty
           ? const Center(child: Text("No users to display."))
@@ -1030,12 +1015,13 @@ class PeopleListScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final user = people[index];
           return GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(userId: user.id),
-              ),
-            ),
+            onTap: () {
+               if (homePageKey.currentState != null) {
+                 homePageKey.currentState!.navigateToSubScreen(ProfileScreen(userId: user.id));
+               } else {
+                 Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: user.id)));
+               }
+            },
             child: Column(
               children: [
                 Expanded(

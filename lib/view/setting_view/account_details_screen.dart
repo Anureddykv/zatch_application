@@ -1,12 +1,11 @@
 import 'dart:io';
-
 import 'package:country_code_picker/country_code_picker.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Import for input formatters
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
+import 'package:zatch_app/view/home_page.dart'; // Import this
 import 'change_info_screen.dart';
 import 'change_password_screen.dart';
 
@@ -30,20 +29,14 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
   String gender = "";
   String _selectedCountryCode = "+91";
-
   String? _selectedDay;
   String? _selectedMonth;
   String? _selectedYear;
 
   List<String> _days = [];
-  final List<String> _months = const [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
+  final List<String> _months = const ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   late List<String> _years;
-
   bool _isLoading = false;
-
-  // Flags to lock fields if data already exists
   bool _isDobLocked = false;
   bool _isGenderLocked = false;
 
@@ -54,791 +47,129 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Generate years (100 years back)
     int currentYear = DateTime.now().year;
     _years = List.generate(100, (i) => (currentYear - i).toString());
 
     if (widget.userProfile == null) {
-      _currentProfile = null;
       _nameController = TextEditingController();
       _phoneController = TextEditingController();
       _emailController = TextEditingController();
-      _updateDays(); // Initialize default days
+      _updateDays();
     } else {
       _currentProfile = widget.userProfile!;
       final user = _currentProfile!.user;
-
       _nameController = TextEditingController(text: user.username);
       _phoneController = TextEditingController(text: user.phone);
       _emailController = TextEditingController(text: user.email);
       gender = user.gender;
       _selectedCountryCode = user.countryCode ?? "+91";
-
-      // Check if we need to lock fields (if they are not empty from API)
-      if (gender.isNotEmpty) {
-        _isGenderLocked = true;
-      }
-
+      if (gender.isNotEmpty) _isGenderLocked = true;
       if (user.dob != null && user.dob!.isNotEmpty) {
         try {
           DateTime date = DateTime.parse(user.dob!);
           _selectedYear = date.year.toString();
           _selectedMonth = _months[date.month - 1];
           _selectedDay = date.day.toString().padLeft(2, '0');
-          _isDobLocked = true; // Lock DOB if it exists
-        } catch (e) {
-          debugPrint("Error parsing DOB: $e");
-        }
+          _isDobLocked = true;
+        } catch (e) { debugPrint("Error parsing DOB: $e"); }
       }
-      _updateDays(); // Generate correct days for the loaded/default date
+      _updateDays();
     }
   }
 
-  /// Calculates the number of days based on Month and Year (handles leap years)
   void _updateDays() {
     int year = int.tryParse(_selectedYear ?? DateTime.now().year.toString()) ?? DateTime.now().year;
-    // Month index 1-12
     int monthIndex = (_selectedMonth != null ? _months.indexOf(_selectedMonth!) : 0) + 1;
-
-    // DateTime(year, month + 1, 0).day gives the last day of the 'month'
     int daysInMonth = DateTime(year, monthIndex + 1, 0).day;
-
     setState(() {
       _days = List.generate(daysInMonth, (i) => (i + 1).toString().padLeft(2, '0'));
-
-      // If previously selected day is now out of range (e.g., was 31, now month has 30), reset it
-      if (_selectedDay != null && int.parse(_selectedDay!) > daysInMonth) {
-        _selectedDay = null;
-      }
+      if (_selectedDay != null && int.parse(_selectedDay!) > daysInMonth) _selectedDay = null;
     });
   }
 
-  ImageProvider? get _currentImageProvider {
-    if (_profileImageFile != null) {
-      return FileImage(_profileImageFile!);
+  void _onBackTap() {
+    if (homePageKey.currentState != null) {
+      homePageKey.currentState!.closeSubScreen();
+    } else {
+      Navigator.pop(context);
     }
-    if (_currentProfile?.user.profilePic.url.isNotEmpty ?? false) {
-      return NetworkImage(_currentProfile!.user.profilePic.url);
-    }
-    return null;
   }
 
   Future<void> _pickImage(ImageSource source) async {
     Navigator.of(context).pop();
     try {
       final pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
-      if (pickedFile != null) {
-        setState(() {
-          _profileImageFile = File(pickedFile.path);
-        });
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if(Navigator.of(context).canPop()){
-        Navigator.of(context).pop();
-      }
-    }
-  }
-
-  void _deleteImage() {
-    setState(() {
-      _profileImageFile = null;
-    });
-    Navigator.of(context).pop();
-    Navigator.of(context).pop();
-  }
-
-  void _showImageActionsDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Colors.white,
-          contentPadding: EdgeInsets.zero,
-          content: Container(
-            width: 165,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogActionItem('Take Photo', () => _pickImage(ImageSource.camera)),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _buildDialogActionItem('Upload', () => _pickImage(ImageSource.gallery)),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _buildDialogActionItem('Delete', _deleteImage, color: Colors.red.shade700),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDialogActionItem(String title, VoidCallback onTap, {Color color = const Color(0xFF6A7282)}) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: color,
-            fontSize: 16,
-            fontFamily: 'Source Sans Pro',
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showImagePreviewDialog() {
-    final imageProvider = _currentImageProvider;
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (BuildContext context) {
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Stack(
-            alignment: Alignment.center,
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(color: Colors.transparent),
-              ),
-              Container(
-                width: 323,
-                height: 323,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                  boxShadow: const [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))],
-                  image: imageProvider != null
-                      ? DecorationImage(image: imageProvider, fit: BoxFit.cover)
-                      : null,
-                ),
-                child: imageProvider == null
-                    ? const Icon(Icons.person, size: 160, color: Colors.grey)
-                    : null,
-              ),
-              Positioned(
-                top: (MediaQuery.of(context).size.height / 2) + 110,
-                left: (MediaQuery.of(context).size.width / 2) + 75,
-                child: GestureDetector(
-                  onTap: _showImageActionsDialog,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Color(0x1E1A0F01), blurRadius: 4, offset: Offset(0, 1))],
-                    ),
-                    child: const Icon(Icons.edit, color: Colors.black, size: 24),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    super.dispose();
+      if (pickedFile != null) setState(() => _profileImageFile = File(pickedFile.path));
+    } catch (e) { debugPrint("Error picking image: $e"); }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final inputHeight = size.height * 0.06;
-    final inputFontSize = size.width * 0.035;
-
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: _appBar("Account Details"),
+      appBar: AppBar(
+        backgroundColor: Colors.grey.shade100, elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: _onBackTap),
+        centerTitle: true, title: const Text("Account Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+      ),
       body: SafeArea(
-        child: _currentProfile == null
-            ? const Center(
-          child: Text(
-            "User profile not available.",
-            style: TextStyle(fontSize: 16, color: Colors.red),
-          ),
-        )
+        child: _currentProfile == null ? const Center(child: Text("User profile not available.", style: TextStyle(fontSize: 16, color: Colors.red)))
             : Stack(
           children: [
             SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _profileHeader(),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1, color: Colors.grey),
-                      const SizedBox(height: 24),
-                      _buildTextField("Name", _nameController),
-                      const SizedBox(height: 16),
-                      _buildLabel("Gender"),
-                      const SizedBox(height: 8),
-                      // Pass the locked state
-                      _genderSelector(),
-                      const SizedBox(height: 16),
-                      _buildLabel("Date of Birth"),
-                      const SizedBox(height: 8),
-                      // Pass the locked state
-                      _dateOfBirthFields(),
-                      const SizedBox(height: 16),
-                      // Pass input constraints
-                      _phoneField(inputHeight, inputFontSize),
-                      const SizedBox(height: 16),
-                      _buildTextField("Email", _emailController),
-                      const SizedBox(height: 16),
-                      _passwordField(userProfile: widget.userProfile!),
-                      const SizedBox(height: 30),
-                      _actionButtons(),
-                    ],
-                  ),
-                ),
+                padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_profileHeader(), const SizedBox(height: 16), const Divider(height: 1, color: Colors.grey), const SizedBox(height: 24), _buildTextField("Name", _nameController), const SizedBox(height: 16), _buildLabel("Gender"), const SizedBox(height: 8), _genderSelector(), const SizedBox(height: 16), _buildLabel("Date of Birth"), const SizedBox(height: 8), _dateOfBirthFields(), const SizedBox(height: 16), _phoneField(), const SizedBox(height: 16), _buildTextField("Email", _emailController), const SizedBox(height: 16), _passwordField(userProfile: widget.userProfile!), const SizedBox(height: 30), _actionButtons()])),
               ),
             ),
-            if (_isLoading)
-              Container(
-                color: Colors.black38,
-                child: const Center(child: CircularProgressIndicator()),
-              ),
+            if (_isLoading) Container(color: Colors.black38, child: const Center(child: CircularProgressIndicator())),
           ],
         ),
       ),
     );
   }
-
-  PreferredSizeWidget _appBar(String title) => AppBar(
-    backgroundColor: Colors.grey.shade100,
-    elevation: 0,
-    leading: IconButton(
-      icon: const Icon(Icons.arrow_back, color: Colors.black),
-      onPressed: () {
-        if (widget.onBack != null) {
-          widget.onBack!();
-        } else if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
-      },
-    ),
-    centerTitle: true,
-    title: Text(title,
-        style: const TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-  );
 
   Widget _profileHeader() {
-    return Row(
-      children: [
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundImage: _currentImageProvider,
-              child: _currentImageProvider == null
-                  ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                  : null,
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: _showImagePreviewDialog,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFA3DD00),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: const Icon(Icons.edit, color: Colors.black, size: 16),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_nameController.text,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 4),
-              Text(_emailController.text,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            ],
-          ),
-        ),
-      ],
-    );
+    return Row(children: [
+      CircleAvatar(radius: 40, backgroundImage: _profileImageFile != null ? FileImage(_profileImageFile!) : (_currentProfile?.user.profilePic.url.isNotEmpty ?? false ? NetworkImage(_currentProfile!.user.profilePic.url) : null) as ImageProvider?, child: (_profileImageFile == null && !(_currentProfile?.user.profilePic.url.isNotEmpty ?? false)) ? const Icon(Icons.person, size: 40, color: Colors.grey) : null),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_nameController.text, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)), const SizedBox(height: 4), Text(_emailController.text, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 14))])),
+    ]);
   }
 
-  Widget _buildLabel(String text) => Text(text,
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+  Widget _buildLabel(String text) => Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+  Widget _buildTextField(String label, TextEditingController controller) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildLabel(label), const SizedBox(height: 8), TextFormField(controller: controller, decoration: InputDecoration(filled: true, fillColor: Colors.grey.shade100, contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))]);
 
-  Widget _buildTextField(String label, TextEditingController controller) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildLabel(label),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: controller,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              contentPadding:
-              const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ],
-      );
-
-  Widget _passwordField({UserProfileResponse? userProfile}) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildLabel("Password"),
-      const SizedBox(height: 8),
-      TextFormField(
-        initialValue: "********",
-        readOnly: true,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          contentPadding:
-          const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          suffix: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>  ChangePasswordScreen( userProfile: userProfile,)),
-              );
-            },
-            child: const Text("Change Password",
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: Color(0xFFA3DD00))),
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    ],
-  );
+  Widget _passwordField({required UserProfileResponse userProfile}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildLabel("Password"), const SizedBox(height: 8), TextFormField(initialValue: "********", readOnly: true, decoration: InputDecoration(filled: true, fillColor: Colors.grey.shade100, contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20), suffix: GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChangePasswordScreen(userProfile: userProfile))), child: const Text("Change Password", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFA3DD00)))), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))]);
 
   Widget _genderSelector() {
     final options = {"Male": Icons.male, "Female": Icons.female, "Other": Icons.transgender};
-
-    // If locked, disable interaction
-    return IgnorePointer(
-      ignoring: _isGenderLocked,
-      child: Opacity(
-        opacity: _isGenderLocked ? 0.5 : 1.0, // Visual feedback that it's disabled
-        child: Row(
-          children: options.entries.map((entry) {
-            final isSelected = gender == entry.key;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  gender = entry.key;
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFA3DD00) : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(entry.value, color: isSelected ? Colors.black : Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(entry.key,
-                          style: TextStyle(
-                              color: isSelected ? Colors.black : Colors.grey,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
+    return IgnorePointer(ignoring: _isGenderLocked, child: Opacity(opacity: _isGenderLocked ? 0.5 : 1.0, child: Row(children: options.entries.map((entry) { final isSelected = gender == entry.key; return Expanded(child: GestureDetector(onTap: () => setState(() => gender = entry.key), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), margin: const EdgeInsets.symmetric(horizontal: 4), decoration: BoxDecoration(color: isSelected ? const Color(0xFFA3DD00) : Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(entry.value, color: isSelected ? Colors.black : Colors.grey), const SizedBox(width: 6), Text(entry.key, style: TextStyle(color: isSelected ? Colors.black : Colors.grey, fontWeight: FontWeight.w600))])))); }).toList())));
   }
 
-  Widget _dateOfBirthFields() {
-    return IgnorePointer(
-      ignoring: _isDobLocked,
-      child: Opacity(
-        opacity: _isDobLocked ? 0.5 : 1.0,
-        child: Row(
-          children: [
-            // Day Dropdown
-            _dobDropdown(_days, _selectedDay, "DD", (v) => setState(() {
-              _selectedDay = v;
-            })),
-            const SizedBox(width: 8),
-            // Month Dropdown
-            _dobDropdown(_months, _selectedMonth, "MM", (v) => setState(() {
-              _selectedMonth = v;
-              _updateDays(); // Update days when month changes
-            })),
-            const SizedBox(width: 8),
-            // Year Dropdown
-            _dobDropdown(_years, _selectedYear, "YYYY", (v) => setState(() {
-              _selectedYear = v;
-              _updateDays(); // Update days when year changes (leap year check)
-            })),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _dateOfBirthFields() => IgnorePointer(ignoring: _isDobLocked, child: Opacity(opacity: _isDobLocked ? 0.5 : 1.0, child: Row(children: [_dobDropdown(_days, _selectedDay, "DD", (v) => setState(() => _selectedDay = v)), const SizedBox(width: 8), _dobDropdown(_months, _selectedMonth, "MM", (v) { setState(() { _selectedMonth = v; _updateDays(); }); }), const SizedBox(width: 8), _dobDropdown(_years, _selectedYear, "YYYY", (v) { setState(() { _selectedYear = v; _updateDays(); }); })])));
 
-  Widget _dobDropdown(List<String> items, String? value, String hint,
-      void Function(String?) onChanged) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: DropdownButtonFormField<String>(
-          value: value,
-          isExpanded: true,
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: Text(hint, style: const TextStyle(color: Colors.grey)),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
+  Widget _dobDropdown(List<String> items, String? value, String hint, void Function(String?) onChanged) => Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: DropdownButtonFormField<String>(value: value, isExpanded: true, decoration: const InputDecoration(border: InputBorder.none), hint: Text(hint, style: const TextStyle(color: Colors.grey)), items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged)));
 
-  Widget _phoneField(double inputHeight, double inputFontSize) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel("Phone"),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Container(
-              height: inputHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F4F5),
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: CountryCodePicker(
-                onChanged: (countryCode) {
-                  setState(() {
-                    _selectedCountryCode = countryCode.dialCode ?? "+91";
-                  });
-                },
-                initialSelection: 'IN',
-                favorite: const ['+91', 'IN'],
-                textStyle: TextStyle(color: Colors.black, fontSize: inputFontSize),
-                showFlag: false,
-                showDropDownButton: true,
-                padding: EdgeInsets.zero,
-                dialogTextStyle: TextStyle(fontSize: inputFontSize),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                height: inputHeight,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF2F4F5),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  // 1. LIMIT TO 10 DIGITS & NUMBERS ONLY
-                  maxLength: 10,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Enter phone number',
-                    counterText: "", // Hide the 0/10 counter
-                  ),
-                  style: TextStyle(fontSize: inputFontSize),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget _phoneField() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildLabel("Phone"), const SizedBox(height: 8), Row(children: [Container(height: 50, padding: const EdgeInsets.symmetric(horizontal: 8), decoration: BoxDecoration(color: const Color(0xFFF2F4F5), borderRadius: BorderRadius.circular(50)), child: CountryCodePicker(onChanged: (c) => setState(() => _selectedCountryCode = c.dialCode ?? "+91"), initialSelection: 'IN', favorite: const ['+91', 'IN'], showFlag: false, showDropDownButton: true, padding: EdgeInsets.zero)), const SizedBox(width: 10), Expanded(child: Container(height: 50, padding: const EdgeInsets.symmetric(horizontal: 20), decoration: BoxDecoration(color: const Color(0xFFF2F4F5), borderRadius: BorderRadius.circular(50)), child: TextFormField(controller: _phoneController, keyboardType: TextInputType.phone, maxLength: 10, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(border: InputBorder.none, hintText: 'Enter phone number', counterText: ""))))])]);
 
-  Widget _actionButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => Navigator.maybePop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  side: const BorderSide(color: Color(0xFFA3DD00))),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text("Cancel", style: TextStyle(fontSize: 16)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            // 2. ALWAYS CLICKABLE to show validation msg
-            onPressed: _onSavePressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFA3DD00),
-              foregroundColor: Colors.black,
-              disabledBackgroundColor: Colors.grey.shade300,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text("Save Changes", style: TextStyle(fontSize: 16)),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _actionButtons() => Column(children: [SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _onBackTap, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Color(0xFFA3DD00))), padding: const EdgeInsets.symmetric(vertical: 16)), child: const Text("Cancel", style: TextStyle(fontSize: 16)))), const SizedBox(height: 12), SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _onSavePressed, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA3DD00), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), padding: const EdgeInsets.symmetric(vertical: 16)), child: const Text("Save Changes", style: TextStyle(fontSize: 16))))]);
 
-  // Called when "Save Changes" is clicked
   void _onSavePressed() {
-    // 3. VALIDATION CHECK
-    final bool isValid = _nameController.text.isNotEmpty &&
-        _phoneController.text.isNotEmpty &&
-        _emailController.text.isNotEmpty &&
-        _selectedDay != null &&
-        _selectedMonth != null &&
-        _selectedYear != null &&
-        gender.isNotEmpty;
-
-    if (!isValid) {
-      showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Missing Fields"),
-            content: const Text("Please fill in all details (Name, Gender, DOB, Phone, Email) to save changes."),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
-            ],
-          )
-      );
+    if (_nameController.text.isEmpty || _phoneController.text.isEmpty || _emailController.text.isEmpty || _selectedDay == null || _selectedMonth == null || _selectedYear == null || gender.isEmpty) {
+      showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Missing Fields"), content: const Text("Please fill in all details."), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK"))]));
       return;
     }
-
-    // 4. CONFIRMATION DIALOG
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Confirm Changes"),
-          content: const Text("Are you sure you want to update your account details?"),
-          actions: <Widget>[
-            TextButton(
-              child: const Text("Cancel"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text("Yes, Update"),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                _handleSaveChanges(); // Proceed to save
-              },
-            ),
-          ],
-        );
-      },
-    );
+    showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Confirm Changes"), content: const Text("Are you sure you want to update your details?"), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("Cancel")), TextButton(onPressed: () { Navigator.pop(c); _handleSaveChanges(); }, child: const Text("Yes, Update"))]));
   }
 
   void _handleSaveChanges() async {
-    final oldPhone = _currentProfile!.user.phone;
-    final oldEmail = _currentProfile!.user.email;
-    final oldDob = _currentProfile!.user.dob;
-
-    final newPhone = _phoneController.text.trim();
-    final newEmail = _emailController.text.trim();
-    final newDob =
-        "${_selectedYear!}-${(_months.indexOf(_selectedMonth!) + 1).toString().padLeft(2, '0')}-${_selectedDay!}";
-
-    final phoneChanged = newPhone != oldPhone;
-    final emailChanged = newEmail != oldEmail;
-    final dobChanged = newDob != oldDob;
-    final imageChanged = _profileImageFile != null;
-
-    final otherChanges =
-        _nameController.text.trim() != _currentProfile!.user.username ||
-            gender != _currentProfile!.user.gender ||
-            dobChanged;
-
-    if (!phoneChanged && !emailChanged && !otherChanges && !imageChanged) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No changes were made.")),
-      );
-      return;
-    }
-
-    if (emailChanged) {
-      setState(() => _isLoading = true);
-      try {
-        await _apiService.sendEmailOtp(newEmail);
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChangeInfoScreen(
-              title: "Email Verification",
-              subtitle: "Enter the OTP received on your email",
-              showEmail: true,
-              showPhone: false,
-              onVerified: ({emailOtp, phoneOtp}) {
-                _updateProfileLoader(
-                  otp: emailOtp,
-                  otpType: "email",
-                  dob: newDob,
-                );
-              },
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error sending Email OTP: $e")),
-        );
-      } finally {
-        if(mounted) setState(() => _isLoading = false);
-      }
-      return;
-    }
-
-    if (phoneChanged) {
-      setState(() => _isLoading = true);
-      try {
-        await _apiService.sendPhoneOtp(_selectedCountryCode, newPhone);
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChangeInfoScreen(
-              title: "Mobile Verification",
-              subtitle: "Enter the OTP received on your mobile number",
-              showEmail: false,
-              showPhone: true,
-              onVerified: ({emailOtp, phoneOtp}) {
-                _updateProfileLoader(
-                  otp: phoneOtp,
-                  otpType: "phone",
-                  dob: newDob,
-                );
-              },
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error sending Phone OTP: $e")),
-        );
-      } finally {
-        if(mounted) setState(() => _isLoading = false);
-      }
-      return;
-    }
-
-    if (otherChanges || imageChanged) {
-      _updateProfileLoader(dob: newDob);
-    }
-  }
-
-  Future<void> _updateProfileLoader({
-    String? otp,
-    String? phoneOtp,
-    String? otpType,
-    String? dob,
-  }) async {
+    final newDob = "${_selectedYear!}-${(_months.indexOf(_selectedMonth!) + 1).toString().padLeft(2, '0')}-${_selectedDay!}";
     setState(() => _isLoading = true);
-
     try {
-      if(_profileImageFile != null) {
-        print("An image was selected but upload logic requires backend support for file.");
-      }
-
-      final response = await _apiService.updateUserProfile(
-        name: _nameController.text.trim(),
-        gender: gender,
-        dob: dob,
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-        countryCode: _selectedCountryCode,
-        otp: otp,
-        otpType: otpType,
-      );
-      print("Update Profile Response: $response");
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile updated successfully!")),
-      );
-
-      Navigator.pop(context, true);
-
-
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error updating profile: $e")),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      await _apiService.updateUserProfile(name: _nameController.text.trim(), gender: gender, dob: newDob, email: _emailController.text.trim(), phone: _phoneController.text.trim(), countryCode: _selectedCountryCode);
+      if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile updated!"))); _onBackTap(); }
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"))); } finally { if (mounted) setState(() => _isLoading = false); }
   }
 }
