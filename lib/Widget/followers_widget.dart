@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zatch_app/view/home_page.dart';
 import 'package:zatch_app/view/profile/profile_screen.dart';
 import '../controller/follower_controller.dart';
 import '../view/sellers/see_all_followers_screen.dart';
@@ -171,14 +172,19 @@ class _FollowersWidgetState extends State<FollowersWidget> {
 
           return GestureDetector(
             onTap: () async {
-              // Wait for user to return from Profile Screen
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProfileScreen(userId: user.id),
-                ),
-              );
-              // REFRESH DATA when coming back to sync changes
+              final profileScreen = ProfileScreen(userId: user.id);
+              if (homePageKey.currentState != null) {
+                homePageKey.currentState!.navigateToSubScreen(profileScreen);
+              } else {
+                // Fallback to push if homePageKey is not available
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => profileScreen,
+                  ),
+                );
+              }
+              // REFRESH DATA when coming back to sync changes (if needed, though sub-screen is within the same page state)
               if (mounted) _fetchData();
             },
             child: Column(

@@ -11,6 +11,7 @@ import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/services/api_service.dart';
 import 'package:zatch_app/view/LiveDetailsScreen.dart';
 import 'package:zatch_app/view/ReelDetailsScreen.dart';
+import 'package:zatch_app/view/home_page.dart';
 import 'package:zatch_app/view/product_view/product_detail_screen.dart';
 import 'package:zatch_app/view/profile_image_viewer.dart';
 import 'package:zatch_app/view/zatching_details_screen.dart';
@@ -20,7 +21,9 @@ import '../../model/user_profile_response.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
-  const ProfileScreen({super.key, this.userId});
+  final Function(bool isFollowing)? onFollowToggle;
+
+  const ProfileScreen({super.key, this.userId, this.onFollowToggle});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -82,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           _userProfile = profile.user;
           _isFollowing = profile.user.isFollowing ?? false;
-          _followerCount = profile.user.followerCount; // Initialize follower count here
+          _followerCount = profile.user.followerCount; 
           _isLoading = false;
         });
       }
@@ -96,30 +99,31 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _onFollowPressed() async {
     if (widget.userId == null || _isFollowLoading) return;
 
-    // 1. Keep the optimistic UI for the loading spinner
     setState(() {
       _isFollowLoading = true;
     });
 
-    final originalFollowState = _isFollowing; // Store original state for error rollback
+    final originalFollowState = _isFollowing; 
 
     try {
-      // 2. Call the API and wait for the response
       final response = await ApiService().toggleFollowUser(widget.userId!);
- if (mounted) {
-          setState(() {
-            _isFollowing = response.isFollowing;
-            _followerCount = response.followerCount;
-          });
-          // Show the message from the server response
-          _showMessage(
-            _isFollowing ? "Followed" : "Unfollowed",
-            response.message,
-          );
+      if (mounted) {
+        setState(() {
+          _isFollowing = response.isFollowing;
+          _followerCount = response.followerCount;
+        });
+        
+        if (widget.onFollowToggle != null) {
+          widget.onFollowToggle!(_isFollowing);
         }
-      } catch (e) {
+
+        _showMessage(
+          _isFollowing ? "Followed" : "Unfollowed",
+          response.message,
+        );
+      }
+    } catch (e) {
       debugPrint("Error toggling follow: $e");
-      // 4. If the API call fails, revert to the original state
       if (mounted) {
         setState(() {
           _isFollowing = originalFollowState;
@@ -127,15 +131,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         _showMessage("Error", "Action failed. Please try again.", isError: true);
       }
     } finally {
-      // 5. Always stop the loading indicator
       if (mounted) {
         setState(() => _isFollowLoading = false);
       }
     }
   }
+  
   Future<void> _onSharePressed() async {
     if (_userProfile == null) return;
-    // Create a shareable link. Replace with your actual app's URL structure.
     final shareLink = "https://zatch.app/profile/${_userProfile!.id}";
     await Share.share(
         "Check out ${_userProfile!.username ?? 'this user'}'s profile on Zatch!\n$shareLink");
@@ -147,22 +150,40 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
+  void _onBack() {
+    // 1. Prioritize popping the Navigator if this screen was 'pushed'
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } 
+    // 2. Otherwise, if it's a sub-screen in the HomePage stack, close it there
+    else if (homePageKey.currentState != null && homePageKey.currentState!.hasSubScreen) {
+      homePageKey.currentState!.closeSubScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: _onBack,
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFFA3DD00),
         ),
         backgroundColor: const Color(0xFFA3DD00),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : _userProfile == null
+            ? const Center(child: Text("User not found"))
+            : _buildBody(),
       ),
-      backgroundColor: const Color(0xFFA3DD00),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : _userProfile == null
-          ? const Center(child: Text("User not found"))
-          : _buildBody(),
     );
   }
 
@@ -215,11 +236,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildProfileHeader(User user) {
     const heroTag = "profile-picture-hero";
-    // Determine if the URL is valid. Use a placeholder if not.
     final hasImage = user.profilePic.url.isNotEmpty;
     final imageUrl = hasImage
         ? user.profilePic.url
-        : "https://via.placeholder.com/150/FFFFFF/000000?Text=No+Image"; // A default placeholder
+        : "https://via.placeholder.com/150/FFFFFF/000000?Text=No+Image"; 
 
     return Positioned(
       top: 8,
@@ -228,16 +248,14 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Column(
         children: [
           GestureDetector(
-            // MODIFIED: This onTap will now always trigger
             onTap: () {
-              if (!hasImage) return; // Prevent opening placeholder image
+              if (!hasImage) return; 
               Navigator.of(context).push(
                 PageRouteBuilder(
                   opaque: false,
                   barrierDismissible: true,
                   pageBuilder: (BuildContext context, _, __) {
                     return ProfileImageViewer(
-                      // Pass the determined imageUrl (real or placeholder)
                       imageUrl: imageUrl,
                       heroTag: heroTag,
                     );
@@ -258,10 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 child: CircleAvatar(
                   radius: 50,
-                  // MODIFIED: Use the determined 'hasImage' boolean
                   backgroundImage: hasImage ? NetworkImage(user.profilePic.url) : null,
-                  // REMOVED: onBackgroundImageError to prevent the crash
-                  // Show a placeholder icon only if there's no image
                   child: !hasImage
                       ? const Icon(Icons.person, size: 50, color: Colors.grey)
                       : null,
@@ -274,15 +289,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                user.username, // Using user.username directly as it's non-nullable in the model
+                user.username, 
                 style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87),
               ),
-              const SizedBox(width: 6),/*
-              // Conditionally show verified icon based on user data
-              if (user.isVerified)*/
+              const SizedBox(width: 6),
               const Icon(Icons.verified,
                   size: 18, color: Color(0xFFCCF656)),
             ],
@@ -322,7 +335,6 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: IconButton(
               icon: const Icon(Icons.chat_bubble_outline, color: Colors.black54),
               onPressed: () {
-                // This navigation is hardcoded. It should ideally use dynamic data from the user profile.
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -348,14 +360,11 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
           ElevatedButton(
-            // ✅ UPDATED STYLE LOGIC
             style: ElevatedButton.styleFrom(
-              // Change color based on the state
               backgroundColor: _isFollowing ? Colors.white : const Color(0xFFCCF656),
-              foregroundColor: Colors.black, // Set text/icon color for both states
+              foregroundColor: Colors.black, 
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30)),
-              // Add a border only when "Following"
               side: _isFollowing
                   ? const BorderSide(color: Color(0xFFCCF656), width: 1.5)
                   : BorderSide.none,
@@ -438,7 +447,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
 
-  /// TAB 1: Buy Bits (Saved Bits)
   Widget _buildBitsView(User user) {
     final bits = user.savedBits;
 
@@ -463,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 context,
                 MaterialPageRoute(
                   builder: (_) => ReelDetailsScreen(
-                    bitId: bit.id, // bit.id is not nullable in the corrected model
+                    bitId: bit.id, 
                     controller: LiveStreamController(),
                   ),
                 ),
@@ -472,7 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: AspectRatio(
-                aspectRatio: 9 / 16, // Common aspect ratio for video shorts
+                aspectRatio: 9 / 16, 
                 child: Container(
                   color: Colors.black,
                   child: Stack(
@@ -481,7 +489,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                       const Center(
                         child: Icon(Icons.play_circle_fill, color: Colors.white54, size: 40),
                       ),
-                      // Gradient overlay to make text readable
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -503,9 +510,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
-  /// TAB 2: Shop (Selling Products)
   Widget _buildShopView(User user) {
-    // This list correctly contains SavedProduct objects.
     final products = user.savedProducts;
 
     if (products.isEmpty) {
@@ -524,9 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
-        // Get the SavedProduct object.
         final SavedProduct productItem = products[index];
-        // Pass the object directly to the card.
         return _ProductCard(
           product: productItem,
         );
@@ -534,7 +537,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  /// TAB 3: Upcoming Live
   Widget _buildLiveView(User user) {
     final liveEvents = user.upcomingLives;if (liveEvents.isEmpty) {
       return const Center(
@@ -548,7 +550,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         crossAxisCount: 2,
         mainAxisSpacing: 24,
         crossAxisSpacing: 16,
-        childAspectRatio: 179 / 300, // Aspect ratio from Figma design (width / (image_height + text_height))
+        childAspectRatio: 179 / 300, 
       ),
       itemCount: liveEvents.length,
       itemBuilder: (context, index) {
@@ -578,6 +580,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 }
+
 class _LiveEventCard extends StatefulWidget {
   final UpcomingLive event;
 
@@ -646,7 +649,6 @@ class _LiveEventCardState extends State<_LiveEventCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Access event via widget.event in a StatefulWidget
     final formattedTime = DateFormat('h.mm a').format(widget.event.scheduledStartTime);
     final dateLabel = _getDateLabel(widget.event.scheduledStartTime);
 
@@ -689,12 +691,11 @@ class _LiveEventCardState extends State<_LiveEventCard> {
                   ),
                 ),
 
-                // 4. Updated the favorite icon to be interactive.
                 Positioned(
                   top: 10,
                   right: 10,
                   child: GestureDetector(
-                    onTap: _toggleLike, // Call the like function on tap
+                    onTap: _toggleLike, 
                     child: Container(
                       width: 32,
                       height: 32,
@@ -702,7 +703,6 @@ class _LiveEventCardState extends State<_LiveEventCard> {
                         color: const Color(0xFF292526).withOpacity(0.8),
                         shape: BoxShape.circle,
                       ),
-                      // Display a loader or an icon based on the state
                       child: isApiCallInProgress
                           ? const Padding(
                         padding: EdgeInsets.all(8.0),
@@ -756,7 +756,6 @@ class _LiveEventCardState extends State<_LiveEventCard> {
 
 
 class _ProductCard extends StatefulWidget {
-  // Changed from Map<String, dynamic> to SavedProduct
   final SavedProduct product;
 
   const _ProductCard({required this.product});
@@ -773,14 +772,10 @@ class _ProductCardState extends State<_ProductCard> {
   @override
   void initState() {
     super.initState();
-    // API response doesn't seem to include 'isLiked' for saved products,
-    // so we initialize it to a default value (e.g., false or true if they are saved).
-    // Let's assume saved means liked for this example.
     isLiked = true;
   }
 
   Future<void> _toggleLike() async {
-    // Use the product's id directly from the object.
     final productId = widget.product.id;
     if (isApiCallInProgress) return;
 
@@ -790,11 +785,9 @@ class _ProductCardState extends State<_ProductCard> {
     });
 
     try {
-      // This call will add/remove the product from the user's saved list.
       await _api.toggleLikeProduct(productId);
     } catch (e) {
       debugPrint("Failed to toggle product like: $e");
-      // Revert state on failure
       setState(() {
         isLiked = !isLiked;
       });
@@ -817,7 +810,6 @@ class _ProductCardState extends State<_ProductCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Extract data directly from the SavedProduct object.
     final product = widget.product;
     final imageUrl = product.images.isNotEmpty ? product.images.first.url : '';
     final title = product.name;

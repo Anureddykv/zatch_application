@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:zatch_app/model/user_profile_response.dart';
 import 'package:zatch_app/services/api_service.dart';
-import 'package:zatch_app/view/home_page.dart'; // Added this import
+import 'package:zatch_app/view/home_page.dart';
 import 'package:zatch_app/view/profile/following_list_screen.dart';
 import 'package:zatch_app/view/profile_image_viewer.dart';
 
@@ -71,9 +71,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _onBackTap() {
-    if (homePageKey.currentState != null) {
+    if (homePageKey.currentState != null && homePageKey.currentState!.hasSubScreen) {
       homePageKey.currentState!.closeSubScreen();
-    } else {
+    } else if (Navigator.canPop(context)) {
       Navigator.pop(context);
     }
   }
@@ -166,7 +166,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                         GestureDetector(
                           onTap: () {
                             if (user == null || !mounted) return;
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => FollowingScreen(followedUsers: user.following)));
+                            final followingScreen = FollowingScreen(
+                              followedUsers: user.following,
+                              userProfile: _currentUserProfile,
+                            );
+                            
+                            if (homePageKey.currentState != null) {
+                              homePageKey.currentState!.navigateToSubScreen(followingScreen);
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => followingScreen,
+                                ),
+                              );
+                            }
                           },
                           child: Text("$followingCount Sellers Following", style: const TextStyle(fontSize: 14, color: Colors.grey)),
                         ),

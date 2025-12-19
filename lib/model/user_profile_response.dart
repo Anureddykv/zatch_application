@@ -112,7 +112,7 @@ class User {
 
 
     return User(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       isFollowing: json['isFollowing'] ?? false,
       username: json['username'] ?? '',
       countryCode: json['countryCode'] ?? '',
@@ -211,7 +211,7 @@ class FollowedUser {
     final products = json['sellingProducts'] as List? ?? [];
 
     return FollowedUser(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       username: json['username'] ?? 'No Name',
       profilePicUrl: profilePic['url'],
       productsCount: products.length,
@@ -253,7 +253,7 @@ class SavedBit {
 
   factory SavedBit.fromJson(Map<String, dynamic> json) {
     return SavedBit(
-      id: json["_id"] ?? '',
+      id: json["_id"] ?? json['id'] ?? '',
       video: BitMedia.fromJson(json["video"] ?? {}),
       thumbnail: json["thumbnail"] != null ? BitMedia.fromJson(json["thumbnail"]) : null,
       title: json["title"] ?? '',
@@ -304,7 +304,7 @@ class BitComment {
   BitComment({required this.id, required this.userId, required this.text, required this.createdAt});
 
   factory BitComment.fromJson(Map<String, dynamic> json) => BitComment(
-    id: json["_id"] ?? '',
+    id: json["_id"] ?? json['id'] ?? '',
     userId: json["userId"] ?? '',
     text: json["text"] ?? '',
     createdAt: DateTime.tryParse(json["createdAt"] ?? '') ?? DateTime.now(),
@@ -334,7 +334,7 @@ class SavedProduct {
   });
 
   factory SavedProduct.fromJson(Map<String, dynamic> json) => SavedProduct(
-    id: json["_id"] ?? '',
+    id: json["_id"] ?? json['id'] ?? '',
     name: json["name"] ?? 'Unnamed Product',
     price: (json["price"] as num?)?.toDouble() ?? 0.0,
     isLiked: (json["isLiked"] as bool?) ?? false,
@@ -376,7 +376,7 @@ class UpcomingLive {
 
   factory UpcomingLive.fromJson(Map<String, dynamic> json) {
     return UpcomingLive(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       title: json['title'] ?? 'Untitled Live',
       scheduledStartTime:
       DateTime.tryParse(json['scheduledStartTime'] ?? '') ?? DateTime.now(),

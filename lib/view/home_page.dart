@@ -43,23 +43,29 @@ class _HomePageState extends State<HomePage> {
   Category? _selectedCategory;
 
   bool _shouldShowKeyboardOnSearch = false;
-  Widget? _currentSubScreen;
+  final List<Widget> _subScreenStack = [];
 
   void navigateToSubScreen(Widget screen) {
     setState(() {
-      _currentSubScreen = screen;
+      _subScreenStack.add(screen);
     });
   }
 
   void closeSubScreen() {
     setState(() {
-      _currentSubScreen = null;
+      if (_subScreenStack.isNotEmpty) {
+        _subScreenStack.removeLast();
+      }
     });
   }
 
+  bool get hasSubScreen => _subScreenStack.isNotEmpty;
+
   void _onItemTapped(int index, {bool fromHeader = false}) {
-    if (_currentSubScreen != null) {
-      closeSubScreen();
+    if (hasSubScreen) {
+      setState(() {
+        _subScreenStack.clear();
+      });
     }
     setState(() {
       _selectedIndex = index;
@@ -201,25 +207,31 @@ class _HomePageState extends State<HomePage> {
       AccountSettingsScreen(),
     ];
 
-    return WillPopScope(
-      onWillPop: () async {
-        if (_currentSubScreen != null) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (hasSubScreen) {
           closeSubScreen();
-          return false;
-        }
-        if (_selectedIndex != 0) {
+        } else if (_selectedIndex != 0) {
           setState(() => _selectedIndex = 0);
-          return false;
+        } else {
+          // If we are on the first tab and no sub-screens, we could allow the app to exit
+          // For now, we manually pop the navigator if possible
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            // This would exit the app if it's the root
+            // SystemNavigator.pop(); 
+          }
         }
-        return true;
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        body: _currentSubScreen ?? IndexedStack(index: _selectedIndex, children: pages),
+        body: hasSubScreen ? _subScreenStack.last : IndexedStack(index: _selectedIndex, children: pages),
         bottomNavigationBar: CustomBottomNavBar(
           selectedIndex: _selectedIndex,
           onItemTapped: (index) {
-            if (_currentSubScreen != null) closeSubScreen();
             _onItemTapped(index);
           },
           userProfile: userProfile,
