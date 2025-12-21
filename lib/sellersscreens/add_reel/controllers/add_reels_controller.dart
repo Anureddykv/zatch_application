@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,6 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:zatch_app/model/product_response_seller.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/seller_go_live_class.dart';
+import 'package:zatch_app/services/api_service.dart';
 
 class AddReelsController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -15,6 +19,7 @@ class AddReelsController extends GetxController
   void onInit() {
     tabController = TabController(length: 2, vsync: this);
     super.onInit();
+    fetchProducts();
   }
 
   TextEditingController titlecontroller = TextEditingController();
@@ -215,6 +220,81 @@ class AddReelsController extends GetxController
 
     currentStep.value = 1;
     return true;
+  }
+
+  //product display
+  RxList<ProductItem> products = <ProductItem>[].obs;
+  RxList<ProductItem> filteredProducts = <ProductItem>[].obs;
+  RxList<ProductItem> selectedProducts = <ProductItem>[].obs;
+  RxMap<String, bool> activeStatus = <String, bool>{}.obs;
+  RxList<ProductItem> bargainFilteredProducts = <ProductItem>[].obs;
+  
+  late RxList<ProductItem> allProducts;
+  final RxMap<String, BargainSetting> bargainSettings =
+      <String, BargainSetting>{}.obs;
+        void initProducts(RxList<ProductItem> products) {
+    allProducts = products;
+    bargainFilteredProducts.assignAll(products);
+
+    for (final p in products) {
+      bargainSettings[p.id] = BargainSetting(
+        isEnabled: true,
+        autoAccept: 5,
+        maxDiscount: 30,
+      );
+    }
+  }
+
+  void updateBargain({
+    required String productId,
+    bool? enabled,
+    double? autoAccept,
+    double? maxDiscount,
+  }) {
+    final setting = bargainSettings[productId];
+    if (setting == null) return;
+
+    bargainSettings[productId] = setting.copyWith(
+      isEnabled: enabled,
+      autoAccept: autoAccept,
+      maxDiscount: maxDiscount,
+    );
+  }
+
+  bool isProductActive(String productId) {
+    return activeStatus[productId] ?? false;
+  }
+
+  void toggleProductActive(String productId) {
+    activeStatus[productId] = !(activeStatus[productId] ?? false);
+    update();
+  }
+
+  var isLoading = false.obs;
+  final ApiService _apiService = ApiService();
+  Future<void> fetchProducts() async {
+    try {
+      isLoading.value = true;
+
+      final list = await _apiService.getProductgolive();
+
+      log("FINAL PRODUCT LIST: ${list.length}");
+
+      products.assignAll(list);
+      filteredProducts.assignAll(list);
+      bargainSettings.clear();
+      for (final p in list) {
+        bargainSettings[p.id] = BargainSetting(
+          isEnabled: false,
+          autoAccept: 5,
+          maxDiscount: 30,
+        );
+      }
+    } catch (e) {
+      log("Error fetching products: $e");
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   @override

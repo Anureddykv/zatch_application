@@ -1,5 +1,10 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:zatch_app/model/golivenowresponsemodel.dart';
+import 'package:zatch_app/model/live_details_response.dart';
+import 'package:zatch_app/services/api_service.dart';
 
 class Sellergoliveoverviewcontroller extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -9,7 +14,9 @@ class Sellergoliveoverviewcontroller extends GetxController
   void onInit() {
     tabController = TabController(length: 3, vsync: this);
     super.onInit();
+    // fetchLiveDetails();
   }
+
   final TextEditingController commentcontroller = TextEditingController();
 
   final List<Comment> comments = [
@@ -29,7 +36,33 @@ class Sellergoliveoverviewcontroller extends GetxController
     tabController.dispose();
     super.onClose();
   }
+
+  // api integration part
+  var isLoading = false.obs;
+  var golivenowresponsemodel = Rx<GoLiveNowResponseModel?>(null);
+  var livedetailsresponse = Rx<LiveDetailsResponse?>(null);
+  final ApiService _apiService = ApiService();
+  Future<void> fetchLiveDetails( String sessionId) async {
+    try {
+      isLoading.value = true;
+
+      final response = await _apiService.fetchLiveNowDetails(
+        sessionId,
+      );
+
+      if (!response.success) {
+        throw Exception("Some error occured");
+      }
+      livedetailsresponse.value = response;
+      isLoading.value = false;
+    } catch (e) {
+      log("Error fetching live overview: $e");
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }
+
 class Comment {
   final String text;
 

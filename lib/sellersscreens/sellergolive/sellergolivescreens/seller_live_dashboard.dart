@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
@@ -48,7 +49,9 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
                             child: const CircleAvatar(
                               backgroundColor: AppColors.contentColorWhite,
                               child: Padding(
@@ -203,6 +206,17 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                                         ],
                                       ),
                                       Obx(() {
+                                        if (yourlivesscreenscontroller
+                                            .isLoading
+                                            .value) {
+                                          return const SizedBox(
+                                            height: 100,
+                                            child: Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                          );
+                                        }
                                         final data =
                                             yourlivesscreenscontroller
                                                 .liveSummaryModel
@@ -332,7 +346,19 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                   padding: const EdgeInsets.only(left: 16.0, right: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
+                      AppSizedBox.height20,
+                      const Text(
+                        'Up Coming Lives',
+                        style: TextStyle(
+                          color: Color(0xFF101727),
+                          fontSize: 15.18,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      AppSizedBox.height10,
                       Obx(() {
                         if (yourlivesscreenscontroller.isLoading.value) {
                           return const Center(
@@ -370,193 +396,34 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
                         ),
                       ),
                       AppSizedBox.height10,
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFB),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 4,
-                              offset: const Offset(0, 3),
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Fashion Friday Sale',
-                                  style: TextStyle(
-                                    color: Color(0xFF101727),
-                                    fontSize: 15.18,
-                                    fontFamily: 'Plus Jakarta Sans',
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                      Obx(() {
+                        if (yourlivesscreenscontroller.isLoading.value) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                                IconButton(
-                                  onPressed: () {},
-                                  icon: Icon(Icons.more_vert),
-                                ),
-                              ],
-                            ),
-                            AppSizedBox.height8,
-                            Text(
-                              'Summer Dress, Casual Shirts & Sandals ',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                                fontFamily: 'Inter',
+                        final data =
+                            yourlivesscreenscontroller.liveSummaryModel.value;
 
-                                fontWeight: FontWeight.normal,
-                              ),
-                            ),
-                            AppSizedBox.height10,
-                            const Row(
-                              children: [
-                                Icon(Icons.calendar_month_rounded, size: 15),
-                                AppSizedBox.width10,
-                                Text(
-                                  '12 Oct 2025 - 12.00 AM',
-                                  style: TextStyle(
-                                    color: AppColors.contentColorBlack,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            AppSizedBox.height10,
-                            ClipRRect(
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(25),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Image.asset('assets/images/thumnailimg.png'),
-                                  Positioned(
-                                    top: 65,
-                                    left: 160,
-                                    child: Image.asset(
-                                      'assets/images/playicon.png',
-                                    ),
-                                  ),
-                                  Positioned(
-                                    right: 10,
-                                    top: 10,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(15),
-                                      decoration: const BoxDecoration(
-                                        // color: Colors.grey.shade800,
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(25),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        '45 min',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            AppSizedBox.height10,
-                            Divider(thickness: 0.5, color: Colors.grey[500]),
-                            AppSizedBox.height10,
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceAround,
-                                  children: [
-                                    Text(
-                                      '1247',
-                                      style: TextStyle(
-                                        color: Color(0xFF101727),
-                                        fontSize: 16,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '156',
-                                      style: TextStyle(
-                                        color: Color(0xFF101727),
-                                        fontSize: 16,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '23,500',
-                                      style: TextStyle(
-                                        color: Color(0xFF101727),
-                                        fontSize: 16,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceAround,
-                                  children: [
-                                    Text('Views'),
-                                    Text('Peak'),
-                                    Text('Sales'),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            AppSizedBox.height10,
-                            AppSizedBox.height10,
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  side: const BorderSide(
-                                    color: Colors.black,
-                                    width: 1,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                    horizontal: 50,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                child: const Text(
-                                  "View",
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                        if (data == null || data.upcomingLives.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: data.pastLives.length,
+                          separatorBuilder:
+                              (context, index) => const SizedBox(height: 25),
+                          itemBuilder: (context, index) {
+                            final live = data.pastLives[index];
+                            return PastLivesDetails(live: live);
+                          },
+                        );
+                      }),
+
+                      // PastLivesDetails(live: ,),
                       AppSizedBox.height100,
                     ],
                   ),
@@ -605,6 +472,222 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
           Text(
             percentText,
             style: const TextStyle(color: Color(0xFFCCF656), fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PastLivesDetails extends StatelessWidget {
+  final PastLiveItem live;
+  const PastLivesDetails({super.key, required this.live});
+
+  @override
+  Widget build(BuildContext context) {
+    String formatEndTime(DateTime dateTime) {
+      return DateFormat('dd MMM yyyy - hh.mm a').format(dateTime);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFB),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 3),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                live.title,
+                style: const TextStyle(
+                  color: Color(0xFF101727),
+                  fontSize: 15.18,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              // IconButton(onPressed: () {}, icon: Icon(Icons.more_vert)),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'View') {
+                    // navigate to summary
+                  }
+                },
+                itemBuilder:
+                    (context) => const [
+                      PopupMenuItem(value: 'View', child: Text('View')),
+                    ],
+              ),
+            ],
+          ),
+          AppSizedBox.height8,
+          Text(
+            live.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 12,
+              fontFamily: 'Inter',
+
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+          AppSizedBox.height10,
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_rounded, size: 15),
+              AppSizedBox.width10,
+              Text(
+                formatEndTime(live.endTime),
+                style: const TextStyle(
+                  color: AppColors.contentColorBlack,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          AppSizedBox.height10,
+          // ClipRRect(
+          //   borderRadius: const BorderRadius.all(Radius.circular(25)),
+          //   child: Stack(
+          //     children: [
+          //       Image.asset('assets/images/thumnailimg.png'),
+          //       Positioned(
+          //         top: 65,
+          //         left: 160,
+          //         child: Image.asset('assets/images/playicon.png'),
+          //       ),
+          //       Positioned(
+          //         right: 10,
+          //         top: 10,
+          //         child: Container(
+          //           padding: const EdgeInsets.all(15),
+          //           decoration: const BoxDecoration(
+          //             color: Colors.grey,
+          //             borderRadius: BorderRadius.all(Radius.circular(25)),
+          //           ),
+          //           child: const Text(
+          //             '45 min',
+          //             style: TextStyle(color: Colors.white, fontSize: 12),
+          //           ),
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          ClipRRect(
+            borderRadius: const BorderRadius.all(Radius.circular(25)),
+            child: Stack(
+              children: [
+                (live.thumbnail.url.isNotEmpty)
+                    ? Image.network(
+                      live.thumbnail.url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) {
+                        return Image.asset(
+                          'assets/images/thumnailimg.png',
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    )
+                    : Image.asset(
+                      'assets/images/thumnailimg.png',
+                      fit: BoxFit.cover,
+                    ),
+
+                /// Play icon
+                Positioned(
+                  bottom: 65,
+                  right: 160,
+                  child: Image.asset('assets/images/playicon.png', height: 40),
+                ),
+
+                /// Duration badge (from backend)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.20),
+                      borderRadius: const BorderRadius.all(Radius.circular(25)),
+                    ),
+                    child: Text(
+                      live.durationFormatted,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AppSizedBox.height10,
+          Divider(thickness: 0.5, color: Colors.grey[500]),
+          AppSizedBox.height10,
+          Column(
+            children: [
+              Row(
+                children: [
+                  _StatValue(value: live.views.toString()),
+                  _StatValue(value: live.peak.toString()),
+                  _StatValue(value: live.sales),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Row(
+                children: [
+                  _StatLabel(label: 'Views'),
+                  _StatLabel(label: 'Peak'),
+                  _StatLabel(label: 'Sales'),
+                ],
+              ),
+            ],
+          ),
+
+          AppSizedBox.height10,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {},
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                side: const BorderSide(color: Colors.black, width: 1),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 50,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                "View",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+            ),
           ),
         ],
       ),
@@ -721,73 +804,18 @@ class Upcominglivecard extends StatelessWidget {
                   const Icon(Icons.timer, size: 16),
                   const SizedBox(width: 4),
                   Text(_getRemainingTime(live.scheduledStartTime)),
-
-                  IconButton(
-                    onPressed: () {
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: yourlivesscreenscontroller.selectedValue.value,
-                          dropdownColor: Colors.white,
-                          icon: const Icon(
-                            Icons.arrow_drop_down_outlined,
-                            color: Colors.white,
-                          ),
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          selectedItemBuilder: (BuildContext context) {
-                            return [
-                              const Padding(
-                                padding: EdgeInsets.all(18.0),
-                                child: Text(
-                                  "This Week",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.all(18.0),
-                                child: Text(
-                                  "Last 15 Days",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.all(18.0),
-                                child: Text(
-                                  "Last Month",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ];
-                          },
-                          items: const [
-                            DropdownMenuItem(
-                              value: "this_week",
-                              child: Text("This Week"),
-                            ),
-                            DropdownMenuItem(
-                              value: "last_15_days",
-                              child: Text("Last 15 Days"),
-                            ),
-                            DropdownMenuItem(
-                              value: "last_month",
-                              child: Text("Last Month"),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            yourlivesscreenscontroller.selectedValue.value =
-                                value!;
-                            yourlivesscreenscontroller.getLiveSummaryData(
-                              value,
-                            );
-                            log(value);
-                          },
-                        ),
-                      );
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      _handleUpcomingLiveAction(context, live, value);
                     },
-                    icon: Icon(Icons.more_vert),
+                    itemBuilder: (context) {
+                      return live.actions.map((action) {
+                        return PopupMenuItem<String>(
+                          value: action,
+                          child: Text(action),
+                        );
+                      }).toList();
+                    },
                   ),
                 ],
               ),
@@ -862,5 +890,79 @@ class Upcominglivecard extends StatelessWidget {
   String _formatDate(DateTime date) {
     return '${date.day}-${date.month}-${date.year} '
         '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+void _handleUpcomingLiveAction(
+  BuildContext context,
+  LiveItem live,
+  String action,
+) {
+  switch (action) {
+    case 'Edit':
+      // navigate to edit screen
+      break;
+
+    case 'Cancel':
+      // show cancel confirmation
+      break;
+
+    case 'Reschedule':
+      // open date & time picker
+      break;
+
+    case 'Share':
+      // share live.shareLink
+      break;
+
+    case 'End Live':
+      // end live stream
+      break;
+  }
+}
+
+class _StatValue extends StatelessWidget {
+  final String value;
+
+  const _StatValue({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFF101727),
+            fontSize: 16,
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatLabel extends StatelessWidget {
+  final String label;
+
+  const _StatLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF8A8A8A), // 👈 description grey
+            fontSize: 12,
+            fontFamily: 'Plus Jakarta Sans',
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ),
+    );
   }
 }

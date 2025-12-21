@@ -124,9 +124,9 @@ class Sellergolivecontroller extends GetxController
 
         // Optional: compress here if needed
 
-        // selectedImage.value =
-        //     imageFile; // Thumbnail will be replaced automatically
-        tempSelectedImage.value = imageFile;
+        selectedImage.value =
+            imageFile; // Thumbnail will be replaced automatically
+        // tempSelectedImage.value = imageFile;
       }
     } catch (e) {
       print("Error picking image: $e");
@@ -246,17 +246,37 @@ class Sellergolivecontroller extends GetxController
   }
 
   Future<FormData> buildStepThreePayloadForSheduleLive(String sessionId) async {
-    return FormData.fromMap({
+    final scheduledTime = buildScheduledTimeOrThrow();
+
+    if (selectedImage.value == null) {
+      throw Exception('Thumbnail image not selected');
+    }
+
+    final formData = FormData.fromMap({
       "step": "3",
       "sessionId": sessionId,
-      "title": titlecontroller.text,
-      "description": descriptioncontroller.text,
-      "sheduledStartTime": buildScheduledTime(),
-      // "thumbnail": await MultipartFile.fromFile(
-      //   selectedImage.value!.path,
-      //   filename: selectedImage.value!.path.split('/').last,
-      // ),
+      "title": titlecontroller.text.trim(),
+      "description": descriptioncontroller.text.trim(),
+      "scheduledStartTime": scheduledTime,
+      "thumbnail": await MultipartFile.fromFile(
+        selectedImage.value!.path,
+        filename: selectedImage.value!.path.split('/').last,
+      ),
     });
+
+    for (final field in formData.fields) {
+      log('${field.key} : ${field.value}');
+    }
+
+    for (final file in formData.files) {
+      log(
+        '${file.key} : '
+        'filename=${file.value.filename}, '
+        'contentType=${file.value.contentType}',
+      );
+    }
+
+    return formData;
   }
 
   Future<FormData> buildStepThreePayloadForLiveNow(String sessionId) async {
@@ -265,17 +285,18 @@ class Sellergolivecontroller extends GetxController
       "sessionId": sessionId,
       "title": titlecontroller.text,
       "description": descriptioncontroller.text,
-      // "sheduledStartTime": buildScheduledTime(),
       "GoLiveNow": true,
-      // "thumbnail": await MultipartFile.fromFile(
-      //   selectedImage.value!.path,
-      //   filename: selectedImage.value!.path.split('/').last,
-      // ),
+      "thumbnail": await MultipartFile.fromFile(
+        selectedImage.value!.path,
+        filename: selectedImage.value!.path.split('/').last,
+      ),
     });
   }
 
+  var isbtnLoading = false.obs;
   Future<void> goLiveSteps(BuildContext context) async {
     try {
+      isbtnLoading.value = true;
       // ------------------------------
       // STEP 1
       // ------------------------------
@@ -317,14 +338,15 @@ class Sellergolivecontroller extends GetxController
       // STEP 3 (FORM DATA)
       // ------------------------------
       if (currentStep.value == 2) {
-        if (tabController.index == 0) {
+        final selectedTab = tabController.index;
+
+        if (selectedTab == 0) {
           try {
             // Build Payload
             final step3Payload = await buildStepThreePayloadForLiveNow(
               sessionId.value,
             );
-            log("STEP 3 Payload => ${step3Payload.toString()}");
-
+            log("STEP 3 (LIVE NOW) Payload built");
             // API Call
             final response3 = await ApiService().goLiveStepThree(
               payload: step3Payload,
@@ -332,7 +354,7 @@ class Sellergolivecontroller extends GetxController
 
             // Validate Response
             if (response3 != null && response3.success == true) {
-              log("STEP 3 Success: ${response3.message}");
+              log("STEP 3 live now Success: ${response3.message}");
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder:
@@ -348,14 +370,12 @@ class Sellergolivecontroller extends GetxController
             log("STEP 3 Error: $e");
             log("$s");
           }
-        }
-        if (tabController.index == 1) {
+        } else if (selectedTab == 1) {
           try {
             // Build Payload
             final step3Payload = await buildStepThreePayloadForSheduleLive(
               sessionId.value,
             );
-            log("STEP 3 Payload => ${step3Payload.toString()}");
 
             // API Call
             final response3 = await ApiService().goLiveStepThree(
@@ -364,7 +384,7 @@ class Sellergolivecontroller extends GetxController
 
             // Validate Response
             if (response3 != null && response3.success == true) {
-              log("STEP 3 Success: ${response3.message}");
+              log("STEP 3 shedule Success: ${response3.message}");
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder:
@@ -374,6 +394,10 @@ class Sellergolivecontroller extends GetxController
                 ),
                 (Route<dynamic> route) => false,
               );
+              log(
+                "Thumbnail public_id: ${response3.session.thumbnail.publicId}",
+              );
+              log("Thumbnail url: ${response3.session.thumbnail.url}");
             } else {
               log("STEP 3 Failed: Response empty or success=false");
             }
@@ -387,6 +411,8 @@ class Sellergolivecontroller extends GetxController
       }
     } catch (e) {
       log("Error in goLiveSteps: $e");
+    } finally {
+      isbtnLoading.value = true;
     }
   }
 
@@ -503,16 +529,45 @@ class Sellergolivecontroller extends GetxController
   RxString description = "".obs;
   RxString thumbnailImg = "".obs;
   RxString sessionId = "".obs;
-  String buildScheduledTime() {
-    final dt = DateTime.utc(
+  // String buildScheduledTime() {
+  //   final dt = DateTime.utc(
+  //     int.parse(selectedYear.value),
+  //     int.parse(selectedMonth.value),
+  //     int.parse(selectedDay.value),
+  //     int.parse(selectedHour.value),
+  //     int.parse(selectedMinute.value),
+  //   );
+
+  //   return "${dt.toIso8601String().split('.').first}Z";
+  // }
+  String buildScheduledTimeOrThrow() {
+    if (selectedYear.value.isEmpty ||
+        selectedMonth.value.isEmpty ||
+        selectedDay.value.isEmpty ||
+        selectedHour.value.isEmpty ||
+        selectedMinute.value.isEmpty) {
+      throw Exception('Date or time not selected');
+    }
+
+    final localDateTime = DateTime(
       int.parse(selectedYear.value),
       int.parse(selectedMonth.value),
       int.parse(selectedDay.value),
       int.parse(selectedHour.value),
       int.parse(selectedMinute.value),
+      0, // 👈 seconds (set explicitly)
     );
 
-    return "${dt.toIso8601String().split('.').first}Z";
+    final utc = localDateTime.toUtc();
+
+    String two(int n) => n.toString().padLeft(2, '0');
+
+    return '${utc.year}-'
+        '${two(utc.month)}-'
+        '${two(utc.day)}T'
+        '${two(utc.hour)}:'
+        '${two(utc.minute)}:'
+        '${two(utc.second)}Z';
   }
 
   final formKey = GlobalKey<FormState>();
@@ -594,8 +649,35 @@ class Sellergolivecontroller extends GetxController
     );
 
     await engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    engine!.registerEventHandler(
+      RtcEngineEventHandler(
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          viewerCount.value++;
+          log("👤 Viewer joined: $remoteUid | Total: ${viewerCount.value}");
+        },
+
+        onUserOffline: (
+          RtcConnection connection,
+          int remoteUid,
+          UserOfflineReasonType reason,
+        ) {
+          if (viewerCount.value > 0) {
+            viewerCount.value--;
+          }
+          log("👤 Viewer left: $remoteUid | Total: ${viewerCount.value}");
+        },
+      ),
+    );
 
     await engine!.enableVideo();
+    await engine!.setVideoEncoderConfiguration(
+      const VideoEncoderConfiguration(
+        dimensions: VideoDimensions(width: 720, height: 1280),
+        frameRate: 30,
+        orientationMode: OrientationMode.orientationModeAdaptive,
+      ),
+    );
+
     await engine!.startPreview();
 
     await engine!.joinChannel(
@@ -642,7 +724,7 @@ class Sellergolivecontroller extends GetxController
       await startAgoraLive();
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => SellerLiveScreen()),
+        MaterialPageRoute(builder: (_) => const SellerLiveScreen()),
       );
       return;
     } catch (e) {
@@ -685,7 +767,32 @@ class Sellergolivecontroller extends GetxController
 
   var isMuted = false.obs;
   var viewerCount = 0.obs;
-  void clearGoLiveData() {
+  void clearGoLiveData() async {
+    // 🔴 STOP AGORA FIRST
+    if (engine != null) {
+      try {
+        await engine!.leaveChannel();
+        await engine!.stopPreview();
+        await engine!.release();
+      } catch (e) {
+        log("Agora cleanup error: $e");
+      }
+    }
+
+    engine = null;
+    hasJoinedChannel = false;
+
+    // 🔄 RESET LIVE STATES
+    isMuted.value = false;
+    viewerCount.value = 0;
+
+    // 🔄 RESET AGORA DATA
+    agoraAppId = '';
+    agoraToken = '';
+    agoraChannel = '';
+    agoraUid = 0;
+
+    // 🔄 RESET UI STEPS
     currentStep.value = 0;
     sessionId.value = '';
     titlecontroller.clear();
@@ -696,7 +803,32 @@ class Sellergolivecontroller extends GetxController
     selectedYear.value = '';
     selectedHour.value = '';
     selectedMinute.value = '';
+
+    // 🔄 RESET PRODUCTS
     zatchFilteredProducts.clear();
-    tabController.index = 0; // reset tab if using TabController
+
+    // 🔄 RESET TAB
+    tabController.index = 0;
+
+    log("🧹 Go Live data cleared successfully");
   }
+
+  final applyBargainToAll = false.obs;
+  void applyBargainSettingsToAll({
+    required double autoAccept,
+    required double maxDiscount,
+  }) {
+    for (final product in filteredProducts) {
+      final setting = bargainSettings[product.id];
+      if (setting != null) {
+        bargainSettings[product.id] = setting.copyWith(
+          autoAccept: autoAccept,
+          maxDiscount: maxDiscount,
+        );
+      }
+    }
+  }
+
+  final selectedDate = Rx<DateTime?>(null);
+  final selectedTime = Rx<TimeOfDay?>(null);
 }

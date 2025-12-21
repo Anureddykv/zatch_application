@@ -18,6 +18,7 @@ import 'package:zatch_app/model/golivenowresponsemodel.dart';
 import 'package:zatch_app/model/golivesteponeresponse.dart';
 import 'package:zatch_app/model/golivestepthreeresponse.dart';
 import 'package:zatch_app/model/live_comment.dart';
+import 'package:zatch_app/model/live_details_response.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/model/livesummarymodel.dart';
 import 'package:zatch_app/model/product_response.dart';
@@ -1258,6 +1259,20 @@ class ApiService {
       return shareliveSummary;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
+    }
+  }
+
+  Future<LiveDetailsResponse> fetchLiveNowDetails(String sessionId) async {
+    try {
+      final response = await _dio.get("/live/session/$sessionId/details");
+
+      final decodedData = _decodeResponse(response.data);
+
+      return LiveDetailsResponse.fromJson(decodedData);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    } catch (e) {
+      throw Exception("Unexpected error occurred");
     }
   }
 }

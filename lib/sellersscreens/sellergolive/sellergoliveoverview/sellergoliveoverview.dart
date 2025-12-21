@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/model/live_details_response.dart';
+import 'package:zatch_app/sellersscreens/sellerdashbord/SellerDashboardScreen.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergoliveoverview/sellergoliveoverviewcontroller.dart';
 
 class Sellergoliveoverview extends StatefulWidget {
@@ -32,20 +35,33 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
             backgroundColor: const Color(0xffd5ff4d),
             automaticallyImplyLeading: false,
             elevation: 0,
-            title: const Padding(
+            title: Padding(
               padding: EdgeInsets.only(top: 6.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.contentColorWhite,
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: AppColors.contentColorBlack,
-                      size: 16,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => const SellerDashboardScreen(),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
+                    },
+                    child: const CircleAvatar(
+                      backgroundColor: AppColors.contentColorWhite,
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        color: AppColors.contentColorBlack,
+                        size: 16,
+                      ),
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Live Overview',
                     style: TextStyle(
                       color: Color(0xFF101727),
@@ -54,7 +70,7 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.notifications_none,
                     size: 28,
                     color: AppColors.contentColorBlack,
@@ -80,27 +96,86 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
                 SizedBox(height: screenHeight * 0.02),
                 Stack(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Stack(
-                        children: [
-                          Image.asset(
-                            'assets/images/thumnailimg.png',
-                            fit: BoxFit.cover,
+                    Obx(() {
+                      if (goliveoverviewcontroller.isLoading.value) {
+                        return ClipRRect(
+                          child: Container(
+                            height: 200,
                             width: double.infinity,
-                          ),
-                          Positioned(
-                            right: 170,
-                            top: 80,
-                            child: Image.asset(
-                              'assets/images/playicon.png',
-                              width: 40,
-                              height: 40,
+                            color: Colors.grey[300],
+                            child: const Center(
+                              child: CircularProgressIndicator(),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        );
+                      }
+                      final data =
+                          goliveoverviewcontroller.livedetailsresponse.value;
+
+                      // Display fetched thumbnail if available, otherwise placeholder
+                      final imageUrl =
+                          goliveoverviewcontroller
+                              .livedetailsresponse
+                              .value
+                              ?.sessionDetails
+                              .thumbnail
+                              .url;
+
+                      return (imageUrl != null && imageUrl.isNotEmpty)
+                          ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: 200,
+                                  errorBuilder: (_, __, ___) {
+                                    return Image.asset(
+                                      'assets/images/thumnailimg.png',
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: 200,
+                                    );
+                                  },
+                                ),
+                              ),
+                              Positioned(
+                                right: 170,
+                                top: 80,
+                                child: Image.asset(
+                                  'assets/images/playicon.png',
+                                  width: 40,
+                                  height: 40,
+                                ),
+                              ),
+                            ],
+                          )
+                          : Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/images/thumnailimg.png',
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: 200,
+                                ),
+                              ),
+                              Positioned(
+                                right: 170,
+                                top: 80,
+                                child: Image.asset(
+                                  'assets/images/playicon.png',
+                                  width: 40,
+                                  height: 40,
+                                ),
+                              ),
+                            ],
+                          );
+                    }),
+
                     Positioned(
                       bottom: 10,
                       right: 10,
@@ -144,29 +219,41 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.02),
-                Text(
-                  'data.bit.title',
-                  style: TextStyle(
-                    color: Color(0xFF101727),
-                    fontSize: 15.18,
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                Text(
-                  " data.bit.description",
-                  style: TextStyle(
-                    color: Color(0xFF2C2C2C),
-                    fontSize: 11,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                    height: 1.36,
-                    wordSpacing: 1.6,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
+                Obx(() {
+                  final data =
+                      goliveoverviewcontroller.livedetailsresponse.value;
+                  if (data == null) return const SizedBox();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.sessionDetails.title,
+                        style: const TextStyle(
+                          color: Color(0xFF101727),
+                          fontSize: 15.18,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+                      Text(
+                        data.sessionDetails.description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF2C2C2C),
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w400,
+                          height: 1.36,
+                          wordSpacing: 1.6,
+                        ),
+                      ),
+                      SizedBox(height: screenHeight * 0.02),
+                    ],
+                  );
+                }),
 
                 Container(
                   margin: const EdgeInsets.symmetric(
@@ -201,9 +288,43 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
                   child: TabBarView(
                     controller: goliveoverviewcontroller.tabController,
                     children: [
-                      OverViewTab(),
-                      productslile(),
-                      CommentsTableview(),
+                      OverViewTab(
+                        stats:
+                            goliveoverviewcontroller
+                                .livedetailsresponse
+                                .value!
+                                .sessionDetails
+                                .statsSummary,
+                      ),
+                      Obx(() {
+                        final products =
+                            goliveoverviewcontroller
+                                .livedetailsresponse
+                                .value
+                                ?.sessionDetails
+                                .products ??
+                            [];
+
+                        if (products.isEmpty) {
+                          return const Center(child: Text("No products found"));
+                        }
+
+                        return ProductTile(products: products);
+                      }),
+                      Obx(() {
+                        final comments =
+                            goliveoverviewcontroller
+                                .livedetailsresponse
+                                .value
+                                ?.sessionDetails
+                                .comments ??
+                            [];
+
+                        if (comments.isEmpty) {
+                          return const Center(child: Text("No products found"));
+                        }
+                        return CommentsTableview(comments: []);
+                      }),
                     ],
                   ),
                 ),
@@ -217,13 +338,9 @@ class _SellergoliveoverviewState extends State<Sellergoliveoverview> {
 }
 
 class CommentsTableview extends StatelessWidget {
-  // final List<Comment> comments;
+  final List<Comment> comments;
 
-  CommentsTableview({
-    super.key,
-
-    // required this.comments
-  });
+  CommentsTableview({super.key, required this.comments});
 
   final Sellergoliveoverviewcontroller goliveoverviewcontroller =
       Get.put<Sellergoliveoverviewcontroller>(Sellergoliveoverviewcontroller());
@@ -360,19 +477,215 @@ class CommentsTableview extends StatelessWidget {
   }
 }
 
+// class OverViewTab extends StatelessWidget {
+//   const OverViewTab({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     var screenHeight = MediaQuery.sizeOf(context).height;
+
+//     var screenWidth = MediaQuery.sizeOf(context).width;
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         SizedBox(height: screenHeight * 0.02),
+
+//         const Text(
+//           'Summary',
+//           style: TextStyle(
+//             color: Color(0xFF101727),
+//             fontSize: 14.18,
+//             fontFamily: 'Plus Jakarta Sans',
+//             fontWeight: FontWeight.bold,
+//           ),
+//         ),
+
+//         SizedBox(height: screenHeight * 0.02),
+
+//         // Row 1
+//         Row(
+//           children: [
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'Views',
+//                 value: '1.2K',
+//                 change: '+18% this week',
+//               ),
+//             ),
+//             SizedBox(width: screenWidth * 0.02),
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'Revenue',
+//                 value: '340',
+//                 change: '+12% this week',
+//               ),
+//             ),
+//             SizedBox(width: screenWidth * 0.02),
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'Avg Engagement',
+//                 value: '89',
+//                 change: '+5% this week',
+//               ),
+//             ),
+//           ],
+//         ),
+
+//         SizedBox(height: screenHeight * 0.02),
+
+//         // Row 2
+//         Row(
+//           children: [
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'Total Orders',
+//                 value: '210',
+//                 change: '+9% this week',
+//               ),
+//             ),
+//             SizedBox(width: screenWidth * 0.02),
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'Add to Cart',
+//                 value: '1.5K',
+//                 change: '+22% this week',
+//               ),
+//             ),
+//             SizedBox(width: screenWidth * 0.02),
+//             Expanded(
+//               child: _summaryCard(
+//                 icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+//                 title: 'No of Zatches',
+//                 value: '76',
+//                 change: '+3% this week',
+//               ),
+//             ),
+//           ],
+//         ),
+//       ],
+//     );
+//   }
+
+//   /// Reusable Summary Card
+//   Widget _summaryCard({
+//     required String title,
+//     required String value,
+//     required String change,
+//     required Icon icon,
+//   }) {
+//     return Container(
+//       padding: const EdgeInsets.all(14),
+//       decoration: BoxDecoration(
+//         color: const Color(0xFFF8FAFB),
+//         borderRadius: BorderRadius.circular(12.75),
+//         boxShadow: const [
+//           BoxShadow(
+//             color: Color(0x19000000),
+//             blurRadius: 3,
+//             offset: Offset(0, 1),
+//           ),
+//         ],
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           CircleAvatar(
+//             radius: 14,
+//             backgroundColor: Color(0xFFE3E8FF),
+//             child: icon,
+//           ),
+//           const SizedBox(height: 8),
+//           Text(
+//             title,
+//             overflow: TextOverflow.ellipsis,
+//             maxLines: 1,
+//             style: const TextStyle(
+//               fontSize: 12,
+//               fontWeight: FontWeight.w600,
+//               color: Color(0xFF101727),
+//             ),
+//           ),
+//           const SizedBox(height: 4),
+//           Text(
+//             value,
+//             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+//           ),
+//           const SizedBox(height: 2),
+//           Text(
+//             change,
+//             style: const TextStyle(
+//               fontSize: 10,
+//               color: Colors.green,
+//               fontWeight: FontWeight.w500,
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 class OverViewTab extends StatelessWidget {
-  const OverViewTab({super.key});
+  final LiveStatsSummary stats;
+  const OverViewTab({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {
     var screenHeight = MediaQuery.sizeOf(context).height;
-
     var screenWidth = MediaQuery.sizeOf(context).width;
+
+    // List of summary cards data
+    final List<_SummaryData> row1 = [
+      _SummaryData(
+        title: 'Views',
+        value: stats.views.toString(),
+        change: "+${stats.viewsChange}this week",
+        icon: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+      ),
+      _SummaryData(
+        title: 'Revenue',
+        value: stats.revenue.toString(),
+        change: "+${stats.revenueChange}this week",
+        icon: Icon(Icons.attach_money, size: 14, color: Colors.black),
+      ),
+      _SummaryData(
+        title: 'Avg Engagement',
+        value: stats.avgEngagement.toString(),
+        change: "+${stats.engagementChange}this week",
+        icon: Icon(Icons.bar_chart, size: 14, color: Colors.black),
+      ),
+    ];
+
+    final List<_SummaryData> row2 = [
+      _SummaryData(
+        title: 'Total Orders',
+        value: stats.totalOrders.toString(),
+        change: "+${stats.ordersChange}this week",
+        icon: Icon(Icons.shopping_bag, size: 14, color: Colors.black),
+      ),
+      _SummaryData(
+        title: 'Add to Cart',
+        value: stats.addToCarts.toString(),
+        change: "+${stats.addToCartsChange} this week",
+
+        icon: Icon(Icons.add_shopping_cart, size: 14, color: Colors.black),
+      ),
+      _SummaryData(
+        title: 'No of Zatches',
+        value: stats.zatches.toString(),
+        change: "+${stats.zatchesChange} this week",
+        icon: Icon(Icons.star, size: 14, color: Colors.black),
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(height: screenHeight * 0.02),
-
         const Text(
           'Summary',
           style: TextStyle(
@@ -382,69 +695,32 @@ class OverViewTab extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-
         SizedBox(height: screenHeight * 0.02),
-
-        // Row 1
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                title: 'Views',
-                value: '1.2K',
-                change: '+18% this week',
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.02),
-            Expanded(
-              child: _summaryCard(
-                title: 'Likes',
-                value: '340',
-                change: '+12% this week',
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.02),
-            Expanded(
-              child: _summaryCard(
-                title: 'Shares',
-                value: '89',
-                change: '+5% this week',
-              ),
-            ),
-          ],
-        ),
-
+        _buildRow(row1, screenWidth),
         SizedBox(height: screenHeight * 0.02),
-
-        // Row 2
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                title: 'Comments',
-                value: '210',
-                change: '+9% this week',
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.02),
-            Expanded(
-              child: _summaryCard(
-                title: 'Followers',
-                value: '1.5K',
-                change: '+22% this week',
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.02),
-            Expanded(
-              child: _summaryCard(
-                title: 'Saves',
-                value: '76',
-                change: '+3% this week',
-              ),
-            ),
-          ],
-        ),
+        _buildRow(row2, screenWidth),
       ],
+    );
+  }
+
+  Widget _buildRow(List<_SummaryData> items, double screenWidth) {
+    return Row(
+      children: List.generate(items.length * 2 - 1, (index) {
+        if (index.isEven) {
+          int dataIndex = index ~/ 2;
+          final data = items[dataIndex];
+          return Expanded(
+            child: _summaryCard(
+              title: data.title,
+              value: data.value,
+              change: data.change,
+              icon: data.icon,
+            ),
+          );
+        } else {
+          return SizedBox(width: screenWidth * 0.02);
+        }
+      }),
     );
   }
 
@@ -453,6 +729,7 @@ class OverViewTab extends StatelessWidget {
     required String title,
     required String value,
     required String change,
+    required Icon icon,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -470,14 +747,16 @@ class OverViewTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 14,
             backgroundColor: Color(0xFFE3E8FF),
-            child: Icon(Icons.remove_red_eye, size: 14, color: Colors.black),
+            child: icon,
           ),
           const SizedBox(height: 8),
           Text(
             title,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -504,18 +783,31 @@ class OverViewTab extends StatelessWidget {
   }
 }
 
+class _SummaryData {
+  final String title;
+  final String value;
+  final String change;
+  final Icon icon;
+
+  _SummaryData({
+    required this.title,
+    required this.value,
+    required this.change,
+    required this.icon,
+  });
+}
+
 // ignore: camel_case_types
-class productslile extends StatelessWidget {
-  const productslile({super.key});
+class ProductTile extends StatelessWidget {
+  final List<LiveProductDetails> products;
+  const ProductTile({super.key, required this.products});
 
   @override
   Widget build(BuildContext context) {
-    final bool isSelected = true;
-    final bool isActive = true;
     return Column(
       children: [
         AppSizedBox.height10,
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
@@ -530,6 +822,7 @@ class productslile extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.add, size: 15),
+                SizedBox(width: 4),
                 Text(
                   'Add Products',
                   style: TextStyle(
@@ -545,104 +838,141 @@ class productslile extends StatelessWidget {
         ),
         AppSizedBox.height10,
 
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFB),
-            borderRadius: BorderRadius.circular(12.75),
-            border: Border.all(color: Colors.transparent, width: 1.5),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x19000000),
-                blurRadius: 2,
-                offset: Offset(0, 1),
+        // List of products
+        ...products.map(
+          (product) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFB),
+                borderRadius: BorderRadius.circular(12.75),
+                border: Border.all(color: Colors.transparent, width: 1.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x19000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                  BoxShadow(
+                    color: Color(0x19000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
-              BoxShadow(
-                color: Color(0x19000000),
-                blurRadius: 3,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Checkbox
-              // Product Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8.75),
-                child: Image.asset(
-                  'assets/images/thumnailimg.png',
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Product Details
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sample Product Title',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.3,
-                        fontFamily: 'Plus Jakarta Sans',
-                        color: Color(0xFF101727),
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Sample Product Subtitle',
-                      style: TextStyle(
-                        color: Color(0xFF697282),
-                        fontSize: 14,
-                        fontFamily: 'Plus Jakarta Sans',
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Image
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8.75),
+                    child:
+                        product.images.isNotEmpty
+                            ? Image.network(
+                              product.images[0].url,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                            )
+                            : Image.asset(
+                              'assets/images/thumnailimg.png',
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                            ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Product Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ProductDetailRow(label: 'Cost', value: '\$25'),
-                            // SizedBox(height: 4),
-                            // ProductDetailRow(label: 'SKU', value: '12345'),
-                            // SizedBox(height: 4),
-                            // ProductDetailRow(label: 'Stock', value: '10 Units'),
-                          ],
+                        Text(
+                          product.name,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.3,
+                            fontFamily: 'Plus Jakarta Sans',
+                            color: Color(0xFF101727),
+                          ),
                         ),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        const SizedBox(height: 4),
+                        Text(
+                          product.category.isNotEmpty
+                              ? product.category
+                              : 'No Category',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.normal,
+                            fontSize: 10.3,
+                            fontFamily: 'Plus Jakarta Sans',
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.remove_red_eye,
-                                  size: 15,
-                                  color: Colors.grey,
+                                Text(
+                                  'Cost - \$${product.price}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.normal,
+                                    fontSize: 10.3,
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    color: Colors.black,
+                                  ),
                                 ),
-                                Text('1200'),
-                                SizedBox(width: 5),
-                                Icon(Icons.star, size: 15, color: Colors.grey),
-                                Text('5'),
+                                Text(
+                                  'Stock - ${product.stock} Units',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.normal,
+                                    fontSize: 10.3,
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.remove_red_eye,
+                                      size: 15,
+                                      color: Colors.grey,
+                                    ),
+                                    SizedBox(width: 2),
+                                    Text('1'), // example views
+                                    SizedBox(width: 5),
+                                    Icon(
+                                      Icons.star,
+                                      size: 15,
+                                      color: Colors.grey,
+                                    ),
+                                    SizedBox(width: 2),
+                                    Text('1'), // example rating
+                                  ],
+                                ),
                               ],
                             ),
                           ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 24),
+                ],
               ),
-              const SizedBox(width: 24),
-            ],
+            ),
           ),
         ),
       ],

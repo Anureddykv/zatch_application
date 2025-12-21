@@ -63,6 +63,7 @@ dependencies:
   shimmer_animation: ^2.2.2+1
   shimmer: ^3.0.0
   agora_rtc_engine:
+  table_calendar: ^3.2.0
   # agora_rtm:
   # agora_uikit:
 

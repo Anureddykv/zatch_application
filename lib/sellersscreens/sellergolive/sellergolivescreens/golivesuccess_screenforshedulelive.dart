@@ -120,6 +120,7 @@ class GoliveAddedSuccessScreenForSheduleLive extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: ElevatedButton(
                 onPressed: () {
+                  yourlivesscreenscontroller.getLiveSummaryData('This week');
                   Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                     MaterialPageRoute(
                       builder: (context) => const SellerDashboardScreen(),
@@ -135,7 +136,7 @@ class GoliveAddedSuccessScreenForSheduleLive extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Go Live',
+                  'Back to Home Screen',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,

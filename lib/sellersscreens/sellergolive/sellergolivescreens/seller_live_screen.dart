@@ -35,6 +35,8 @@
 //     );
 //   }
 // }
+import 'dart:developer';
+
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -43,6 +45,7 @@ import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivecontroller/sellergolivecontroller.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergoliveoverview/sellergoliveoverview.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergoliveoverview/sellergoliveoverviewcontroller.dart';
 
 class SellerLiveScreen extends StatelessWidget {
   const SellerLiveScreen({super.key});
@@ -50,6 +53,7 @@ class SellerLiveScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final yourLiveController = Get.find<Sellergolivecontroller>();
+
     final engine = yourLiveController.engine!;
 
     return Scaffold(
@@ -120,142 +124,154 @@ class SellerLiveScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _liveBadge() {
-    return Container(
+final detailscontroller = Get.put<Sellergoliveoverviewcontroller>(
+  Sellergoliveoverviewcontroller(),
+);
+final yourLiveController = Get.find<Sellergolivecontroller>();
+Widget _liveBadge() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.red,
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: const Text(
+      "LIVE",
+      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    ),
+  );
+}
+
+Widget _viewerCount(Sellergolivecontroller controller) {
+  return Obx(
+    () => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.red,
-        borderRadius: BorderRadius.circular(6),
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: const Text(
-        "LIVE",
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      child: Row(
+        children: [
+          const Icon(Icons.remove_red_eye, color: Colors.white, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            "${controller.viewerCount.value}",
+            style: const TextStyle(color: Colors.white),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _viewerCount(Sellergolivecontroller controller) {
-    return Obx(
-      () => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(20),
+Widget _endLiveButton(RtcEngine engine, BuildContext context) {
+  return GestureDetector(
+    onTap: () async {
+      // Check if sessionId is not null or empty
+      final sessionId = yourLiveController.sessionId.value;
+      if (sessionId.isNotEmpty) {
+        await detailscontroller.fetchLiveDetails(sessionId);
+      } else {
+        log("Session ID is null or empty");
+      }
+
+      await engine.leaveChannel();
+
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => Sellergoliveoverview()),
+      );
+    },
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text('End Live', style: TextStyle(color: Colors.white)),
+    ),
+  );
+}
+
+/// 🎥 ICON BUTTON
+Widget _iconButton({required IconData icon, required VoidCallback onTap}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: CircleAvatar(
+      radius: 24,
+      backgroundColor: Colors.black54,
+      child: Icon(icon, color: Colors.white),
+    ),
+  );
+}
+
+/// 🛒 PRODUCT PANEL
+Widget _productBottomSheet(Sellergolivecontroller controller) {
+  return DraggableScrollableSheet(
+    initialChildSize: 0.15,
+    minChildSize: 0.15,
+    maxChildSize: 0.5,
+    builder: (context, scrollController) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.remove_red_eye, color: Colors.white, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              "${controller.viewerCount.value}",
-              style: const TextStyle(color: Colors.white),
+            Center(
+              child: Container(
+                height: 4,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Products",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+
+            /// PRODUCT LIST
+            Expanded(
+              child: Obx(
+                () => ListView.builder(
+                  controller: scrollController,
+                  itemCount: controller.selectedProducts.length,
+                  itemBuilder: (context, index) {
+                    final product = controller.selectedProducts[index];
+                    return _productTile(product);
+                  },
+                ),
+              ),
             ),
           ],
         ),
+      );
+    },
+  );
+}
+
+/// 🧾 PRODUCT TILE
+Widget _productTile(dynamic product) {
+  return Card(
+    child: ListTile(
+      leading: Image.network(
+        product.images[0].url,
+        width: 50,
+        fit: BoxFit.cover,
       ),
-    );
-  }
-
-  Widget _endLiveButton(RtcEngine engine, BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        await engine.leaveChannel();
-        Navigator.pop(context);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => Sellergoliveoverview()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.red),
-        ),
-        child: const Text("End", style: TextStyle(color: Colors.red)),
-      ),
-    );
-  }
-
-  /// 🎥 ICON BUTTON
-  Widget _iconButton({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: CircleAvatar(
-        radius: 24,
-        backgroundColor: Colors.black54,
-        child: Icon(icon, color: Colors.white),
-      ),
-    );
-  }
-
-  /// 🛒 PRODUCT PANEL
-  Widget _productBottomSheet(Sellergolivecontroller controller) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.15,
-      minChildSize: 0.15,
-      maxChildSize: 0.5,
-      builder: (context, scrollController) {
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  height: 4,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "Products",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-
-              /// PRODUCT LIST
-              Expanded(
-                child: Obx(
-                  () => ListView.builder(
-                    controller: scrollController,
-                    itemCount: controller.selectedProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = controller.selectedProducts[index];
-                      return _productTile(product);
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 🧾 PRODUCT TILE
-  Widget _productTile(dynamic product) {
-    return Card(
-      child: ListTile(
-        leading: Image.network(
-          product.images[0].url,
-          width: 50,
-          fit: BoxFit.cover,
-        ),
-        title: Text(product.name),
-        subtitle: Text("₹${product.discountedPrice}"),
-      ),
-    );
-  }
+      title: Text(product.name),
+      subtitle: Text("₹${product.discountedPrice}"),
+    ),
+  );
 }

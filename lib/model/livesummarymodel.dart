@@ -3,7 +3,7 @@ class LiveSummaryModel {
   final String message;
   final PerformanceSummary performanceSummary;
   final List<LiveItem> upcomingLives;
-  final List<LiveItem> pastLives;
+  final List<PastLiveItem> pastLives;
 
   LiveSummaryModel({
     required this.success,
@@ -26,7 +26,7 @@ class LiveSummaryModel {
               .toList(),
       pastLives:
           (json['pastLives'] as List? ?? [])
-              .map((e) => LiveItem.fromJson(e))
+              .map((e) => PastLiveItem.fromJson(e))
               .toList(),
     );
   }
@@ -108,6 +108,7 @@ class LiveItem {
     );
   }
 }
+
 class Thumbnail {
   final String publicId;
   final String url;
@@ -116,5 +117,52 @@ class Thumbnail {
 
   factory Thumbnail.fromJson(Map<String, dynamic> json) {
     return Thumbnail(publicId: json['public_id'] ?? '', url: json['url'] ?? '');
+  }
+}
+
+class PastLiveItem {
+  final String id;
+  final String title;
+  final String description;
+  final DateTime endTime;
+  final Thumbnail thumbnail;
+  final int views;
+  final int peak;
+  final String sales;
+  final int duration;
+  final String durationFormatted;
+  final int productsCount;
+  final List<String> actions;
+
+  PastLiveItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.endTime,
+    required this.thumbnail,
+    required this.views,
+    required this.peak,
+    required this.sales,
+    required this.duration,
+    required this.durationFormatted,
+    required this.productsCount,
+    required this.actions,
+  });
+
+  factory PastLiveItem.fromJson(Map<String, dynamic> json) {
+    return PastLiveItem(
+      id: json['_id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      endTime: DateTime.tryParse(json['endTime'] ?? '') ?? DateTime.now(),
+      thumbnail: Thumbnail.fromJson(json['thumbnail'] ?? {}),
+      views: json['views'] ?? 0,
+      peak: json['peak'] ?? 0,
+      sales: json['sales'] ?? '₹0.00',
+      duration: json['duration'] ?? 0,
+      durationFormatted: json['durationFormatted'] ?? '0s',
+      productsCount: json['productsCount'] ?? 0,
+      actions: List<String>.from(json['actions'] ?? []),
+    );
   }
 }

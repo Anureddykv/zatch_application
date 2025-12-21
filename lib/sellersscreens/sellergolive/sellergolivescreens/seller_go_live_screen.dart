@@ -7,6 +7,7 @@ import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/model/product_response_seller.dart';
@@ -37,20 +38,23 @@ class _GolivescreenState extends State<Golivescreen> {
             backgroundColor: const Color(0xffd5ff4d),
             automaticallyImplyLeading: false,
             elevation: 0,
-            title: const Padding(
+            title: Padding(
               padding: EdgeInsets.only(top: 6.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.contentColorWhite,
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: AppColors.contentColorBlack,
-                      size: 16,
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const CircleAvatar(
+                      backgroundColor: AppColors.contentColorWhite,
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        color: AppColors.contentColorBlack,
+                        size: 16,
+                      ),
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Go live',
                     style: TextStyle(
                       color: Color(0xFF101727),
@@ -59,7 +63,7 @@ class _GolivescreenState extends State<Golivescreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.notifications_none,
                     size: 28,
                     color: AppColors.contentColorBlack,
@@ -427,12 +431,12 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
               ),
               Row(
                 children: [
-                  Icon(Icons.add),
+                  Icon(Icons.add, size: 15),
                   Text(
                     'Add New Products',
                     style: TextStyle(
                       color: Color(0xFF101727),
-                      fontSize: 15.18,
+                      fontSize: 13,
                       fontFamily: 'Plus Jakarta Sans',
                       fontWeight: FontWeight.bold,
                     ),
@@ -633,21 +637,49 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
           const SizedBox(width: 12),
 
           // Product Details
-          Expanded(
+          Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  p.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12.30,
-                    fontFamily: 'Plus Jakarta Sans',
-                    color: Color(0xFF101727),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        p.name,
+                        maxLines: 2,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.30,
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: Color(0xFF101727),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      constraints: const BoxConstraints(minWidth: 120),
+                      onSelected: (value) {
+                        if (value == 'View') {}
+                      },
+                      itemBuilder:
+                          (context) => const [
+                            PopupMenuItem<String>(
+                              value: 'View',
+                              height: 36,
+                              child: Text(
+                                'View',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
 
+                // const SizedBox(height: 4),
                 Text(
                   p.description,
                   maxLines: 2,
@@ -668,7 +700,7 @@ class _GoLiveStepOneState extends State<GoLiveStepOne> {
                         columnWidths: const {
                           0: FlexColumnWidth(0.4),
                           1: FlexColumnWidth(0.4),
-                          2: FlexColumnWidth(0.9),
+                          2: FlexColumnWidth(0.7),
                         },
                         children: [
                           TableRow(
@@ -912,7 +944,7 @@ class GoLiveStepTwo extends StatefulWidget {
 }
 
 class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
-  final controller = Get.put(Sellergolivecontroller());
+  final controller = Get.find<Sellergolivecontroller>();
 
   @override
   Widget build(BuildContext context) {
@@ -1069,6 +1101,8 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                     children: [
                       Text(
                         product.name,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
                         style: const TextStyle(
                           color: Color(0xFF101727),
                           fontSize: 15.18,
@@ -1139,9 +1173,21 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(left: 8, top: 8.0),
-                child: Icon(Icons.more_vert_outlined),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                iconSize: 18,
+                constraints: const BoxConstraints(minWidth: 120),
+                onSelected: (value) {
+                  if (value == 'View') {}
+                },
+                itemBuilder:
+                    (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'View',
+                        height: 36,
+                        child: Text('View', style: TextStyle(fontSize: 13)),
+                      ),
+                    ],
               ),
             ],
           ),
@@ -1153,6 +1199,7 @@ class _GoLiveStepTwoState extends State<GoLiveStepTwo> {
     );
   }
 
+  // ignore: non_constant_identifier_names
   ProductDetailRow({required String label, required String value}) {
     return Row(
       children: [
@@ -1254,11 +1301,25 @@ class _OnbargainSettingscardState extends State<OnbargainSettingscard> {
             _buildSlider(
               label: 'Auto-Accept Discount',
               value: setting.autoAccept,
-              onChanged:
-                  (v) => controller.updateBargain(
-                    productId: widget.product.id,
+              onChanged: (v) {
+                controller.updateBargain(
+                  productId: widget.product.id,
+                  autoAccept: v,
+                );
+
+                if (controller.applyBargainToAll.value) {
+                  controller.applyBargainSettingsToAll(
                     autoAccept: v,
-                  ),
+                    maxDiscount: setting.maxDiscount,
+                  );
+                }
+              },
+
+              // onChanged:
+              //     (v) => controller.updateBargain(
+              //       productId: widget.product.id,
+              //       autoAccept: v,
+              //     ),
               displayColor: const Color(0xFF016630),
               backgroundColor: const Color(0xFFECECF0),
               displayValue:
@@ -1270,11 +1331,25 @@ class _OnbargainSettingscardState extends State<OnbargainSettingscard> {
             _buildSlider(
               label: 'Maximum Discount',
               value: setting.maxDiscount,
-              onChanged:
-                  (v) => controller.updateBargain(
-                    productId: widget.product.id,
+              // onChanged:
+              //     (v) => controller.updateBargain(
+              //       productId: widget.product.id,
+              //       maxDiscount: v,
+              //     ),
+              onChanged: (v) {
+                controller.updateBargain(
+                  productId: widget.product.id,
+                  maxDiscount: v,
+                );
+
+                if (controller.applyBargainToAll.value) {
+                  controller.applyBargainSettingsToAll(
+                    autoAccept: setting.autoAccept,
                     maxDiscount: v,
-                  ),
+                  );
+                }
+              },
+
               displayColor: const Color(0xFF9F2D00),
               backgroundColor: const Color(0xFFFFECD4),
               displayValue: '${setting.maxDiscount.toInt()}%',
@@ -1323,52 +1398,63 @@ class _OnbargainSettingscardState extends State<OnbargainSettingscard> {
             ),
 
             AppSizedBox.height10,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  margin: const EdgeInsets.only(top: 4),
-                  decoration: ShapeDecoration(
-                    // color:
-                    //     isSelected && p.isActive
-                    //         ? const Color(0xFFA2DC00)
-                    //         : const Color(0xFFF2F4F6),
-                    color: const Color(0xFFF2F4F6),
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(
-                        width: 1,
-                        // color:
-                        // isSelected && p.isActive
-                        //     ? const Color(0xFFA2DC00)
-                        //     : Colors.black.withOpacity(0.1),
-                        color: Colors.black.withOpacity(0.1),
+
+            GestureDetector(
+              onTap: () {
+                controller.applyBargainToAll.toggle();
+
+                if (controller.applyBargainToAll.value) {
+                  controller.applyBargainSettingsToAll(
+                    autoAccept: setting.autoAccept,
+                    maxDiscount: setting.maxDiscount,
+                  );
+                }
+              },
+              child: Obx(() {
+                final isChecked = controller.applyBargainToAll.value;
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color:
+                            isChecked
+                                ? const Color(0xFFA2DC00)
+                                : const Color(0xFFF2F4F6),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color:
+                              isChecked
+                                  ? const Color(0xFFA2DC00)
+                                  : Colors.black.withOpacity(0.1),
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(4),
+                      child:
+                          isChecked
+                              ? const Icon(
+                                Icons.check,
+                                size: 14,
+                                color: Colors.white,
+                              )
+                              : null,
                     ),
-                  ),
-                  // child:
-                  //     isSelected && p.isActive
-                  //         ? const Icon(
-                  //           Icons.check,
-                  //           size: 14,
-                  //           color: Colors.white,
-                  //         )
-                  //         : null,
-                  child: const Icon(Icons.check, size: 14, color: Colors.white),
-                ),
-                AppSizedBox.width10,
-                const Text(
-                  'Apply this settings to all Products',
-                  style: TextStyle(
-                    color: Color(0xFF354152),
-                    fontSize: 14,
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+                    AppSizedBox.width10,
+                    const Text(
+                      'Apply this settings to all Products',
+                      style: TextStyle(
+                        color: Color(0xFF354152),
+                        fontSize: 14,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ],
         ],
@@ -1634,84 +1720,177 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                     ),
                   ),
                 ),
-                AppSizedBox.height10,
+
+                // InkWell(
+                //   onTap: () => _openCalendarDialog(context),
+                //   child: Container(
+                //     padding: const EdgeInsets.symmetric(
+                //       horizontal: 12,
+                //       vertical: 14,
+                //     ),
+                //     decoration: BoxDecoration(
+                //       border: Border.all(color: Colors.black, width: 0.5),
+                //       color: const Color(0xFFF5F5F5),
+                //       borderRadius: BorderRadius.circular(38),
+                //     ),
+                //     child: Obx(() {
+                //       final day = yourlivesscreenscontroller.selectedDay.value;
+                //       final month =
+                //           yourlivesscreenscontroller.selectedMonth.value;
+                //       final year =
+                //           yourlivesscreenscontroller.selectedYear.value;
+
+                //       final text =
+                //           (day.isEmpty || month.isEmpty || year.isEmpty)
+                //               ? 'Select Date'
+                //               : '$day / $month / $year';
+
+                //       return Row(
+                //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                //         children: [
+                //           Text(text, style: const TextStyle(fontSize: 14)),
+                //           const Icon(Icons.calendar_today, size: 16),
+                //         ],
+                //       );
+                //     }),
+                //   ),
+                // ),
+                const SizedBox(height: 7),
                 Obx(() {
                   if (yourlivesscreenscontroller.selectedTab.value == 1) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Date *',
-                          style: TextStyle(
-                            color: Color(0xFF354152),
-                            fontSize: 14,
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                        AppSizedBox.height10,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        // const Text(
+                        //   'Date *',
+                        //   style: TextStyle(
+                        //     color: Color(0xFF354152),
+                        //     fontSize: 14,
+                        //     fontFamily: 'Plus Jakarta Sans',
+                        //     fontWeight: FontWeight.w500,
+                        //     height: 1.25,
+                        //   ),
+                        // ),
+                        // AppSizedBox.height10,
+                        // Row(
+                        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        //   children: [
+                        //     Expanded(
+                        //       child: Obx(
+                        //         () => _commonDropdown(
+                        //           hint: "dd",
+                        //           items: List.generate(31, (i) => "${i + 1}"),
+                        //           selectedValue:
+                        //               yourlivesscreenscontroller
+                        //                   .selectedDay
+                        //                   .value,
+                        //           onChanged: (v) {
+                        //             yourlivesscreenscontroller
+                        //                 .selectedDay
+                        //                 .value = v ?? '';
+                        //           },
+                        //         ),
+                        //       ),
+                        //     ),
+
+                        //     AppSizedBox.width5,
+                        //     Expanded(
+                        //       child: Obx(
+                        //         () => _commonDropdown(
+                        //           hint: "mm",
+                        //           items: List.generate(12, (i) => "${i + 1}"),
+                        //           selectedValue:
+                        //               yourlivesscreenscontroller
+                        //                   .selectedMonth
+                        //                   .value,
+                        //           onChanged: (v) {
+                        //             yourlivesscreenscontroller
+                        //                 .selectedMonth
+                        //                 .value = v ?? '';
+                        //           },
+                        //         ),
+                        //       ),
+                        //     ),
+
+                        //     AppSizedBox.width5,
+                        //     Expanded(
+                        //       child: Obx(
+                        //         () => _commonDropdown(
+                        //           hint: "yyyy",
+                        //           items: List.generate(6, (i) => "${2025 + i}"),
+                        //           selectedValue:
+                        //               yourlivesscreenscontroller
+                        //                   .selectedYear
+                        //                   .value,
+                        //           onChanged: (v) {
+                        //             yourlivesscreenscontroller
+                        //                 .selectedYear
+                        //                 .value = v ?? '';
+                        //           },
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ],
+                        // ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Obx(
-                                () => _commonDropdown(
-                                  hint: "dd",
-                                  items: List.generate(31, (i) => "${i + 1}"),
-                                  selectedValue:
-                                      yourlivesscreenscontroller
-                                          .selectedDay
-                                          .value,
-                                  onChanged: (v) {
-                                    yourlivesscreenscontroller
-                                        .selectedDay
-                                        .value = v ?? '';
-                                  },
-                                ),
+                            AppSizedBox.height10,
+                            const Text(
+                              'Date *',
+                              style: TextStyle(
+                                color: Color(0xFF354152),
+                                fontSize: 14,
+                                fontFamily: 'Plus Jakarta Sans',
+                                fontWeight: FontWeight.w500,
+                                height: 1.25,
                               ),
                             ),
-
-                            AppSizedBox.width5,
-                            Expanded(
-                              child: Obx(
-                                () => _commonDropdown(
-                                  hint: "mm",
-                                  items: List.generate(12, (i) => "${i + 1}"),
-                                  selectedValue:
-                                      yourlivesscreenscontroller
-                                          .selectedMonth
-                                          .value,
-                                  onChanged: (v) {
-                                    yourlivesscreenscontroller
-                                        .selectedMonth
-                                        .value = v ?? '';
-                                  },
+                            AppSizedBox.height10,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Obx(
+                                    () => _dateBox(
+                                      hint: 'dd',
+                                      value:
+                                          yourlivesscreenscontroller
+                                              .selectedDay
+                                              .value,
+                                      onTap: () => _openCalendarDialog(context),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-
-                            AppSizedBox.width5,
-                            Expanded(
-                              child: Obx(
-                                () => _commonDropdown(
-                                  hint: "yyyy",
-                                  items: List.generate(6, (i) => "${2025 + i}"),
-                                  selectedValue:
-                                      yourlivesscreenscontroller
-                                          .selectedYear
-                                          .value,
-                                  onChanged: (v) {
-                                    yourlivesscreenscontroller
-                                        .selectedYear
-                                        .value = v ?? '';
-                                  },
+                                AppSizedBox.width5,
+                                Expanded(
+                                  child: Obx(
+                                    () => _dateBox(
+                                      hint: 'mm',
+                                      value:
+                                          yourlivesscreenscontroller
+                                              .selectedMonth
+                                              .value,
+                                      onTap: () => _openCalendarDialog(context),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                AppSizedBox.width5,
+                                Expanded(
+                                  child: Obx(
+                                    () => _dateBox(
+                                      hint: 'yyyy',
+                                      value:
+                                          yourlivesscreenscontroller
+                                              .selectedYear
+                                              .value,
+                                      onTap: () => _openCalendarDialog(context),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 20),
 
                         const Text(
@@ -1800,15 +1979,13 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                 }
 
                 await yourlivesscreenscontroller.pickImage(ImageSource.gallery);
-                if (yourlivesscreenscontroller.tempSelectedImage.value ==
-                    null) {
+                if (yourlivesscreenscontroller.selectedImage.value == null) {
                   Get.snackbar("Error", "Thumbnail Image is required");
                   return;
                 }
               },
               child: Obx(() {
-                final image =
-                    yourlivesscreenscontroller.tempSelectedImage.value;
+                final image = yourlivesscreenscontroller.selectedImage.value;
 
                 return Stack(
                   children: [
@@ -1914,6 +2091,30 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
     );
   }
 
+  Widget _dateBox({
+    required String hint,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black, width: 0.5),
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(38),
+        ),
+        child: Center(
+          child: Text(
+            value.isEmpty ? hint : value,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLivedetailsProductCard(ProductItem product) {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -1969,6 +2170,8 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                     children: [
                       Text(
                         product.name,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
                         style: const TextStyle(
                           color: Color(0xFF101727),
                           fontSize: 15.18,
@@ -2021,7 +2224,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                             children: [
                               const Icon(
                                 Icons.remove_red_eye,
-                                size: 18,
+                                size: 12,
                                 color: Color(0xFF697282),
                               ),
                               Text(
@@ -2035,7 +2238,7 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                               AppSizedBox.width10,
                               const Icon(
                                 Icons.star,
-                                size: 18,
+                                size: 12,
                                 color: Color(0xFF697282),
                               ),
                               Text(
@@ -2054,14 +2257,79 @@ class _GoliveStepsthreeState extends State<GoliveStepsthree> {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(left: 8, top: 8.0),
-                child: Icon(Icons.more_vert_outlined),
+              // const Padding(
+              //   padding: EdgeInsets.only(left: 8, top: 8.0),
+              //   child: Icon(Icons.more_vert_outlined),
+              // ),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 120),
+                itemBuilder:
+                    (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'View',
+                        height: 36,
+                        child: Text('View', style: TextStyle(fontSize: 13)),
+                      ),
+                    ],
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(Icons.more_vert, size: 18),
+                ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  void _openCalendarDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          contentPadding: const EdgeInsets.all(12),
+          content: SizedBox(
+            height: 360,
+            width: MediaQuery.of(context).size.width * 0.85,
+            child: Obx(() {
+              final selectedDate =
+                  yourlivesscreenscontroller.selectedDate.value ??
+                  DateTime.now();
+
+              return TableCalendar(
+                firstDay: DateTime.now(),
+                lastDay: DateTime.now().add(const Duration(days: 365)),
+                focusedDay: selectedDate,
+                calendarFormat: CalendarFormat.month,
+                headerStyle: const HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                ),
+                selectedDayPredicate: (day) => isSameDay(selectedDate, day),
+                onDaySelected: (selectedDay, focusedDay) {
+                  yourlivesscreenscontroller.selectedDate.value = selectedDay;
+
+                  yourlivesscreenscontroller.selectedDay.value =
+                      selectedDay.day.toString();
+                  yourlivesscreenscontroller.selectedMonth.value =
+                      selectedDay.month.toString();
+                  yourlivesscreenscontroller.selectedYear.value =
+                      selectedDay.year.toString();
+
+                  Navigator.pop(context);
+                },
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 
