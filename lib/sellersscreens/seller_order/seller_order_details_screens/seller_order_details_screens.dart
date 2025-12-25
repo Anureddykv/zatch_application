@@ -126,83 +126,81 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
             right: 0,
             child: Column(
               children: [
-                Obx(
-                  () => Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.only(right: 30, left: 30, top: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(10),
-                        topRight: Radius.circular(10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(right: 30, left: 30, top: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 5,
+                        offset: const Offset(0, 5),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 5,
-                          offset: const Offset(0, 5),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Cancel order',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: Colors.red,
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Cancel order',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Plus Jakarta Sans',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: const BorderSide(
-                                color: Colors.black,
-                                width: 1,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 15,
-                                horizontal: 50,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: Colors.black,
+                              width: 1,
                             ),
-                            child:
-                            // yourlivesscreenscontroller.currentStep.value ==
-                            //         0
-                            //     ? const Text(
-                            //       'Cancel',
-                            //       style: TextStyle(
-                            //         fontSize: 17,
-                            //         fontWeight: FontWeight.bold,
-                            //         color: Colors.black,
-                            //       ),
-                            //     )
-                            //     : const Text(
-                            //       'Back',
-                            //       style: TextStyle(
-                            //         fontSize: 17,
-                            //         fontWeight: FontWeight.bold,
-                            //         color: Colors.black,
-                            //       ),
-                            //     ),
-                            Text('data'),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 15,
+                              horizontal: 50,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
                           ),
+                          child:
+                          // yourlivesscreenscontroller.currentStep.value ==
+                          //         0
+                          const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+
+                          //     : const Text(
+                          //       'Back',
+                          //       style: TextStyle(
+                          //         fontSize: 17,
+                          //         fontWeight: FontWeight.bold,
+                          //         color: Colors.black,
+                          //       ),
+                          //     ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.only(
@@ -256,7 +254,7 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                       ),
                     ),
                     child: const Text(
-                      'Continue',
+                      'Ready to Shipped',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
@@ -363,147 +361,160 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                   ),
                 ],
                 title: 'Order Details',
-              ),
-              Divider(thickness: 0.5, color: Colors.grey[300]),
-              Obx(() {
-                if (ordercontroller.isLoading.value) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final data = widget.order.products;
+                column: Column(
+                  children: [
+                    Divider(thickness: 0.5, color: Colors.grey[300]),
+                    Obx(() {
+                      if (ordercontroller.isLoading.value) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final data = widget.order.products;
 
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: data.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 25),
-                  itemBuilder: (context, index) {
-                    final order = data[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 10.0, left: 10),
-                      child: Column(
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(15),
-                                ),
-                                child: Image.network(
-                                  order.productImage,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Image.asset(
-                                      "assets/images/image_95.png",
-                                      width: 70,
-                                      height: 70,
-                                      fit: BoxFit.cover,
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: data.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 25),
+                        itemBuilder: (context, index) {
+                          final order = data[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              right: 10.0,
+                              left: 10,
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      order.productName,
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 2,
-                                      style: const TextStyle(
-                                        color: Color(0xFF101727),
-                                        fontSize: 15.18,
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.bold,
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(15),
+                                      ),
+                                      child: Image.network(
+                                        order.productImage,
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Image.asset(
+                                            "assets/images/image_95.png",
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                          );
+                                        },
                                       ),
                                     ),
-                                    AppSizedBox.height5,
-                                    Text(
-                                      'description',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 12,
-                                        fontFamily: 'Inter',
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order.productName,
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                            style: const TextStyle(
+                                              color: Color(0xFF101727),
+                                              fontSize: 15.18,
+                                              fontFamily: 'Plus Jakarta Sans',
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          AppSizedBox.height5,
+                                          Text(
+                                            'description',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                              fontFamily: 'Inter',
 
-                                        fontWeight: FontWeight.normal,
+                                              fontWeight: FontWeight.normal,
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                    ),
+                                    Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Quantity',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
+                                                fontFamily: 'Inter',
+
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            const Text('-'),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              '${order.quantity}',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Price',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
+                                                fontFamily: 'Inter',
+
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            const Text('-'),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              '${order.price}',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 12,
+                                                fontFamily: 'Inter',
+
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ),
-                              Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Quantity',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 12,
-                                          fontFamily: 'Inter',
-
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      const Text('-'),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        '${order.quantity}',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 12,
-                                          fontFamily: 'Inter',
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Price',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 12,
-                                          fontFamily: 'Inter',
-
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      const Text('-'),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        '${order.price}',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 12,
-                                          fontFamily: 'Inter',
-
-                                          fontWeight: FontWeight.normal,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              }),
-              Divider(thickness: 0.5, color: Colors.grey[300]),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                    Divider(thickness: 0.5, color: Colors.grey[300]),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -531,6 +542,7 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
           child: Column(
             children: [
               DropDownWidgets(
+                column: Column(children: []),
                 items: [
                   DropDownItem(
                     label: 'Name',
@@ -561,7 +573,7 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
 class DropDownWidgets extends StatefulWidget {
   final String title;
   final List<DropDownItem> items;
-
+  final Widget column;
   final bool alwaysOpen;
 
   const DropDownWidgets({
@@ -569,6 +581,7 @@ class DropDownWidgets extends StatefulWidget {
     required this.title,
     required this.items,
     this.alwaysOpen = false,
+    required this.column,
   });
 
   @override
@@ -631,30 +644,39 @@ class _DropDownWidgetsState extends State<DropDownWidgets> {
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: Column(
-            children:
-                widget.items.map((item) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Text(item.label, style: themeData.textTheme.labelSmall),
-                        const SizedBox(width: 10),
-                        const Text('-'),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: item.onTap,
-                            child: Text(
-                              item.value,
-                              overflow: TextOverflow.ellipsis,
+            children: [
+              Column(
+                children:
+                    widget.items.map((item) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Text(
+                              item.label,
                               style: themeData.textTheme.labelSmall,
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            const Text('-'),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: item.onTap,
+                                child: Text(
+                                  item.value,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: themeData.textTheme.labelSmall,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
+              ),
+
+              widget.column,
+            ],
           ),
           crossFadeState:
               isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
