@@ -118,7 +118,7 @@ class SellerLiveScreen extends StatelessWidget {
             ),
           ),
 
-          /// 🛒 PRODUCT BOTTOM PANEL
+        
           _productBottomSheet(yourLiveController),
         ],
       ),

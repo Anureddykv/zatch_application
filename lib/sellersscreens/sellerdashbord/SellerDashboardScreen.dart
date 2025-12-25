@@ -1,8 +1,16 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:zatch_app/common_widgets/appcolors.dart';
+import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/sellersscreens/add_reel/screens/add_reels_screen.dart';
 import 'package:zatch_app/sellersscreens/addproduct/add_product_screen.dart';
 import 'package:zatch_app/sellersscreens/inventory/inventory_screen.dart';
+import 'package:zatch_app/sellersscreens/seller_order/sellerorderscreen.dart';
+import 'package:zatch_app/sellersscreens/seller_payment_screen.dart/seller_payment_screen.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergoliveoverview/sellergoliveoverview.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
 import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_live_dashboard.dart';
 
 // Main screen is now a StatefulWidget to manage the selected tab
@@ -20,10 +28,10 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   // List of the main screen widgets for each tab
   // NOTE: DashboardPage is now const because it doesn't have internal state.
   static final List<Widget> _screenOptions = <Widget>[
-    const DashboardPage(), // Corresponds to index 1
-    const OrdersPage(), // Corresponds to index 2
+    const DashboardHome(), // Corresponds to index 1
+    const Sellerorderscreen(), // Corresponds to index 2
     InventoryScreen(), // Corresponds to index 3
-    const PaymentsPage(), // Corresponds to index 4
+    const SellerPaymentScreen(), // Corresponds to index 4
   ];
 
   // Method to handle tap events on the BottomNavigationBar
@@ -91,6 +99,22 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   }
 }
 
+class DashboardHome extends StatelessWidget {
+  const DashboardHome({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      onGenerateRoute: (settings) {
+        Widget page = const DashboardPage();
+        if (settings.name == '/golive') {
+          page = const SellerLiveDashboard();
+        }
+        return MaterialPageRoute(builder: (_) => page);
+      },
+    );
+  }
+}
 // --- BODY CONTENT WIDGETS FOR EACH TAB ---
 
 class DashboardPage extends StatelessWidget {
@@ -298,12 +322,13 @@ class DashboardPage extends StatelessWidget {
               icon: Icons.sensors,
               label: 'Go Live',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SellerLiveDashboard(),
-                  ),
-                );
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(
+                //     builder: (context) => const SellerLiveDashboard(),
+                //   ),
+                // );
+                Navigator.of(context).pushNamed('/golive');
               },
             ),
             QuickLinkItem(
@@ -360,26 +385,47 @@ class DashboardPage extends StatelessWidget {
 }
 
 /// Placeholder widget for the 'Orders' tab content.
-class OrdersPage extends StatelessWidget {
-  const OrdersPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Orders Page')));
-  }
+Widget buildStatItem({
+  required IconData? icon,
+  required Color color,
+  required String value,
+  required String label,
+  required String percentText,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: color,
+          child: Icon(icon, color: Colors.black, size: 18),
+        ),
+        const SizedBox(height: 15),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          percentText,
+          style: const TextStyle(color: Color(0xFFCCF656), fontSize: 10),
+        ),
+      ],
+    ),
+  );
 }
-
-/// Placeholder widget for the 'Payments' tab content.
-class PaymentsPage extends StatelessWidget {
-  const PaymentsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Payments Page')));
-  }
-}
-
-// --- Reusable Child Widgets ---
 
 class InfoCard extends StatelessWidget {
   final String title;

@@ -12,6 +12,7 @@ import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/model/product_response_seller.dart';
 import 'package:zatch_app/sellersscreens/add_reel/controllers/add_reels_controller.dart';
 import 'package:zatch_app/sellersscreens/add_reel/screens/ImagePreviewPage.dart';
+import 'package:zatch_app/sellersscreens/sellergolive/sellergolivescreens/seller_go_live_screen.dart';
 
 class UploadBuyBitsScreen extends StatefulWidget {
   const UploadBuyBitsScreen({super.key});
@@ -496,96 +497,110 @@ class Buybitsstepone extends StatelessWidget {
               ),
             ),
             AppSizedBox.height10,
+
             Obx(() {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: Stack(
-                  children: [
-                    // If NO video
-                    controller.tempSelectedVideo.value == null
-                        ? const SizedBox.shrink()
-                        :
-                        // If NOT playing → show thumbnail
-                        (!controller.isVideoPlaying.value)
-                        ? SizedBox(
-                          width: double.infinity,
-                          height: 200,
-                          child:
-                              controller.videoThumbnail.value == null
-                                  ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                  : Image.memory(
+              return Stack(
+                children: [
+                  // If NO video
+                  controller.tempSelectedVideo.value == null
+                      ? const SizedBox.shrink()
+                      :
+                      // If NOT playing → show thumbnail
+                      (!controller.isVideoPlaying.value)
+                      ? DashedBorderContainer(
+                        child:
+                            controller.videoThumbnail.value == null
+                                ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                                : ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+
+                                  child: Image.memory(
                                     controller.videoThumbnail.value!,
                                     height: 200,
                                     width: double.infinity,
                                     fit: BoxFit.cover,
                                   ),
-                        )
-                        :
-                        // If playing → show VideoPlayer
-                        SizedBox(
-                          width: double.infinity,
-                          height: 200,
-                          child:
-                              controller.videoController.value == null
-                                  ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                  : VideoPlayer(
+                                ),
+                      )
+                      :
+                      // If playing → show VideoPlayer
+                      DashedBorderContainer(
+                        child:
+                            controller.videoController.value == null
+                                ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                                : ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: VideoPlayer(
                                     controller.videoController.value!,
                                   ),
-                        ),
-
-                    // Play Button (Only when NOT playing)
-                    if (controller.tempSelectedVideo.value != null &&
-                        !controller.isVideoPlaying.value)
-                      Positioned.fill(
-                        child: Center(
-                          child: GestureDetector(
-                            onTap: () {
-                              controller.isVideoPlaying.value = true;
-                              controller.videoController.value?.play();
-                            },
-                            child: Image.asset(
-                              'assets/images/playicon.png',
-                              width: 60,
-                              height: 60,
-                            ),
-                          ),
-                        ),
+                                ),
                       ),
 
-                    // Close button
-                    if (controller.tempSelectedVideo.value != null)
-                      Positioned(
-                        top: -15,
-                        right: -1,
+                  // Play Button (Only when NOT playing)
+                  if (controller.tempSelectedVideo.value != null &&
+                      !controller.isVideoPlaying.value)
+                    Positioned.fill(
+                      child: Center(
                         child: GestureDetector(
                           onTap: () {
-                            controller.tempSelectedVideo.value = null;
-                            controller.videoThumbnail.value = null;
-
-                            controller.videoController.value?.pause();
-                            controller.videoController.value?.dispose();
-                            controller.videoController.value = null;
-
-                            controller.isVideoPlaying.value = false;
+                            controller.isVideoPlaying.value = true;
+                            controller.videoController.value?.play();
                           },
-                          child: const Material(
-                            elevation: 10,
-                            shape: CircleBorder(),
-                            color: Colors.white,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.white,
-                              radius: 18,
-                              child: Icon(Icons.close, color: Colors.black),
-                            ),
+                          child: Image.asset(
+                            'assets/images/playicon.png',
+                            width: 60,
+                            height: 60,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                  if (controller.isVideoPlaying.value)
+                    Positioned.fill(
+                      bottom: 10,
+                      right: 10,
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.videoController.value?.pause();
+                          controller.isVideoPlaying.value = false;
+                        },
+                        child: Icon(Icons.pause, color: Colors.white, size: 15),
+                      ),
+                    ),
+                  // Close button
+                  if (controller.tempSelectedVideo.value != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () {
+                          controller.tempSelectedVideo.value = null;
+                          controller.videoThumbnail.value = null;
+
+                          controller.videoController.value?.pause();
+                          controller.videoController.value?.dispose();
+                          controller.videoController.value = null;
+
+                          controller.isVideoPlaying.value = false;
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               );
             }),
 
@@ -606,39 +621,39 @@ class Buybitsstepone extends StatelessWidget {
               }
               log(controller.selectedImage.value?.path ?? "NO IMAGE");
 
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: Stack(
-                  children: [
-                    Image.file(
-                      controller.selectedImage.value!,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-
-                    // Close Button
-                    Positioned(
-                      top: -10,
-                      right: -10,
-                      child: GestureDetector(
-                        onTap: () {
-                          controller.selectedImage.value = null;
-                        },
-                        child: const Material(
-                          elevation: 10,
-                          shape: CircleBorder(),
-                          color: Colors.white,
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.white,
-                            child: Icon(Icons.close, color: Colors.black),
-                          ),
-                        ),
+              return Stack(
+                children: [
+                  DashedBorderContainer(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        controller.selectedImage.value!,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  // Close Button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () {
+                        controller.selectedImage.value = null;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                ],
               );
             }),
             AppSizedBox.height10,
@@ -646,7 +661,7 @@ class Buybitsstepone extends StatelessWidget {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  controller.selectedImage.value == null
+                  !controller.hasMediaSelected
                       ? GestureDetector(
                         onTap: () async {
                           bool allowed =
@@ -689,11 +704,11 @@ class Buybitsstepone extends StatelessWidget {
                               width: 1,
                             ),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(18.0),
+                          child: const Padding(
+                            padding: EdgeInsets.all(18.0),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
+                              children: [
                                 Icon(Icons.play_circle_outline, size: 20),
                                 SizedBox(height: 8),
                                 Text(
@@ -709,7 +724,7 @@ class Buybitsstepone extends StatelessWidget {
                         ),
                       )
                       : SizedBox.shrink(),
-                  controller.selectedImage.value == null
+                  !controller.hasMediaSelected
                       ? Container(
                         width: 25,
                         height: 25,
@@ -717,8 +732,8 @@ class Buybitsstepone extends StatelessWidget {
                           color: Colors.grey.shade200,
                           borderRadius: BorderRadius.all(Radius.circular(20)),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2.0),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2.0),
                           child: Text(
                             'Or',
                             style: TextStyle(
@@ -728,8 +743,8 @@ class Buybitsstepone extends StatelessWidget {
                           ),
                         ),
                       )
-                      : SizedBox.shrink(),
-                  controller.selectedImage.value == null
+                      : const SizedBox.shrink(),
+                  !controller.hasMediaSelected
                       ? GestureDetector(
                         onTap: () async {
                           // Request permission
@@ -786,14 +801,14 @@ class Buybitsstepone extends StatelessWidget {
                           ),
                         ),
                       )
-                      : SizedBox.shrink(),
+                      : const SizedBox.shrink(),
                 ],
               );
             }),
             AppSizedBox.height10,
-            Text(
+            const Text(
               'Title *',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF354152),
                 fontSize: 14,
                 fontFamily: 'Plus Jakarta Sans',
@@ -848,9 +863,9 @@ class Buybitsstepone extends StatelessWidget {
               ),
             ),
             AppSizedBox.height10,
-            Text(
+            const Text(
               'Description',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF354152),
                 fontSize: 14,
                 fontFamily: 'Plus Jakarta Sans',
@@ -932,7 +947,7 @@ class _BuyBitsStepThreeState extends State<BuyBitsStepThree> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
@@ -1518,13 +1533,14 @@ class _BuyBitsStepTwoState extends State<BuyBitsStepTwo> {
                 ),
               ],
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.search, size: 20, color: Color(0xFF626262)),
-                SizedBox(width: 8),
+                const Icon(Icons.search, size: 20, color: Color(0xFF626262)),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
-                    decoration: InputDecoration(
+                    controller: controller.searchCtrl,
+                    decoration: const InputDecoration(
                       hintText: 'Search Products or People...',
                       hintStyle: TextStyle(
                         color: Color(0xFF626262),
@@ -1533,6 +1549,9 @@ class _BuyBitsStepTwoState extends State<BuyBitsStepTwo> {
                       ),
                       border: InputBorder.none,
                     ),
+                    // onChanged: (value) {
+                    //   controller.searchProductsInBuybits(value);
+                    // },
                   ),
                 ),
               ],

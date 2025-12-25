@@ -17,6 +17,25 @@ class SellerLiveDashboard extends StatefulWidget {
 }
 
 class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
+  final ScrollController _scrollController = ScrollController();
+  double _topOffset = 100;
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      setState(() {
+        _topOffset = 100 - (_scrollController.offset * 0.5);
+        if (_topOffset < 50) _topOffset = 50;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -342,6 +361,7 @@ class _SellerLiveDashboardState extends State<SellerLiveDashboard> {
 
             Expanded(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 16.0, right: 16),
                   child: Column(

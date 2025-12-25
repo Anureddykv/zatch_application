@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,8 +21,12 @@ class AddReelsController extends GetxController
     fetchProducts();
   }
 
+  bool get hasMediaSelected =>
+      tempSelectedVideo.value != null && selectedImage.value != null;
+
   TextEditingController titlecontroller = TextEditingController();
   TextEditingController descriptioncontroller = TextEditingController();
+  TextEditingController searchCtrl = TextEditingController();
 
   RxInt currentStep = 0.obs;
   Rx<File?> tempSelectedVideo = Rx<File?>(null);
@@ -228,13 +231,13 @@ class AddReelsController extends GetxController
   RxList<ProductItem> selectedProducts = <ProductItem>[].obs;
   RxMap<String, bool> activeStatus = <String, bool>{}.obs;
   RxList<ProductItem> bargainFilteredProducts = <ProductItem>[].obs;
-  
+
   late RxList<ProductItem> allProducts;
   final RxMap<String, BargainSetting> bargainSettings =
       <String, BargainSetting>{}.obs;
-        void initProducts(RxList<ProductItem> products) {
+  void initProducts(RxList<ProductItem> products) {
     allProducts = products;
-    bargainFilteredProducts.assignAll(products);
+    filteredProducts.assignAll(products);
 
     for (final p in products) {
       bargainSettings[p.id] = BargainSetting(
@@ -295,6 +298,24 @@ class AddReelsController extends GetxController
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void searchProductsInBuybits(String query) {
+    if (query.isEmpty) {
+      filteredProducts.assignAll(selectedProducts);
+      return;
+    }
+
+    filteredProducts.assignAll(
+      selectedProducts.where((product) {
+        return product.name.toLowerCase().contains(query.toLowerCase()) ||
+            product.description.toLowerCase().contains(query.toLowerCase());
+      }).toList(),
+    );
+  }
+
+  void resetZatchSearch() {
+    filteredProducts.assignAll(selectedProducts);
   }
 
   @override

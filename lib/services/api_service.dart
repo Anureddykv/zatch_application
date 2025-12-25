@@ -21,6 +21,7 @@ import 'package:zatch_app/model/live_comment.dart';
 import 'package:zatch_app/model/live_details_response.dart';
 import 'package:zatch_app/model/live_session_res.dart';
 import 'package:zatch_app/model/livesummarymodel.dart';
+import 'package:zatch_app/model/order_response_model.dart';
 import 'package:zatch_app/model/product_response.dart';
 import 'package:zatch_app/model/product_response_seller.dart';
 import 'package:zatch_app/model/register_req.dart';
@@ -1273,6 +1274,23 @@ class ApiService {
       throw Exception(_handleError(e));
     } catch (e) {
       throw Exception("Unexpected error occurred");
+    }
+  }
+
+  Future<OrderScreenResponse> getOrderStatics(String timeFilter) async {
+    try {
+      final response = await _dio.get(
+        "/orders/seller/dashboard",
+        queryParameters: {"timeFilter": timeFilter},
+      );
+
+      final data = _decodeResponse(response.data);
+
+      final orderresponse = OrderScreenResponse.fromJson(data);
+
+      return orderresponse;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
     }
   }
 }

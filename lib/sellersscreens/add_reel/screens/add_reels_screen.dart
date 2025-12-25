@@ -56,7 +56,9 @@ class _AddreelspageState extends State<Addreelspage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
                             child: const CircleAvatar(
                               backgroundColor: AppColors.contentColorWhite,
                               child: Padding(
@@ -123,6 +125,90 @@ class _AddreelspageState extends State<Addreelspage> {
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
+                                          //  Obx(
+                                          //   () => DropdownButtonHideUnderline(
+                                          //     child: DropdownButton<String>(
+                                          //       value:
+                                          //           yourlivesscreenscontroller
+                                          //               .selectedValue
+                                          //               .value,
+                                          //       dropdownColor: Colors.white,
+                                          //       icon: const Icon(
+                                          //         Icons
+                                          //             .arrow_drop_down_outlined,
+                                          //         color: Colors.white,
+                                          //       ),
+                                          //       style: const TextStyle(
+                                          //         color: Colors.black,
+                                          //         fontSize: 13,
+                                          //         fontWeight: FontWeight.w500,
+                                          //       ),
+                                          //       selectedItemBuilder: (
+                                          //         BuildContext context,
+                                          //       ) {
+                                          //         return [
+                                          //           const Padding(
+                                          //             padding: EdgeInsets.all(
+                                          //               18.0,
+                                          //             ),
+                                          //             child: Text(
+                                          //               "This Week",
+                                          //               style: TextStyle(
+                                          //                 color: Colors.white,
+                                          //               ),
+                                          //             ),
+                                          //           ),
+                                          //           const Padding(
+                                          //             padding: EdgeInsets.all(
+                                          //               18.0,
+                                          //             ),
+                                          //             child: Text(
+                                          //               "Last 15 Days",
+                                          //               style: TextStyle(
+                                          //                 color: Colors.white,
+                                          //               ),
+                                          //             ),
+                                          //           ),
+                                          //           const Padding(
+                                          //             padding: EdgeInsets.all(
+                                          //               18.0,
+                                          //             ),
+                                          //             child: Text(
+                                          //               "Last Month",
+                                          //               style: TextStyle(
+                                          //                 color: Colors.white,
+                                          //               ),
+                                          //             ),
+                                          //           ),
+                                          //         ];
+                                          //       },
+                                          //       items: const [
+                                          //         DropdownMenuItem(
+                                          //           value: "this_week",
+                                          //           child: Text("This Week"),
+                                          //         ),
+                                          //         DropdownMenuItem(
+                                          //           value: "last_15_days",
+                                          //           child: Text("Last 15 Days"),
+                                          //         ),
+                                          //         DropdownMenuItem(
+                                          //           value: "last_month",
+                                          //           child: Text("Last Month"),
+                                          //         ),
+                                          //       ],
+                                          //       onChanged: (value) {
+                                          //         yourlivesscreenscontroller
+                                          //             .selectedValue
+                                          //             .value = value!;
+                                          //         yourlivesscreenscontroller
+                                          //             .getLiveSummaryData(
+                                          //               value,
+                                          //             );
+                                          //         log(value);
+                                          //       },
+                                          //     ),
+                                          //   ),
+                                          // ),
                                           Row(
                                             children: [
                                               Text(
