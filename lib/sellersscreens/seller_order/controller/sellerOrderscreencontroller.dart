@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:zatch_app/model/order_response_model.dart';
+import 'package:zatch_app/sellersscreens/seller_order/seller_order_details_screens/seller_order_details_screens.dart';
 import 'package:zatch_app/services/api_service.dart';
 
 class Sellerorderscreencontroller extends GetxController
@@ -79,4 +80,28 @@ class Sellerorderscreencontroller extends GetxController
   }
 
   RxInt currentStep = 0.obs;
+
+  /// Go to next step
+  void goToNextStep(BuildContext context, ThemeData themeData) {
+    if (currentStep.value == 1) {
+      showMarkAsShippedBottomSheet(context, themeData);
+    } else if (currentStep.value < 3) {
+      currentStep.value++;
+    }
+  }
+
+ 
+  /// Go to previous step
+  void goToPreviousStep() {
+    if (currentStep.value > 0) {
+      currentStep.value--;
+    }
+  }
+
+  /// Jump to a specific step (optional)
+  void goToStep(int step) {
+    if (step >= 0 && step <= 3) {
+      currentStep.value = step;
+    }
+  }
 }

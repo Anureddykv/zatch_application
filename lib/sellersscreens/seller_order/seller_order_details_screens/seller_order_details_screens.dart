@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -23,6 +25,8 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
 
   @override
   Widget build(BuildContext context) {
+    ThemeData themeData = Theme.of(context);
+    var screenHeight = MediaQuery.sizeOf(context).height;
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(70),
@@ -90,28 +94,41 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      Container(
-                        child: Obx(() {
-                          if (ordercontroller.currentStep.value == 0) {
-                            return Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(15.0),
-                                  child: PackOrderDetails(),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: _PackDeliveryinfo(),
-                                ),
-                              ],
-                            );
-                          } else if (ordercontroller.currentStep.value == 1) {
-                            return _PackDeliveryinfo();
-                          } else {
-                            return SizedBox.shrink();
-                          }
-                        }),
-                      ),
+                      Obx(() {
+                        if (ordercontroller.currentStep.value == 0) {
+                          return Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: PackOrderDetails(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: _PackDeliveryinfo(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: _packPaymentDetails(),
+                              ),
+                            ],
+                          );
+                        } else if (ordercontroller.currentStep.value == 1) {
+                          return Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: PackOrderDetails(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: _PackDeliveryinfo(),
+                              ),
+                            ],
+                          );
+                        } else {
+                          return SizedBox.shrink();
+                        }
+                      }),
                       AppSizedBox.height100,
                       AppSizedBox.height100,
                     ],
@@ -146,21 +163,26 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        'Cancel order',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Plus Jakarta Sans',
-                          color: Colors.red,
-                        ),
-                      ),
+                      Obx(() {
+                        return ordercontroller.currentStep.value != 0
+                            ? const SizedBox.shrink()
+                            : const Text(
+                              'Cancel order',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Plus Jakarta Sans',
+                                color: Colors.red,
+                              ),
+                            );
+                      }),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () {
-                            Navigator.pop(context);
+                            // Navigator.pop(context);
+                            ordercontroller.goToPreviousStep();
                           },
                           style: OutlinedButton.styleFrom(
                             backgroundColor: Colors.white,
@@ -201,68 +223,52 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                     ],
                   ),
                 ),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.only(
-                    right: 30,
-                    left: 30,
-                    bottom: 30,
-                    top: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        spreadRadius: 5,
-                        offset: const Offset(0, 5),
+                Obx(() {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(
+                      right: 30,
+                      left: 30,
+                      bottom: 30,
+                      top: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          spreadRadius: 5,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        // ordercontroller.currentStep.value = 1;
+                        ordercontroller.goToNextStep(context, themeData);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromRGBO(163, 221, 0, 1),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 15,
+                          horizontal: 50,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    // onPressed: () async {
-                    //   //continue
-                    //   yourlivesscreenscontroller.nextStep();
-                    //   log(
-                    //     yourlivesscreenscontroller.currentStep.value
-                    //         .toString(),
-                    //   );
-                    //   // 2. Call Step One API
-                    //   yourlivesscreenscontroller.goliveAddProductStep();
-
-                    //   yourlivesscreenscontroller.currentStep.value == 2
-                    //       ? Navigator.of(context).pushAndRemoveUntil(
-                    //         MaterialPageRoute(
-                    //           builder:
-                    //               (context) =>
-                    //                   const GoliveAddedSuccessScreen(),
-                    //         ),
-                    //         (Route<dynamic> route) => false,
-                    //       )
-                    //       : const SizedBox();
-                    // },
-                    onPressed: () async {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(163, 221, 0, 1),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 15,
-                        horizontal: 50,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                      child: Text(
+                        getActionButtonText(ordercontroller.currentStep.value),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Ready to Shipped',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
           ),
@@ -271,7 +277,24 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
     );
   }
 
+  String getActionButtonText(int step) {
+    switch (step) {
+      case 0:
+        return 'Ready to Ship';
+      case 1:
+        return 'Mark as Shipped';
+      case 2:
+        return 'Shipping';
+      case 3:
+        return 'Money Recieved';
+      default:
+        return 'Done';
+    }
+  }
+
   Widget _buildActionButtons() {
+    ThemeData themeData = Theme.of(context);
+    var screenHeight = MediaQuery.sizeOf(context).height;
     return Column(
       children: [
         // Add Product Button
@@ -322,6 +345,8 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
   }
 
   Widget PackOrderDetails() {
+    ThemeData themeData = Theme.of(context);
+    var screenHeight = MediaQuery.sizeOf(context).height;
     return Column(
       children: [
         Container(
@@ -423,12 +448,16 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                                             order.productName,
                                             overflow: TextOverflow.ellipsis,
                                             maxLines: 2,
-                                            style: const TextStyle(
-                                              color: Color(0xFF101727),
-                                              fontSize: 15.18,
-                                              fontFamily: 'Plus Jakarta Sans',
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                            style: themeData
+                                                .textTheme
+                                                .bodySmall!
+                                                .copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      themeData
+                                                          .colorScheme
+                                                          .onSurface,
+                                                ),
                                           ),
                                           AppSizedBox.height5,
                                           Text(
@@ -522,6 +551,86 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
     );
   }
 
+  Widget _packPaymentDetails() {
+    ThemeData themeData = Theme.of(context);
+    var screenHeight = MediaQuery.sizeOf(context).height;
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFB),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 3),
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              DropDownWidgets(
+                column: Column(
+                  children: [
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Total Revenue',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Commission',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Shipping',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Tax',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Gst',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                    Divider(thickness: 0.5, color: Colors.grey[300]),
+                    SizedBox(height: 10),
+                    paymentdetailsrow(
+                      themeData: themeData,
+                      widget: widget,
+                      heading: 'Payment',
+                      value: widget.order.totalCost,
+                    ),
+                    SizedBox(height: 10),
+                  ],
+                ),
+                items: [],
+                title: 'Payment Details',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _PackDeliveryinfo() {
     return Column(
       children: [
@@ -563,6 +672,224 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                 title: 'Delivery Information',
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final Sellerorderscreencontroller ordercontroller =
+    Get.put<Sellerorderscreencontroller>(Sellerorderscreencontroller());
+
+void showMarkAsShippedBottomSheet(BuildContext context, ThemeData themeData) {
+  final TextEditingController trackingController = TextEditingController();
+  String? selectedCourier;
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Shipping Method',
+                  style: themeData.textTheme.bodyLarge!.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: themeData.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'You can select your Shipping Method',
+                  style: themeData.textTheme.bodySmall!.copyWith(
+                    fontWeight: FontWeight.normal,
+                    color: themeData.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                /// Courier Method
+                DropdownButtonFormField<String>(
+                  value: selectedCourier,
+                  decoration: InputDecoration(
+                    labelText: 'Courier Method',
+                    filled: true,
+                    labelStyle: TextStyle(fontSize: 12),
+                    fillColor: const Color(0xFFF5F5F5),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'FedEx', child: Text('FedEx')),
+                    DropdownMenuItem(value: 'DHL', child: Text('DHL')),
+                    DropdownMenuItem(
+                      value: 'Blue Dart',
+                      child: Text('Blue Dart'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Delhivery',
+                      child: Text('Delhivery'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedCourier = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 15),
+
+                TextField(
+                  controller: trackingController,
+                  decoration: InputDecoration(
+                    labelText: 'Tracking ID',
+                    filled: true,
+                    labelStyle: TextStyle(fontSize: 12),
+                    fillColor: const Color(0xFFF5F5F5),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                /// Confirm Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      // Navigator.pop(context);
+                      ordercontroller.goToPreviousStep();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.black, width: 1),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 15,
+                        horizontal: 50,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child:
+                    // yourlivesscreenscontroller.currentStep.value ==
+                    //         0
+                    const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromRGBO(163, 221, 0, 1),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 15,
+                        horizontal: 50,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (trackingController.text.isEmpty ||
+                          selectedCourier == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please fill all fields'),
+                          ),
+                        );
+                        return;
+                      }
+                      log('Current step: ${ordercontroller.currentStep.value}');
+
+                      ordercontroller.currentStep.value++;
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class paymentdetailsrow extends StatelessWidget {
+  const paymentdetailsrow({
+    super.key,
+    required this.themeData,
+    required this.widget,
+    required this.heading,
+    required this.value,
+  });
+
+  final ThemeData themeData;
+  final SellerOrderDetailsScreens widget;
+  final heading;
+  final value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          heading,
+          style: themeData.textTheme.bodySmall!.copyWith(
+            fontWeight: FontWeight.normal,
+            color: themeData.colorScheme.onSurface,
+          ),
+        ),
+        Text(
+          '$value',
+          style: themeData.textTheme.bodySmall!.copyWith(
+            fontWeight: FontWeight.normal,
+            color: themeData.colorScheme.onSurface,
           ),
         ),
       ],
@@ -674,7 +1001,6 @@ class _DropDownWidgetsState extends State<DropDownWidgets> {
                       );
                     }).toList(),
               ),
-
               widget.column,
             ],
           ),
