@@ -1,0 +1,666 @@
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart' as spi;
+import 'package:zatch/Widget/bargain_picks_widget.dart';
+import 'package:zatch/Widget/top_picks_this_week_widget.dart';
+import 'package:zatch/model/CartApiResponse.dart' as cart_model;
+import 'package:zatch/model/ExploreApiRes.dart';
+import 'package:zatch/model/product_response.dart';
+import 'package:zatch/model/user_profile_response.dart';
+import 'package:zatch/services/api_service.dart';
+import 'package:zatch/view/cart_screen.dart';
+import 'package:zatch/view/home_page.dart';
+import 'package:zatch/view/setting_view/payments_shipping_screen.dart';
+import 'package:zatch/view/bottom_sheet/buy_zatch_sheet.dart';
+import 'package:zatch/utils/snackbar_utils.dart';
+import 'package:zatch/view/zatch_ai_screen.dart';
+import '../setting_view/profile_screen.dart';
+
+class AllReviewsScreen extends StatelessWidget {
+  final List<Review> reviews;
+  const AllReviewsScreen({super.key, required this.reviews});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("All Reviews")),
+      body: ListView.builder(
+        itemCount: reviews.length,
+        itemBuilder: (context, index) {
+          final review = reviews[index];
+          final imageUrl = review.reviewerId.profilePic.url;
+          final hasImage = imageUrl.isNotEmpty;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(radius: 20, backgroundImage: hasImage ? NetworkImage(imageUrl) : null, child: !hasImage ? const Icon(Icons.person, size: 20) : null),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(review.reviewerId.username, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Row(children: List.generate(5, (starIndex) => Icon(starIndex < review.rating ? Icons.star : Icons.star_border, color: Colors.amber, size: 16))),
+                      const SizedBox(height: 8),
+                      Text(review.comment, style: TextStyle(color: Colors.grey[700])),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class AllCommentsScreen extends StatelessWidget {
+  final List<Comment> comments;
+  const AllCommentsScreen({super.key, required this.comments});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(appBar: AppBar(title: const Text("All Comments")), body: ListView.separated(padding: const EdgeInsets.all(16), itemCount: comments.length, separatorBuilder: (_, __) => const SizedBox(height: 16), itemBuilder: (context, index) => CommentWidget(comment: comments[index])));
+  }
+}
+
+class ProductDetailScreen extends StatefulWidget {
+  final String productId;
+  final Function(Widget)? onNavigate;
+
+  const ProductDetailScreen({super.key, required this.productId, this.onNavigate});
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTickerProviderStateMixin {
+  UserProfileResponse? userProfile;
+  final _pageController = PageController();
+  late final TabController _tabController;
+  final TextEditingController _commentController = TextEditingController();
+  int _selectedVariantIndex = -1;
+  final ApiService _apiService = ApiService();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _infoTabsKey = GlobalKey();
+  bool loading = true;
+  String? errorMessage;
+  late Product product;
+  List<Product> similarProducts = [];
+  bool _showAllCommunity = false;
+  bool _showAllReviews = false;
+  bool _isSaving = false;
+  bool _isAddingToCart = false;
+  int cartItemCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadProductDetails();
+    _fetchCartCount();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _tabController.dispose();
+    _commentController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchCartCount() async {
+    try {
+      final cart = await _apiService.getCart();
+      if (mounted) {
+        setState(() {
+          cartItemCount = cart?.totalItems ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching cart count: $e");
+    }
+  }
+
+  Future<void> _refreshUserProfile() async {
+    try {
+      final profile = await _apiService.getUserProfile();
+      if (mounted) setState(() => userProfile = profile);
+    } catch (e) { debugPrint("Error refreshing profile: $e"); }
+  }
+
+  Future<void> _loadProductDetails() async {
+    setState(() { loading = true; errorMessage = null; });
+    try {
+      final results = await Future.wait([_apiService.getProductById(widget.productId), _apiService.getTopPicks(), _apiService.getUserProfile()]);
+      if (mounted) {
+        setState(() {
+          product = results[0] as Product;
+          similarProducts = results[1] as List<Product>;
+          userProfile = results[2] as UserProfileResponse;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { errorMessage = "Failed to load product: $e"; loading = false; });
+    }
+  }
+
+  void _onBackTap() {
+    if (homePageKey.currentState != null && homePageKey.currentState!.hasSubScreen) {
+      homePageKey.currentState!.closeSubScreen();
+    } else if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
+  void _handleNavigation(Widget screen, {bool replace = false}) {
+    FocusScope.of(context).unfocus();
+    debugPrint('ProductDetailScreen: navigate -> ${screen.runtimeType}, replace=$replace, onNavigate=${widget.onNavigate != null}, homeKey=${homePageKey.currentState != null}');
+
+    // 1) If we have an explicit navigation handler (subscreen mode), use it.
+    if (widget.onNavigate != null) {
+      widget.onNavigate!(screen);
+      return;
+    }
+
+    // 2) Managed sub-screen stack (keeps Bottom Nav Bar)
+    if (homePageKey.currentState != null) {
+      // If we are in a full-screen view, we pop it first to reveal HomePage underneath
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(); 
+      }
+      if (replace) {
+        homePageKey.currentState!.replaceSubScreen(screen);
+      } else {
+        homePageKey.currentState!.navigateToSubScreen(screen);
+      }
+      return;
+    }
+
+    // 3) Fallback: Standalone route
+    if (replace) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (errorMessage != null) return Scaffold(body: Center(child: Text(errorMessage!)));
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              _buildSliverAppBar(),
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    Padding(padding: const EdgeInsets.all(16.0), child: _buildTitlePriceAndRating()),
+                    Padding(padding: const EdgeInsets.all(16.0), child: _buildDescription()),
+                    Padding(padding: const EdgeInsets.all(16.0), child: _buildSizeSelector()),
+                    Padding(padding: const EdgeInsets.all(16.0), child: _buildColorSelector()),
+                    Padding(padding: const EdgeInsets.all(16.0), child: Container(key: _infoTabsKey, child: _buildInfoTabs())),
+                    const TopPicksThisWeekWidget(title: "Similar products", showSeeAll: false),
+                    Padding(padding: const EdgeInsets.all(16.0), child: _buildPolicySection()),
+                    const TopPicksThisWeekWidget(title: "Products from this seller", showSeeAll: false),
+                    const SizedBox(height: 32),
+                    const BargainPicksWidget(),
+                    const SizedBox(height: 100), // Space for bottom action bar
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: _buildBottomActionBar(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircleIcon(IconData icon, VoidCallback onTap, {int badgeCount = 0}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFDFDEDE), width: 1)),
+            child: Icon(icon, color: Colors.black, size: 20),
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                child: Text(
+                  '$badgeCount',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 450.0, pinned: true, elevation: 0, stretch: true, backgroundColor: Colors.white,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16.0),
+        child: Center(child: _buildCircleIcon(Icons.arrow_back_ios_new, _onBackTap)),
+      ),
+      actions: [
+        if (_isSaving) const Padding(padding: EdgeInsets.all(10.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)))
+        else
+          _buildCircleIcon(
+              (userProfile != null && _isProductSaved(userProfile!, widget.productId)) ? Icons.bookmark : Icons.bookmark_border,
+                  () async {
+                if (_isSaving) return;
+                setState(() => _isSaving = true);
+                try {
+                  await _apiService.toggleSaveProduct(widget.productId);
+                  await _refreshUserProfile();
+                  if (mounted) {
+                    SnackBarUtils.showTopSnackBar(context, "Wishlist updated!");
+                    _handleNavigation(ProfileScreen(userProfile: userProfile,initialTabIndex: 1,), replace: true);
+                  }
+                } catch (e) { if (mounted) SnackBarUtils.showTopSnackBar(context, "Error: $e", isError: true); }
+                finally { if (mounted) setState(() => _isSaving = false); }
+              }
+          ),
+        const SizedBox(width: 8),
+        _buildCircleIcon(Icons.share, () async {
+          try {
+            final shareData = await _apiService.shareProduct(widget.productId);
+            await Share.share(shareData.primaryText);
+          } catch (e) {
+            SnackBarUtils.showTopSnackBar(context, "Failed to share: $e", isError: true);
+          }
+        }),
+        const SizedBox(width: 8),
+        _buildCircleIcon(Icons.add_shopping_cart_outlined, () async {
+          if (_isAddingToCart) return;
+
+          if (product.variants.isNotEmpty && _selectedVariantIndex == -1) {
+            SnackBarUtils.showTopSnackBar(context, "Please select a color/size first", isError: true);
+            return;
+          }
+          
+          setState(() => _isAddingToCart = true);
+          SnackBarUtils.showTopSnackBar(context, "Adding to cart...");
+          
+          try {
+            String? finalColor; String? finalSize;
+            if (_selectedVariantIndex != -1) {
+              finalColor = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color;
+              finalSize = product.variants[_selectedVariantIndex].size;
+            }
+            
+            await _apiService.updateCartItem(productId: widget.productId, quantity: 1, color: finalColor, size: finalSize);
+            
+            // Run background updates without awaiting to speed up navigation
+            _refreshUserProfile().catchError((e) => debugPrint("Profile refresh failed: $e"));
+            _fetchCartCount().catchError((e) => debugPrint("Cart count refresh failed: $e"));
+            
+            if (mounted) {
+              SnackBarUtils.showTopSnackBar(context, "Successfully added to Cart!");
+              _handleNavigation(
+                CartScreen(
+                  onNavigate: (page) => _handleNavigation(page),
+                  initialIndex: 0,
+                ), 
+                replace: false,
+              );
+            }
+          } catch (e) { 
+            if (mounted) { 
+              SnackBarUtils.showTopSnackBar(context, e.toString(), isError: true); 
+            } 
+          } finally {
+            if (mounted) setState(() => _isAddingToCart = false);
+          }
+        }, ),
+        const SizedBox(width: 16),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          children: [
+            product.images.isNotEmpty
+                ? PageView.builder(
+              controller: _pageController,
+              itemCount: product.images.length,
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullScreenImageViewer(imageUrl: product.images[index].url))),
+                  child: Image.network(product.images[index].url, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.error))),
+                );
+              },
+            )
+                : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image_not_supported))),
+            if (product.images.length > 1) Positioned(bottom: 16, left: 0, right: 0, child: Center(child: spi.SmoothPageIndicator(controller: _pageController, count: product.images.length))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitlePriceAndRating() {
+    final bool hasDiscount = product.discountedPrice != null &&
+        product.discountedPrice! < product.price;
+    final double sellingPrice = hasDiscount ? product.discountedPrice! : product.price;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(product.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Color(0xFF121111), height: 1.3)),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 18),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () { _tabController.animateTo(2); if (_infoTabsKey.currentContext != null) Scrollable.ensureVisible(_infoTabsKey.currentContext!, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut); },
+                    child: Text.rich(TextSpan(children: [TextSpan(text: '${product.averageRating.toStringAsFixed(1)} ', style: const TextStyle(color: Color(0xFF787676), fontSize: 12)), TextSpan(text: '(${product.reviews.length} reviews)', style: const TextStyle(color: Color(0xFF347EFB), fontSize: 12, decoration: TextDecoration.underline))])),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${sellingPrice.toStringAsFixed(2)} ₹',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF292526))),
+              if (hasDiscount)
+                Text('${product.price.toStringAsFixed(2)} ₹',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF787676),
+                        fontWeight: FontWeight.w400,
+                        decoration: TextDecoration.lineThrough)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  Widget _buildDescription() => Text(product.description, style: const TextStyle(fontSize: 12, color: Color(0xFF787676), height: 1.5));
+  Widget _buildSizeSelector() {
+    final variantsWithSizes = product.variants.where((v) => v.size != null && v.size!.isNotEmpty).toList();
+    if (variantsWithSizes.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Choose Size', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: List.generate(variantsWithSizes.length, (index) {
+          final variant = variantsWithSizes[index];
+          final originalIndex = product.variants.indexOf(variant);
+          final isSelected = _selectedVariantIndex == originalIndex;
+          return GestureDetector(onTap: () => setState(() => _selectedVariantIndex = originalIndex), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: isSelected ? const Color(0xFF292526) : Colors.transparent, border: Border.all(color: const Color(0xFFDFDEDE)), borderRadius: BorderRadius.circular(32)), child: Text(variant.size ?? "", style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF292526), fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400))));
+        })),
+      ],
+    );
+  }
+  Widget _buildColorSelector() {
+    final variants = product.variants.where((v) => (v.shade?.isNotEmpty == true) || (v.color?.isNotEmpty == true)).toList();
+    if (variants.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Choose Color', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: List.generate(variants.length, (index) {
+          final variant = variants[index];
+          final label = variant.shade?.isNotEmpty == true ? variant.shade! : variant.color ?? "";
+          final originalIndex = product.variants.indexOf(variant);
+          final isSelected = _selectedVariantIndex == originalIndex;
+          return GestureDetector(onTap: () => setState(() => _selectedVariantIndex = originalIndex), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.white, border: Border.all(color: isSelected ? Colors.black : const Color(0xFFDFDEDE)), borderRadius: BorderRadius.circular(32)), child: Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: isSelected ? FontWeight.bold : FontWeight.w400))));
+        })),
+      ],
+    );
+  }
+  Widget _buildInfoTabs() {
+    return Column(
+      children: [
+        Container(height: 44, decoration: BoxDecoration(color: const Color(0xFFEEF2EE), borderRadius: BorderRadius.circular(16)), child: TabBar(tabAlignment: TabAlignment.start, isScrollable: true, controller: _tabController, labelColor: Colors.black, unselectedLabelColor: Colors.black, indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), dividerColor: Colors.transparent, indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4), indicatorSize: TabBarIndicatorSize.tab, tabs: [const Tab(text: 'Basic Info'), Tab(text: 'Comments (${product.comments.length})'), Tab(text: 'Reviews (${product.reviews.length})')])),
+        SizedBox(child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 300), child: TabBarView(controller: _tabController, children: [_buildBasicInfoTab(), _buildCommunityTab(), _buildReviewsTab()]))),
+      ],
+    );
+  }
+  _buildBasicInfoTab() => SingleChildScrollView(padding: const EdgeInsets.symmetric(vertical: 16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Description", style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(product.description.toString()), const SizedBox(height: 16), const Text("Additional Information", style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(product.description.toString())]));
+  Widget _buildCommunityTab() {
+    final comments = product.comments;
+    if (comments.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No comments yet.")));
+    final bool canExpand = comments.length <= 10;
+    final displayCount = _showAllCommunity ? comments.length : (comments.length > 2 ? 2 : comments.length);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListView.separated(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: displayCount, separatorBuilder: (_, __) => const SizedBox(height: 16), itemBuilder: (context, index) => CommentWidget(comment: comments[index])),
+          if (comments.length > 2 && !_showAllCommunity) GestureDetector(onTap: () { if (canExpand) { setState(() => _showAllCommunity = true); } else { Navigator.push(context, MaterialPageRoute(builder: (_) => AllCommentsScreen(comments: comments))); } }, child: const Padding(padding: EdgeInsets.symmetric(vertical: 12.0), child: Center(child: Text("View all", style: TextStyle(color: Colors.black, fontSize: 14))))),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: SizedBox(
+              height: 52,
+              child: TextField(
+                controller: _commentController,
+                decoration: InputDecoration(
+                  hintText: 'Add Comments', hintStyle: const TextStyle(color: Color(0xFF899092), fontSize: 16), filled: true, fillColor: const Color(0xFFF0F0F0), contentPadding: const EdgeInsets.symmetric(horizontal: 20.23, vertical: 15), border: OutlineInputBorder(borderRadius: BorderRadius.circular(50), borderSide: BorderSide.none),
+                  suffixIcon: Padding(padding: const EdgeInsets.all(7.0), child: GestureDetector(onTap: () { _commentController.clear(); FocusScope.of(context).unfocus(); }, child: const CircleAvatar(radius: 19, backgroundColor: Color(0xFFA2DC00), child: Icon(Icons.arrow_forward, color: Colors.white, size: 20)))),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildReviewsTab() {
+    final reviews = product.reviews;
+    final bool canExpand = reviews.length <= 10;
+    final displayCount = _showAllReviews ? reviews.length : (reviews.length > 2 ? 2 : reviews.length);
+    if (reviews.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No reviews yet.")));
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: displayCount, itemBuilder: (context, index) {
+            final review = reviews[index]; final imageUrl = review.reviewerId.profilePic.url; final hasImage = imageUrl.isNotEmpty;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(radius: 20, backgroundImage: hasImage ? NetworkImage(imageUrl) : null, child: !hasImage ? const Icon(Icons.person, size: 20) : null),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(review.reviewerId.username, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Row(children: List.generate(5, (starIndex) => Icon(starIndex < review.rating ? Icons.star : Icons.star_border, color: Colors.amber, size: 16))),
+                        const SizedBox(height: 8),
+                        Text(review.comment, style: TextStyle(color: Colors.grey[700])),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (reviews.length > 2 && !_showAllReviews) GestureDetector(onTap: () { if (canExpand) { setState(() => _showAllReviews = true); } else { Navigator.push(context, MaterialPageRoute(builder: (_) => AllReviewsScreen(reviews: reviews))); } }, child: const Padding(padding: EdgeInsets.symmetric(vertical: 8.0), child: Center(child: Text("View all", style: TextStyle(color: Colors.blue))))),
+          Padding(padding: const EdgeInsets.all(16.0), child: GestureDetector(onTap: () {}, child: Container(width: double.infinity, height: 52, decoration: ShapeDecoration(color: const Color(0xFFF0F0F0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50))), child: const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.only(left: 20.23, right: 20.23), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Add a Review', style: TextStyle(color: Color(0xFF899092), fontSize: 16, fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w400, letterSpacing: 0.08)), Icon(Icons.arrow_forward_ios, size: 24, color: Color(0xFF899092))])))))),
+        ],
+      ),
+    );
+  }
+  Widget _buildPolicySection() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Policies", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)), const SizedBox(height: 8), Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: ExpansionTile(tilePadding: EdgeInsets.zero, leading: const Icon(Icons.local_shipping_outlined, color: Colors.black), title: const Text("Free Flat Rate Shipping", style: TextStyle(fontSize: 14)), subtitle: const Text("Estimated to be delivered on 09/11/2021 - 12/11/2021.", style: TextStyle(fontSize: 12, color: Color(0xFF555555))), children: const [Padding(padding: EdgeInsets.all(16.0), child: Text("Details about free flat rate shipping."))])), const Divider(color: Color(0x33555555)), Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: const ExpansionTile(tilePadding: EdgeInsets.zero, leading: Icon(Icons.money_off_csred_outlined, color: Colors.black), title: Text("COD Policy", style: TextStyle(fontSize: 14)), children: [Padding(padding: EdgeInsets.all(16.0), child: Text("Details about our Cash On Delivery policy."))])), const Divider(color: Color(0x33555555)), Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: const ExpansionTile(tilePadding: EdgeInsets.zero, leading: Icon(Icons.assignment_return_outlined, color: Colors.black), title: Text("Return Policy", style: TextStyle(fontSize: 14)), children: [Padding(padding: EdgeInsets.all(16.0), child: Text("Details about our return policy."))]))]);
+
+  Widget _buildBottomActionBar() {
+    final bool hasDiscount = product.discountedPrice != null &&
+        product.discountedPrice! < product.price;
+    final double sellingPrice = hasDiscount ? product.discountedPrice! : product.price;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), 
+      decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))]),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                if (product.variants.isNotEmpty && _selectedVariantIndex == -1) {
+                  SnackBarUtils.showTopSnackBar(context, "Please select a color/size first", isError: true);
+                  return;
+                }
+                String? selectedColor;
+                String? selectedSize;
+                if (_selectedVariantIndex != -1) {
+                  selectedColor = product.variants[_selectedVariantIndex].color ?? product.variants[_selectedVariantIndex].shade;
+                  selectedSize = product.variants[_selectedVariantIndex].size;
+                }
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (context) => BuyZatchSheet(
+                    product: product,
+                    allProducts: similarProducts,
+                    defaultOption: "zatch",
+                    selectedColor: selectedColor,
+                    selectedSize: selectedSize,
+                    onNavigate: (page) => _handleNavigation(page, replace: true),
+                  ),
+                );
+              }, 
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: const BorderSide(color: Color(0xFFCCF656)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), 
+              child: const Text('Zatch', style: TextStyle(color: Colors.black, fontSize: 16))
+            )
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                if (product.variants.isNotEmpty && _selectedVariantIndex == -1) { SnackBarUtils.showTopSnackBar(context, "Please select a color/size", isError: true); return; }
+                String? selectedShade; String? selectedSize;
+                if (_selectedVariantIndex != -1) { selectedShade = product.variants[_selectedVariantIndex].shade ?? product.variants[_selectedVariantIndex].color; selectedSize = product.variants[_selectedVariantIndex].size; }
+                final itemToPurchase = cart_model.CartItemModel(id: "temp_${product.id}", productId: product.id, sellerId: product.seller?.id, name: product.name, description: product.description, price: product.price.toDouble(), discountedPrice: sellingPrice, image: product.images.isNotEmpty ? product.images.first.url : "", images: product.images.map((img) => cart_model.ImageModel(id: img.id, publicId: img.publicId, url: img.url)).toList(), variant: cart_model.VariantModel(color: selectedShade, size: selectedSize), selectedVariant: {"color": selectedShade, "size": selectedSize}, quantity: 1, category: product.category ?? "", subCategory: product.subCategory ?? "", lineTotal: sellingPrice.toInt());
+                _handleNavigation(CheckoutOrPaymentsScreen(isCheckout: true, isDirectOrder: true, selectedItems: [itemToPurchase], itemsTotalPrice: sellingPrice, shippingFee: 10.0, subTotalPrice: sellingPrice + 10.0), replace: false);
+              },
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: const Color(0xFFCCF656), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0),
+              child: const Text('Buy Now', style: TextStyle(color: Colors.black, fontSize: 16)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  bool _isProductSaved(UserProfileResponse profile, String productId) => profile.user.savedProducts.any((p) => p.id == productId);
+}
+class FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+  const FullScreenImageViewer({super.key, required this.imageUrl});
+  @override
+  Widget build(BuildContext context) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, elevation: 0, leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.of(context).pop())), body: Center(child: InteractiveViewer(panEnabled: false, minScale: 1.0, maxScale: 4.0, child: Image.network(imageUrl, fit: BoxFit.contain, loadingBuilder: (context, child, loadingProgress) => (loadingProgress == null) ? child : const Center(child: CircularProgressIndicator(color: Colors.white)), errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: Colors.white, size: 48)))));
+}
+class CommentWidget extends StatefulWidget {
+  final Comment comment;
+  const CommentWidget({super.key, required this.comment});
+  @override
+  State<CommentWidget> createState() => _CommentWidgetState();
+}
+class _CommentWidgetState extends State<CommentWidget> {
+  bool _isReplying = false; final TextEditingController _replyController = TextEditingController(); late int _likesCount; bool _isLiked = false; bool _isLiking = false;
+  @override
+  void initState() { super.initState(); _likesCount = widget.comment.likes; }
+  @override
+  void dispose() { _replyController.dispose(); super.dispose(); }
+  void _handleLike() { if (_isLiking) return; setState(() { _isLiking = true; if (_isLiked) { _likesCount--; _isLiked = false; } else { _likesCount++; _isLiked = true; } }); Future.delayed(const Duration(milliseconds: 500), () { if (mounted) setState(() => _isLiking = false); }); }
+  Widget _buildReplyInput() {
+    final user = widget.comment.user;
+    final userName = user?.username ?? 'user';
+    return Padding(
+      padding: const EdgeInsets.only(left: 54.0, top: 8.0),
+      child: SizedBox(
+        height: 52,
+        child: TextField(
+          controller: _replyController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Reply to $userName...',
+            hintStyle: const TextStyle(color: Color(0xFF899092), fontSize: 14),
+            filled: true,
+            fillColor: const Color(0xFFF0F0F0),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(50), borderSide: BorderSide.none),
+            suffixIcon: Padding(
+              padding: const EdgeInsets.all(7.0),
+              child: GestureDetector(
+                onTap: () {
+                  if (_replyController.text.isNotEmpty) {
+                    _replyController.clear();
+                    setState(() => _isReplying = false);
+                    FocusScope.of(context).unfocus();
+                  }
+                },
+                child: const CircleAvatar(
+                  radius: 19,
+                  backgroundColor: Color(0xFFA2DC00),
+                  child: Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.comment.user; final userName = user?.username ?? 'Anonymous'; final avatarUrl = user?.profilePic.url ?? ''; final hasAvatar = avatarUrl.isNotEmpty; final timeAgo = '${DateTime.now().difference(widget.comment.createdAt).inHours}h';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [CircleAvatar(radius: 22, backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null, child: !hasAvatar ? const Icon(Icons.person) : null), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text.rich(TextSpan(children: [TextSpan(text: '$userName  ', style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600)), TextSpan(text: widget.comment.text, style: TextStyle(color: Colors.black.withOpacity(0.80), fontSize: 14, fontWeight: FontWeight.w400))])), const SizedBox(height: 6.56), Row(children: [Text(timeAgo, style: TextStyle(color: Colors.black.withOpacity(0.30), fontSize: 12, fontWeight: FontWeight.w400)), const SizedBox(width: 18), InkWell(onTap: _handleLike, child: Text('$_likesCount likes', style: TextStyle(color: _isLiked ? Colors.red : Colors.black.withOpacity(0.30), fontSize: 12, fontWeight: _isLiked ? FontWeight.bold : FontWeight.w400))), const SizedBox(width: 18), InkWell(onTap: () => setState(() => _isReplying = !_isReplying), child: Text('Reply', style: TextStyle(color: Colors.black.withOpacity(0.30), fontSize: 12, fontWeight: FontWeight.w400)))]), ] ))])),
+        if (_isReplying) _buildReplyInput(),
+        if (widget.comment.replies.isNotEmpty) Padding(padding: const EdgeInsets.only(left:40.0, top: 8.0), child: ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: widget.comment.replies.length, itemBuilder: (context, index) => CommentWidget(comment: widget.comment.replies[index]))),
+      ],
+    );
+  }
+}
+class SmoothPageIndicator extends StatelessWidget {
+  final PageController controller; final int count;
+  const SmoothPageIndicator({super.key, required this.controller, required this.count});
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(animation: controller, builder: (context, child) { int currentPage = (controller.hasClients && controller.page != null) ? controller.page!.round() : 0; return Row(mainAxisSize: MainAxisSize.min, children: List.generate(count, (index) { bool isSelected = index == currentPage; return AnimatedContainer(duration: const Duration(milliseconds: 300), margin: const EdgeInsets.symmetric(horizontal: 4), width: isSelected ? 20 : 8, height: 8, decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(4))); })); });
+}
