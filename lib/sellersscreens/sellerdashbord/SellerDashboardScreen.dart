@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
+import 'package:zatch_app/sellersscreens/add_coupon/add_coupon.dart';
 import 'package:zatch_app/sellersscreens/add_reel/screens/add_reels_screen.dart';
+import 'package:zatch_app/sellersscreens/add_zatches/zatchesscreen.dart';
 import 'package:zatch_app/sellersscreens/addproduct/add_product_screen.dart';
 import 'package:zatch_app/sellersscreens/inventory/inventory_screen.dart';
 import 'package:zatch_app/sellersscreens/seller_order/sellerorderscreen.dart';
@@ -75,6 +77,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             label: 'Inventory',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Payments'),
+          // BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Zatch'),
+          // BottomNavigationBarItem(icon: Icon(Icons.payment), label: 'Coupon'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -107,9 +111,9 @@ class DashboardHome extends StatelessWidget {
     return Navigator(
       onGenerateRoute: (settings) {
         Widget page = const DashboardPage();
-        if (settings.name == '/golive') {
-          page = const SellerLiveDashboard();
-        }
+        // if (settings.name == '/golive') {
+        //   page = const SellerLiveDashboard();
+        // }
         return MaterialPageRoute(builder: (_) => page);
       },
     );
@@ -322,13 +326,13 @@ class DashboardPage extends StatelessWidget {
               icon: Icons.sensors,
               label: 'Go Live',
               onTap: () {
-                // Navigator.push(
-                //   context,
-                //   MaterialPageRoute(
-                //     builder: (context) => const SellerLiveDashboard(),
-                //   ),
-                // );
-                Navigator.of(context).pushNamed('/golive');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SellerLiveDashboard(),
+                  ),
+                );
+                // Navigator.of(context).pushNamed('/golive');
               },
             ),
             QuickLinkItem(
@@ -348,8 +352,15 @@ class DashboardPage extends StatelessWidget {
             ),
             QuickLinkItem(
               icon: Icons.inventory_2_outlined,
-              label: 'Inventory',
-              onTap: () {},
+              label: 'Zatch',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const Zatchesscreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -359,10 +370,10 @@ class DashboardPage extends StatelessWidget {
 
   // Builds the "Other Links" section
   Widget _buildOtherLinks(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Other Links',
           style: TextStyle(
             color: Color(0xFF101727),
@@ -371,14 +382,35 @@ class DashboardPage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        SizedBox(height: 14),
-        ManageStoreCard(title: 'Edit Profile', icon: Icons.person_outline),
+        const SizedBox(height: 14),
+        ManageStoreCard(
+          title: 'Edit Profile',
+          icon: Icons.person_outline,
+          ontap: () {},
+        ),
         ManageStoreCard(
           title: 'Manage Products',
           icon: Icons.inventory_2_outlined,
           productCount: 13,
+          ontap: () {},
         ),
-        ManageStoreCard(title: 'Payments', icon: Icons.currency_rupee),
+        ManageStoreCard(
+          title: 'Payments',
+          icon: Icons.currency_rupee,
+          ontap: () {},
+        ),
+        ManageStoreCard(
+          title: 'Add Coupon ',
+          icon: Icons.currency_rupee,
+          ontap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddCouponDashboard(),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -688,70 +720,78 @@ class ManageStoreCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final int? productCount;
+  final VoidCallback ontap;
 
   const ManageStoreCard({
     super.key,
     required this.title,
     required this.icon,
     this.productCount,
+    required this.ontap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shadowColor: const Color(0x19000000),
-      color: const Color(0xFFF9FAFB),
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(width: 1, color: Color(0xFFF2F4F6)),
-        borderRadius: BorderRadius.circular(12.75),
-      ),
-      margin: const EdgeInsets.only(bottom: 7),
-      child: Padding(
-        padding: const EdgeInsets.all(15.0),
-        child: Row(
-          children: [
-            Container(
-              width: 35,
-              height: 35,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBF9C9),
-                borderRadius: BorderRadius.circular(8.75),
-              ),
-              child: Icon(icon, color: const Color(0xFF4A5565), size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF101727),
-                  fontSize: 13.12,
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-            if (productCount != null)
+    return GestureDetector(
+      onTap: ontap,
+      child: Card(
+        elevation: 1,
+        shadowColor: const Color(0x19000000),
+        color: const Color(0xFFF9FAFB),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 1, color: Color(0xFFF2F4F6)),
+          borderRadius: BorderRadius.circular(12.75),
+        ),
+        margin: const EdgeInsets.only(bottom: 7),
+        child: Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Row(
+            children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFA2DC00),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFEBF9C9),
+                  borderRadius: BorderRadius.circular(8.75),
                 ),
+                child: Icon(icon, color: const Color(0xFF4A5565), size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Text(
-                  productCount.toString(),
+                  title,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF101727),
+                    fontSize: 13.12,
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios, size: 16),
-          ],
+              if (productCount != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA2DC00),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    productCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_ios, size: 16),
+            ],
+          ),
         ),
       ),
     );

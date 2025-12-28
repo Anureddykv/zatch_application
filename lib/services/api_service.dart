@@ -13,6 +13,7 @@ import 'package:zatch_app/model/UpdateCartApiResponse.dart';
 import 'package:zatch_app/model/UpdateProfileResponse.dart';
 import 'package:zatch_app/model/api_response.dart';
 import 'package:zatch_app/model/bit_details.dart';
+import 'package:zatch_app/model/coupondasboard.dart';
 import 'package:zatch_app/model/follow_response.dart';
 import 'package:zatch_app/model/golivenowresponsemodel.dart';
 import 'package:zatch_app/model/golivesteponeresponse.dart';
@@ -1263,6 +1264,15 @@ class ApiService {
     }
   }
 
+  Future<void> EndLive(String sessionId) async {
+    try {
+      final response = await _dio.patch("/live/session/$sessionId/end");
+      final data = _decodeResponse(response.data);
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   Future<LiveDetailsResponse> fetchLiveNowDetails(String sessionId) async {
     try {
       final response = await _dio.get("/live/session/$sessionId/details");
@@ -1289,6 +1299,23 @@ class ApiService {
       final orderresponse = OrderScreenResponse.fromJson(data);
 
       return orderresponse;
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  Future<CouponDashboardResponse> couponDashboardservice(String timeFilter) async {
+    try {
+      final response = await _dio.get(
+        "/coupons/dashboard",
+        queryParameters: {"timeFilter": timeFilter},
+      );
+
+      final data = _decodeResponse(response.data);
+
+      final coupon = CouponDashboardResponse.fromJson(data);
+
+      return coupon;
     } on DioException catch (e) {
       throw Exception(_handleError(e));
     }

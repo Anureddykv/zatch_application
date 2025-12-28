@@ -39,20 +39,25 @@ class _UploadBuyBitsScreenState extends State<UploadBuyBitsScreen> {
             backgroundColor: const Color(0xffd5ff4d),
             automaticallyImplyLeading: false,
             elevation: 0,
-            title: const Padding(
+            title: Padding(
               padding: EdgeInsets.only(top: 6.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.contentColorWhite,
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: AppColors.contentColorBlack,
-                      size: 16,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: const CircleAvatar(
+                      backgroundColor: AppColors.contentColorWhite,
+                      child: Icon(
+                        Icons.arrow_back_ios,
+                        color: AppColors.contentColorBlack,
+                        size: 16,
+                      ),
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Upload Buy Bits',
                     style: TextStyle(
                       color: Color(0xFF101727),
@@ -61,7 +66,7 @@ class _UploadBuyBitsScreenState extends State<UploadBuyBitsScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.notifications_none,
                     size: 28,
                     color: AppColors.contentColorBlack,
@@ -936,9 +941,7 @@ class BuyBitsStepThree extends StatefulWidget {
 }
 
 class _BuyBitsStepThreeState extends State<BuyBitsStepThree> {
-  final AddReelsController controller = Get.put<AddReelsController>(
-    AddReelsController(),
-  );
+  final AddReelsController controller = Get.find<AddReelsController>();
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -971,8 +974,10 @@ class _BuyBitsStepThreeState extends State<BuyBitsStepThree> {
             ],
           ),
           AppSizedBox.height10,
+
+          AppSizedBox.height10,
           Obx(() {
-            final list = controller.bargainFilteredProducts;
+            final list = controller.filteredProducts;
 
             if (list.isEmpty) {
               return const Center(
@@ -1550,7 +1555,7 @@ class _BuyBitsStepTwoState extends State<BuyBitsStepTwo> {
                       border: InputBorder.none,
                     ),
                     // onChanged: (value) {
-                    //   controller.searchProductsInBuybits(value);
+                    //   controller.filterProducts(value);
                     // },
                   ),
                 ),

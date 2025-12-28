@@ -17,8 +17,33 @@ class AddReelsController extends GetxController
   @override
   void onInit() {
     tabController = TabController(length: 2, vsync: this);
+
     super.onInit();
     fetchProducts();
+    filteredProducts.assignAll(products);
+    searchCtrl.addListener(() {
+      filterProducts(searchCtrl.text);
+    });
+    ever(selectedProducts, (_) {
+      resetFilteredSearch();
+    });
+  }
+
+  void filterProducts(String query) {
+    if (query.isEmpty) {
+      filteredProducts.assignAll(products);
+      return;
+    }
+
+    final q = query.toLowerCase();
+
+    filteredProducts.assignAll(
+      products.where(
+        (p) =>
+            p.name.toLowerCase().contains(q) ||
+            p.description.toLowerCase().contains(q),
+      ),
+    );
   }
 
   bool get hasMediaSelected =>
@@ -140,6 +165,9 @@ class AddReelsController extends GetxController
     if (currentStep.value < 2) {
       currentStep.value++;
     }
+    if (currentStep.value == 1) {
+      resetFilteredSearch();
+    }
   }
 
   RxList<bool> selectedList = List.generate(5, (_) => false).obs;
@@ -237,7 +265,7 @@ class AddReelsController extends GetxController
       <String, BargainSetting>{}.obs;
   void initProducts(RxList<ProductItem> products) {
     allProducts = products;
-    filteredProducts.assignAll(products);
+    bargainFilteredProducts.assignAll(products);
 
     for (final p in products) {
       bargainSettings[p.id] = BargainSetting(
@@ -300,27 +328,32 @@ class AddReelsController extends GetxController
     }
   }
 
-  void searchProductsInBuybits(String query) {
-    if (query.isEmpty) {
-      filteredProducts.assignAll(selectedProducts);
-      return;
-    }
-
-    filteredProducts.assignAll(
-      selectedProducts.where((product) {
-        return product.name.toLowerCase().contains(query.toLowerCase()) ||
-            product.description.toLowerCase().contains(query.toLowerCase());
-      }).toList(),
-    );
+  void resetFilteredSearch() {
+    filteredProducts.assignAll(selectedProducts);
   }
 
-  void resetZatchSearch() {
-    filteredProducts.assignAll(selectedProducts);
+  void resetBargainSearch() {
+    bargainFilteredProducts.assignAll(selectedProducts);
   }
 
   @override
   void onClose() {
     tabController.dispose();
     super.onClose();
+  }
+
+  TextEditingController bargainsearchCtrl = TextEditingController();
+  void searchBargainProducts(String query) {
+    if (query.isEmpty) {
+      bargainFilteredProducts.assignAll(selectedProducts);
+      return;
+    }
+
+    bargainFilteredProducts.assignAll(
+      selectedProducts.where((product) {
+        return product.name.toLowerCase().contains(query.toLowerCase()) ||
+            product.description.toLowerCase().contains(query.toLowerCase());
+      }).toList(),
+    );
   }
 }

@@ -64,7 +64,7 @@ class SellerLiveScreen extends StatelessWidget {
           AgoraVideoView(
             controller: VideoViewController(
               rtcEngine: engine,
-              canvas: VideoCanvas(uid: yourLiveController.agoraUid),
+              canvas: const VideoCanvas(uid: 0),
             ),
           ),
 
@@ -118,7 +118,6 @@ class SellerLiveScreen extends StatelessWidget {
             ),
           ),
 
-        
           _productBottomSheet(yourLiveController),
         ],
       ),
@@ -169,21 +168,38 @@ Widget _viewerCount(Sellergolivecontroller controller) {
 Widget _endLiveButton(RtcEngine engine, BuildContext context) {
   return GestureDetector(
     onTap: () async {
-      // Check if sessionId is not null or empty
       final sessionId = yourLiveController.sessionId.value;
-      if (sessionId.isNotEmpty) {
-        await detailscontroller.fetchLiveDetails(sessionId);
-      } else {
+
+      if (sessionId.isEmpty) {
         log("Session ID is null or empty");
+        Get.snackbar("Error", "Session not found");
+        return;
       }
 
-      await engine.leaveChannel();
+      try {
+        // 1️⃣ Call API to end live
+        await yourLiveController.endLiveNow(sessionId);
 
-      Navigator.pop(context);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => Sellergoliveoverview()),
-      );
+        // 2️⃣ Leave Agora channel safely
+        if (engine != null) {
+          await engine.leaveChannel();
+          await engine.stopPreview();
+          await engine.release();
+        }
+
+        // 3️⃣ Fetch live details for overview
+        await detailscontroller.fetchLiveDetails(sessionId);
+
+        // 4️⃣ Navigate to overview screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => Sellergoliveoverview()),
+        );
+      } catch (e, s) {
+        log("Error ending live session: $e");
+        log("$s");
+        Get.snackbar("Error", "Failed to end live session");
+      }
     },
     child: Container(
       padding: const EdgeInsets.all(12),

@@ -125,6 +125,27 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                               ),
                             ],
                           );
+                        } else if (ordercontroller.currentStep.value == 2) {
+                          return Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: ShippingOrderProgress(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: PackOrderDetails(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: _PackDeliveryinfo(),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: _packPaymentDetails(),
+                              ),
+                            ],
+                          );
                         } else {
                           return SizedBox.shrink();
                         }
@@ -177,49 +198,53 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
                             );
                       }),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // Navigator.pop(context);
-                            ordercontroller.goToPreviousStep();
-                          },
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 1,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 15,
-                              horizontal: 50,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child:
-                          // yourlivesscreenscontroller.currentStep.value ==
-                          //         0
-                          const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
+                      Obx(() {
+                        return ordercontroller.currentStep.value == 2
+                            ? SizedBox.shrink()
+                            : SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  // Navigator.pop(context);
+                                  ordercontroller.goToPreviousStep();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  side: const BorderSide(
+                                    color: Colors.black,
+                                    width: 1,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                    horizontal: 50,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                child:
+                                // yourlivesscreenscontroller.currentStep.value ==
+                                //         0
+                                const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
 
-                          //     : const Text(
-                          //       'Back',
-                          //       style: TextStyle(
-                          //         fontSize: 17,
-                          //         fontWeight: FontWeight.bold,
-                          //         color: Colors.black,
-                          //       ),
-                          //     ),
-                        ),
-                      ),
+                                //     : const Text(
+                                //       'Back',
+                                //       style: TextStyle(
+                                //         fontSize: 17,
+                                //         fontWeight: FontWeight.bold,
+                                //         color: Colors.black,
+                                //       ),
+                                //     ),
+                              ),
+                            );
+                      }),
                     ],
                   ),
                 ),
@@ -284,7 +309,7 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
       case 1:
         return 'Mark as Shipped';
       case 2:
-        return 'Shipping';
+        return 'Delivered';
       case 3:
         return 'Money Recieved';
       default:
@@ -675,6 +700,39 @@ class _SellerOrderDetailsScreensState extends State<SellerOrderDetailsScreens> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget ShippingOrderProgress() {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFB),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 3),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          DropDownWidgets(
+            column: Column(
+              children: [
+                OrderProgressSteps(
+                  currentStep: ordercontroller.currentStep.value,
+                ),
+              ],
+            ),
+            items: [],
+            title: 'Order Progress',
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1105,5 +1163,149 @@ class OrderDetailsStepper extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class OrderProgressSteps extends StatelessWidget {
+  final int currentStep;
+  OrderProgressSteps({super.key, required this.currentStep});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> steps = [
+      'Order Accepted',
+      'Shipped',
+      'in Transit',
+      'Out for Delivery',
+      'Delivered',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(steps.length, (index) {
+        final bool isActive = currentStep >= index;
+        final bool isCompleted = currentStep > index;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                /// Circle
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color:
+                        isActive
+                            ? const Color(0xFFA2DC00)
+                            : const Color(0xFFDDDDDD),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child:
+                        isCompleted
+                            ? Icon(
+                              _getStepIcon(index),
+                              color: Colors.white,
+                              size: 15,
+                            )
+                            : Icon(
+                              _getStepIcon(index),
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                  ),
+                ),
+
+                if (index != steps.length - 1)
+                  Container(
+                    width: 2,
+                    height: 40,
+                    color:
+                        isCompleted
+                            ? const Color(0xFFA2DC00)
+                            : const Color(0xFFDDDDDD),
+                  ),
+              ],
+            ),
+
+            const SizedBox(width: 12),
+
+            /// RIGHT SIDE TEXT
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// Step Title
+                  Text(
+                    orderdes[index]['title']!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          currentStep == index
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                      height: 1.4,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  /// Step Description
+                  Text(
+                    orderdes[index]['desc']!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF7A7A7A),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  final List<Map<String, String>> orderdes = [
+    {
+      'title': 'Order Accepted',
+      'desc': 'The order has been confirmed\n 2024-01-08 at 11.20',
+    },
+    {
+      'title': 'Order Shipped',
+      'desc': 'packege shipped \n 2024-01-08 at 11.20',
+    },
+    {'title': 'In Transit', 'desc': 'The package is on the way to you'},
+    {
+      'title': 'Out for Delivery',
+      'desc': 'package to transit\n ETA-2024-01-08 at',
+    },
+    {'title': 'Delivered', 'desc': 'Order successfully delivered'},
+  ];
+  IconData _getStepIcon(int index) {
+    switch (index) {
+      case 0: // Order Accepted
+        return Icons.check_circle_rounded;
+
+      case 1: // Shipped
+        return Icons.inventory_2_outlined;
+
+      case 2: // In Transit
+        return Icons.send_rounded;
+
+      case 3: // Out for Delivery
+        return Icons.local_shipping_outlined;
+
+      case 4: // Delivered
+        return Icons.home_rounded;
+
+      default:
+        return Icons.circle;
+    }
   }
 }

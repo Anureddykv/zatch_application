@@ -42,13 +42,11 @@ class Sellergoliveoverviewcontroller extends GetxController
   var golivenowresponsemodel = Rx<GoLiveNowResponseModel?>(null);
   var livedetailsresponse = Rx<LiveDetailsResponse?>(null);
   final ApiService _apiService = ApiService();
-  Future<void> fetchLiveDetails( String sessionId) async {
+  Future<void> fetchLiveDetails(String sessionId) async {
     try {
       isLoading.value = true;
 
-      final response = await _apiService.fetchLiveNowDetails(
-        sessionId,
-      );
+      final response = await _apiService.fetchLiveNowDetails(sessionId);
 
       if (!response.success) {
         throw Exception("Some error occured");

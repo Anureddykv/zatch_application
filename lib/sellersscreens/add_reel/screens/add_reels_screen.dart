@@ -3,12 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:zatch_app/common_widgets/appcolors.dart';
 import 'package:zatch_app/common_widgets/appsizedbox.dart';
 import 'package:zatch_app/sellersscreens/add_reel/controllers/add_reels_controller.dart';
 import 'package:zatch_app/sellersscreens/add_reel/screens/upload_buy_bits_screen.dart';
-import 'package:zatch_app/sellersscreens/sellerdashbord/SellerDashboardScreen.dart';
 
 class Addreelspage extends StatefulWidget {
   const Addreelspage({super.key});
@@ -272,14 +270,18 @@ class _AddreelspageState extends State<Addreelspage> {
                             GestureDetector(
                               onTap: () {
                                 log("upload buy bits screen");
-                                Navigator.push(
+                                Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder:
-                                        (context) =>
-                                            const UploadBuyBitsScreen(),
+                                    builder: (_) => const UploadBuyBitsScreen(),
                                   ),
                                 );
+                                // Navigator.of(context).pushNamed('/child1');
+                                // Navigator.of(context, rootNavigator: true).push(
+                                //   MaterialPageRoute(
+                                //     builder: (_) => const UploadBuyBitsScreen(),
+                                //   ),
+                                // );
                               },
                               child: Container(
                                 // height: 200,

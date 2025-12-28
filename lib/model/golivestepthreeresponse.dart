@@ -209,13 +209,13 @@ class ProductImage {
 // Product Variant
 class ProductVariant {
   final String color;
-  final String sku;
+  // final String sku;
   final int stock;
   final List<ProductImage> images;
 
   ProductVariant({
     required this.color,
-    required this.sku,
+    // required this.sku,
     required this.stock,
     required this.images,
   });
@@ -223,7 +223,7 @@ class ProductVariant {
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
     return ProductVariant(
       color: json['color'],
-      sku: json['SKU'],
+      // sku: json['SKU'],
       stock: json['stock'],
       images:
           (json['images'] as List)

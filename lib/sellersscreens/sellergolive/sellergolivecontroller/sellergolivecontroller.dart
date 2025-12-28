@@ -283,9 +283,9 @@ class Sellergolivecontroller extends GetxController
     return FormData.fromMap({
       "step": "3",
       "sessionId": sessionId,
-      "title": titlecontroller.text,
-      "description": descriptioncontroller.text,
-      "GoLiveNow": true,
+      "title": titlecontroller.text.trim(),
+      "description": descriptioncontroller.text.trim(),
+      "goLiveNow": true,
       "thumbnail": await MultipartFile.fromFile(
         selectedImage.value!.path,
         filename: selectedImage.value!.path.split('/').last,
@@ -689,6 +689,22 @@ class Sellergolivecontroller extends GetxController
 
     hasJoinedChannel = true;
     log("Joined Agora Channel Successfully");
+  }
+
+  Future<void> endLiveNow(String sessionId) async {
+    if (sessionId.isEmpty) return;
+
+    try {
+      final response = await ApiService().EndLive(sessionId);
+
+      // Optional: handle response if API returns info
+      log("Live session ended successfully: $sessionId");
+      await detailscontroller.fetchLiveDetails(sessionId);
+    } catch (e, s) {
+      log("Error in ending the live session: $e");
+      log("$s");
+      Get.snackbar("Error", "Could not end the live session");
+    }
   }
 
   //go live api now api
